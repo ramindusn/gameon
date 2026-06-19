@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# build output
+dist/
+build/
+.vite/
+.turbo/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# supabase
+supabase/.branches/
+supabase/.temp/
+
+# logs / os / editor
+*.log
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# test artifacts
+coverage/
+playwright-report/
+test-results/
