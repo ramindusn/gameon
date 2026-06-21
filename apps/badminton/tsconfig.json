@@ -9,5 +9,6 @@
       "@gameon/supabase": ["../../packages/supabase/src/index.ts"]
     }
   },
-  "include": ["src", "vite.config.ts", "../../packages/*/src"]
+  "include": ["src", "vite.config.ts", "../../packages/*/src"],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"]
 }
