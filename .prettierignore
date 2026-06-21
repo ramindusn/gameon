@@ -1,0 +1,5 @@
+node_modules
+dist
+backlog
+docs/design
+*.md

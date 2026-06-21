@@ -1,9 +1,10 @@
 ---
 id: TASK-1.2
 title: Scaffold monorepo (npm workspaces) + lint/format/tsconfig
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 09:14'
+updated_date: '2026-06-21 22:18'
 labels:
   - 'size:M'
   - E00
@@ -21,7 +22,7 @@ Set up the npm-workspaces monorepo with shared tooling.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Root package.json with workspaces for apps/* and packages/*
-- [ ] #2 apps/badminton is a Vite + React + TS app that builds
-- [ ] #3 Shared eslint + prettier + tsconfig base; packages import-able from the app
+- [x] #1 Root package.json with workspaces for apps/* and packages/*
+- [x] #2 apps/badminton is a Vite + React + TS app that builds
+- [x] #3 Shared eslint + prettier + tsconfig base; packages import-able from the app
 <!-- AC:END -->
