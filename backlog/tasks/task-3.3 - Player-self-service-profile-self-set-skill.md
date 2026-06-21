@@ -1,9 +1,10 @@
 ---
 id: TASK-3.3
-title: Player self-service profile (self-set skill)
+title: Public player profile (read-only) + history
 status: To Do
 assignee: []
 created_date: '2026-06-19 10:42'
+updated_date: '2026-06-21 19:42'
 labels:
   - 'size:S'
   - E02
@@ -15,5 +16,5 @@ ordinal: 23000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Logged-in player edits their own nickname/skill/absent
+- [ ] #1 Anyone can view a player's profile: performance + match history (no login)
 <!-- AC:END -->

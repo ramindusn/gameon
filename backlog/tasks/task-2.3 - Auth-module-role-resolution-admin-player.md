@@ -1,9 +1,10 @@
 ---
 id: TASK-2.3
-title: Auth module + role resolution (admin/player)
+title: Auth module + role resolution (admin / matchmaker)
 status: To Do
 assignee: []
 created_date: '2026-06-19 10:42'
+updated_date: '2026-06-21 19:42'
 labels:
   - 'size:M'
   - E01
@@ -16,7 +17,7 @@ ordinal: 17000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Supabase auth wrapper exposing role-aware state.
+Resolve role admin|matchmaker|none. No player auth.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

@@ -4,6 +4,7 @@ title: players/profiles schema + RLS + bootstrap trigger
 status: To Do
 assignee: []
 created_date: '2026-06-19 10:42'
+updated_date: '2026-06-21 19:42'
 labels:
   - 'size:M'
   - E01
@@ -17,7 +18,7 @@ ordinal: 16000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Multi-tenant player table + admin allowlist bootstrap.
+Players are no-login data. Matchmaker = a player row with a role/login. Admin is separate. Multi-tenant club_id + RLS (public-read where needed).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
