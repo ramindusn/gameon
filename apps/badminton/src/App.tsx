@@ -1,6 +1,6 @@
 import { Hello } from '@gameon/ui'
 import { greet } from '@gameon/domain'
-import { SUPABASE_CONFIGURED } from '@gameon/supabase'
+import { isSupabaseConfigured } from '@gameon/supabase'
 
 export function App() {
   return (
@@ -12,7 +12,7 @@ export function App() {
           <Hello />
         </li>
         <li>@gameon/domain ✔</li>
-        <li>@gameon/supabase configured: {String(SUPABASE_CONFIGURED)}</li>
+        <li>@gameon/supabase configured: {String(isSupabaseConfigured)}</li>
       </ul>
     </main>
   )

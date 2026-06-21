@@ -1,9 +1,10 @@
 ---
 id: TASK-1.4
 title: New Supabase project + CLI link + initial migration + .env.example
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-19 09:14'
+updated_date: '2026-06-21 22:35'
 labels:
   - 'size:M'
   - E00

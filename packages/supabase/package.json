@@ -6,5 +6,8 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.0"
   }
 }
