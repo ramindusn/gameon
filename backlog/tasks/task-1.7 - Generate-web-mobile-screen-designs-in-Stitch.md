@@ -1,9 +1,10 @@
 ---
 id: TASK-1.7
 title: Generate web + mobile screen designs in Stitch
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 12:19'
+updated_date: '2026-06-21 20:21'
 labels:
   - 'size:M'
   - E00

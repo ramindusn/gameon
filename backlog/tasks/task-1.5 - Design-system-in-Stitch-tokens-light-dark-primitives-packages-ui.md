@@ -1,9 +1,10 @@
 ---
 id: TASK-1.5
-title: Design system in Stitch -> tokens + light/dark + primitives (packages/ui)
+title: Build Emerald Pro design system in packages/ui
 status: To Do
 assignee: []
 created_date: '2026-06-19 09:14'
+updated_date: '2026-06-21 20:21'
 labels:
   - 'size:M'
   - E00
@@ -15,7 +16,7 @@ ordinal: 13000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Generate a fresh look in Stitch, then build it as CSS-variable semantic tokens + base components.
+Emerald Pro (dark): emerald #10B981 accent, Manrope headings + Inter body, 8px radius. CSS-variable semantic tokens + light/dark + primitives (Button/Card/Field/Modal + dual-render list). Source: docs/adr/0001-design-system-emerald-pro.md + docs/design/.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
