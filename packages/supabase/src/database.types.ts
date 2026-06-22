@@ -188,6 +188,8 @@ export type Database = {
           created_at: string
           id: string
           round: number
+          score_a: number | null
+          score_b: number | null
           session_id: string
           team_a1: string | null
           team_a2: string | null
@@ -201,6 +203,8 @@ export type Database = {
           created_at?: string
           id?: string
           round: number
+          score_a?: number | null
+          score_b?: number | null
           session_id: string
           team_a1?: string | null
           team_a2?: string | null
@@ -214,6 +218,8 @@ export type Database = {
           created_at?: string
           id?: string
           round?: number
+          score_a?: number | null
+          score_b?: number | null
           session_id?: string
           team_a1?: string | null
           team_a2?: string | null
@@ -339,6 +345,64 @@ export type Database = {
           },
         ]
       }
+      pair_ratings: {
+        Row: {
+          club_id: string
+          games: number
+          id: string
+          player1_id: string
+          player2_id: string
+          rating: number
+          rd: number
+          updated_at: string
+          volatility: number
+        }
+        Insert: {
+          club_id: string
+          games?: number
+          id?: string
+          player1_id: string
+          player2_id: string
+          rating?: number
+          rd?: number
+          updated_at?: string
+          volatility?: number
+        }
+        Update: {
+          club_id?: string
+          games?: number
+          id?: string
+          player1_id?: string
+          player2_id?: string
+          rating?: number
+          rd?: number
+          updated_at?: string
+          volatility?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pair_ratings_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pair_ratings_player1_id_fkey"
+            columns: ["player1_id"]
+            isOneToOne: false
+            referencedRelation: "player_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pair_ratings_player2_id_fkey"
+            columns: ["player2_id"]
+            isOneToOne: false
+            referencedRelation: "player_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_profiles: {
         Row: {
           absent: boolean
@@ -385,6 +449,51 @@ export type Database = {
             columns: ["club_id"]
             isOneToOne: false
             referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_ratings: {
+        Row: {
+          club_id: string
+          games: number
+          player_id: string
+          rating: number
+          rd: number
+          updated_at: string
+          volatility: number
+        }
+        Insert: {
+          club_id: string
+          games?: number
+          player_id: string
+          rating?: number
+          rd?: number
+          updated_at?: string
+          volatility?: number
+        }
+        Update: {
+          club_id?: string
+          games?: number
+          player_id?: string
+          rating?: number
+          rd?: number
+          updated_at?: string
+          volatility?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_ratings_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_ratings_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "player_profiles"
             referencedColumns: ["id"]
           },
         ]

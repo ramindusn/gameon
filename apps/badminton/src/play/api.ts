@@ -214,9 +214,17 @@ export async function setSessionStatus(
   status: SessionStatus,
 ): Promise<void> {
   if (isE2E()) return e2eSetStatus(id, status)
-  const { error } = await client()
-    .from('match_sessions')
-    .update({ status })
-    .eq('id', id)
+  const db = client()
+  const { error } = await db.from('match_sessions').update({ status }).eq('id', id)
   if (error) throw error
+  // Finishing a session locks its results (one rating period — ADR 0011), so
+  // ask the server to replay the boards. Best-effort: a failed recompute must
+  // not roll back the finish; the next finish (or TASK-8.3 trigger) will retry.
+  if (status === 'finished') {
+    try {
+      await db.functions.invoke('recompute-ratings')
+    } catch (e) {
+      console.error('recompute-ratings failed', e)
+    }
+  }
 }

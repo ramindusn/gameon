@@ -3,7 +3,7 @@
 // (one per locked game day). Both an individual board and a per-pair board are
 // derived from the same matches.
 
-import type { Glicko2 } from './glicko2'
+import type { Glicko2 } from './glicko2.ts'
 
 /** One played doubles court: two teams of two, with final point scores. */
 export interface MatchRecord {

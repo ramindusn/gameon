@@ -17,14 +17,14 @@ import {
   updateGlicko2,
   type Glicko2,
   type Glicko2Game,
-} from './glicko2'
+} from './glicko2.ts'
 import {
   pairKey,
   type PairRating,
   type PlayerRating,
   type RatingPeriod,
   type RatingTables,
-} from './types'
+} from './types.ts'
 
 /** Point share for side A; a 0–0 (unplayed) match is treated as a draw. */
 export function scoreShare(scoreA: number, scoreB: number): number {
