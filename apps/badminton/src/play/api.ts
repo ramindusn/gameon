@@ -15,6 +15,9 @@ import {
   e2eSetStatus,
   e2eSetPlayedAt,
   e2eDelete,
+  e2eUpdateLineup,
+  e2eAddMatch,
+  e2eDeleteMatch,
 } from './e2eStore'
 
 export type SessionStatus = 'live' | 'finished'
@@ -240,8 +243,64 @@ export async function setScore(
   if (error) throw error
 }
 
-/** Mark a session finished (or back to live). */
-export async function setSessionStatus(
+/**
+ * Replace a live match's four players (full substitution / partner swap). The
+ * recorded score belongs to the previous line-up, so it is cleared — the match
+ * must be re-scored after the change.
+ */
+export async function updateMatchLineup(
+  resultId: string,
+  teamA: [string, string],
+  teamB: [string, string],
+): Promise<void> {
+  if (isE2E()) return e2eUpdateLineup(resultId, teamA, teamB)
+  const { error } = await client()
+    .from('match_results')
+    .update({
+      team_a1: teamA[0],
+      team_a2: teamA[1],
+      team_b1: teamB[0],
+      team_b2: teamB[1],
+      score_a: null,
+      score_b: null,
+      winner: null,
+    })
+    .eq('id', resultId)
+  if (error) throw error
+}
+
+/** Insert an ad-hoc match into a live game day (when the draw runs low). */
+export async function addCustomMatch(
+  clubId: string,
+  sessionId: string,
+  round: number,
+  court: number,
+  players: [string, string, string, string],
+): Promise<void> {
+  if (isE2E()) return e2eAddMatch(sessionId, round, court, players)
+  const { error } = await client()
+    .from('match_results')
+    .insert({
+      club_id: clubId,
+      session_id: sessionId,
+      round,
+      court,
+      team_a1: players[0],
+      team_a2: players[1],
+      team_b1: players[2],
+      team_b2: players[3],
+    })
+  if (error) throw error
+}
+
+/** Delete a single match (e.g. one that will not be played). */
+export async function deleteMatch(resultId: string): Promise<void> {
+  if (isE2E()) return e2eDeleteMatch(resultId)
+  const { error } = await client().from('match_results').delete().eq('id', resultId)
+  if (error) throw error
+}
+
+/** Mark a session finished (or back to live). */export async function setSessionStatus(
   id: string,
   status: SessionStatus,
 ): Promise<void> {

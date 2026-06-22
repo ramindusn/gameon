@@ -82,8 +82,58 @@ export function e2eSetScore(
   }
 }
 
-/** Flip a session between live/finished. */
-export function e2eSetStatus(id: string, status: SessionStatus): void {
+/** Replace a match's four players; clears its (now stale) score + winner. */
+export function e2eUpdateLineup(
+  resultId: string,
+  teamA: [string, string],
+  teamB: [string, string],
+): void {
+  const results = read<MatchResult>(RESULTS_KEY)
+  const i = results.findIndex((r) => r.id === resultId)
+  if (i >= 0) {
+    results[i] = {
+      ...results[i],
+      teamA,
+      teamB,
+      scoreA: null,
+      scoreB: null,
+      winner: null,
+    }
+    write(RESULTS_KEY, results)
+  }
+}
+
+/** Insert an ad-hoc match into a session. */
+export function e2eAddMatch(
+  sessionId: string,
+  round: number,
+  court: number,
+  players: [string, string, string, string],
+): void {
+  const results = read<MatchResult>(RESULTS_KEY)
+  results.push({
+    id: e2eUid('result'),
+    sessionId,
+    round,
+    court,
+    teamA: [players[0], players[1]],
+    teamB: [players[2], players[3]],
+    scoreA: null,
+    scoreB: null,
+    winner: null,
+  })
+  write(RESULTS_KEY, results)
+}
+
+/** Delete a single match row. */
+export function e2eDeleteMatch(resultId: string): void {
+  write(
+    RESULTS_KEY,
+    read<MatchResult>(RESULTS_KEY).filter((r) => r.id !== resultId),
+  )
+}
+
+/** Flip a session between live/finished. */export function e2eSetStatus(id: string, status: SessionStatus): void {
   const sessions = read<MatchSession>(SESSIONS_KEY)
   const i = sessions.findIndex((s) => s.id === id)
   if (i >= 0) {

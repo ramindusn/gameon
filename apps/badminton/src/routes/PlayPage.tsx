@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, cx } from '@gameon/ui'
-import { validateScores } from '@gameon/domain'
+import { validateLineup, validateScores } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { useRoster } from '../roster/useRoster'
 import {
+  useAddCustomMatch,
+  useDeleteMatch,
   useDeleteSession,
   useSession,
   useSetScore,
   useSetSessionStatus,
+  useUpdateMatchLineup,
   useUpdateSessionPlayedAt,
 } from '../play/useMatchPlay'
 import {
@@ -17,6 +20,12 @@ import {
   localInputToIso,
 } from '../play/datetime'
 import type { MatchResult, Side } from '../play/api'
+
+/** A roster player reduced to what the live editors need. */
+interface PresentPlayer {
+  id: string
+  nickname: string
+}
 
 // Live scoring (E04 / E09). Open a game day, enter the point scores for each
 // court (the winner is derived from the scores), and finish it. The matchmaker
@@ -31,6 +40,9 @@ export function PlayPage() {
   const setStatus = useSetSessionStatus(id)
   const updatePlayedAt = useUpdateSessionPlayedAt(id)
   const deleteSession = useDeleteSession()
+  const updateLineup = useUpdateMatchLineup(id)
+  const addMatch = useAddCustomMatch(id)
+  const deleteMatch = useDeleteMatch(id)
 
   const [editingDate, setEditingDate] = useState(false)
   const [dateValue, setDateValue] = useState('')
@@ -40,6 +52,14 @@ export function PlayPage() {
     const byId = new Map((roster?.players ?? []).map((p) => [p.id, p.nickname]))
     return (pid: string | null) => (pid ? (byId.get(pid) ?? '—') : '—')
   }, [roster])
+
+  const present = useMemo<PresentPlayer[]>(
+    () =>
+      (roster?.players ?? [])
+        .filter((p) => !p.absent)
+        .map((p) => ({ id: p.id, nickname: p.nickname })),
+    [roster],
+  )
 
   const rounds = useMemo(() => groupByRound(data?.results ?? []), [data])
 
@@ -200,16 +220,39 @@ export function PlayPage() {
                         key={r.id}
                         result={r}
                         nameOf={nameOf}
-                        disabled={data.session.status !== 'live'}
+                        present={present}
+                        live={data.session.status === 'live'}
                         saving={setScore.isPending}
+                        editing={updateLineup.isPending}
+                        deleting={deleteMatch.isPending}
                         onSave={(scoreA, scoreB) =>
                           setScore.mutate({ resultId: r.id, scoreA, scoreB })
                         }
+                        onSaveLineup={(teamA, teamB) =>
+                          updateLineup.mutate({ resultId: r.id, teamA, teamB })
+                        }
+                        onDelete={() => deleteMatch.mutate(r.id)}
                       />
                     ))}
                   </div>
                 </Card>
               ))}
+
+              {data.session.status === 'live' && (
+                <AddCustomMatch
+                  present={present}
+                  saving={addMatch.isPending}
+                  onAdd={(players) => {
+                    const { round, court } = nextSlot(data.results)
+                    addMatch.mutate({
+                      clubId: data.session.clubId,
+                      round,
+                      court,
+                      players,
+                    })
+                  }}
+                />
+              )}
             </div>
           </>
         )}
@@ -221,19 +264,31 @@ export function PlayPage() {
 function CourtScore({
   result,
   nameOf,
-  disabled,
+  present,
+  live,
   saving,
+  editing,
+  deleting,
   onSave,
+  onSaveLineup,
+  onDelete,
 }: {
   result: MatchResult
   nameOf: (id: string | null) => string
-  disabled: boolean
+  present: PresentPlayer[]
+  live: boolean
   saving: boolean
+  editing: boolean
+  deleting: boolean
   onSave: (scoreA: number, scoreB: number) => void
+  onSaveLineup: (teamA: [string, string], teamB: [string, string]) => void
+  onDelete: () => void
 }) {
   const [a, setA] = useState(result.scoreA?.toString() ?? '')
   const [b, setB] = useState(result.scoreB?.toString() ?? '')
   const [error, setError] = useState<string | null>(null)
+  const [mode, setMode] = useState<'score' | 'edit'>('score')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const save = () => {
     const scoreA = a === '' ? null : Number(a)
@@ -269,7 +324,7 @@ function CourtScore({
           min={0}
           inputMode="numeric"
           value={value}
-          disabled={disabled}
+          disabled={!live}
           onChange={(e) => set(e.target.value)}
           className="w-14 rounded-md border border-line bg-surface px-2 py-1 text-right text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
           data-testid={`score-${result.id}-${side}`}
@@ -284,31 +339,295 @@ function CourtScore({
       className="rounded-lg border border-line bg-surface px-3 py-2"
       data-testid={`court-${result.id}`}
     >
-      <div className="mb-2 text-xs uppercase tracking-wide text-fg-subtle">
-        Court {result.court}
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs uppercase tracking-wide text-fg-subtle">
+          Court {result.court}
+        </span>
+        {live && mode === 'score' && (
+          <button
+            type="button"
+            className="text-xs font-medium text-accent-strong hover:underline"
+            onClick={() => setMode('edit')}
+            data-testid={`edit-lineup-${result.id}`}
+          >
+            Edit line-up
+          </button>
+        )}
       </div>
-      <div className="space-y-1.5">
-        {teamRow('a', result.teamA)}
-        <div className="text-center text-xs text-fg-muted">vs</div>
-        {teamRow('b', result.teamB)}
-      </div>
+
+      {mode === 'edit' ? (
+        <LineupEditor
+          result={result}
+          present={present}
+          saving={editing}
+          onCancel={() => setMode('score')}
+          onSave={(teamA, teamB) => {
+            onSaveLineup(teamA, teamB)
+            setMode('score')
+          }}
+        />
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            {teamRow('a', result.teamA)}
+            <div className="text-center text-xs text-fg-muted">vs</div>
+            {teamRow('b', result.teamB)}
+          </div>
+          {error && (
+            <p
+              className="mt-2 text-xs text-negative"
+              data-testid={`score-error-${result.id}`}
+            >
+              {error}
+            </p>
+          )}
+          {live && (
+            <div className="mt-2 space-y-2">
+              <Button
+                className="w-full"
+                variant="secondary"
+                onClick={save}
+                disabled={saving}
+                data-testid={`save-score-${result.id}`}
+              >
+                {result.winner ? 'Update score' : 'Save score'}
+              </Button>
+              {confirmingDelete ? (
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1"
+                    variant="danger"
+                    onClick={onDelete}
+                    disabled={deleting}
+                    data-testid={`confirm-delete-match-${result.id}`}
+                  >
+                    Confirm
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    variant="ghost"
+                    onClick={() => setConfirmingDelete(false)}
+                    data-testid={`cancel-delete-match-${result.id}`}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  className="w-full"
+                  variant="ghost"
+                  onClick={() => setConfirmingDelete(true)}
+                  data-testid={`delete-match-${result.id}`}
+                >
+                  Delete match
+                </Button>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Four player <select>s for replacing a match's line-up (full substitution). */
+function LineupEditor({
+  result,
+  present,
+  saving,
+  onCancel,
+  onSave,
+}: {
+  result: MatchResult
+  present: PresentPlayer[]
+  saving: boolean
+  onCancel: () => void
+  onSave: (teamA: [string, string], teamB: [string, string]) => void
+}) {
+  const [slots, setSlots] = useState<[string, string, string, string]>([
+    result.teamA[0] ?? '',
+    result.teamA[1] ?? '',
+    result.teamB[0] ?? '',
+    result.teamB[1] ?? '',
+  ])
+  const [error, setError] = useState<string | null>(null)
+
+  const setSlot = (i: number, value: string) =>
+    setSlots((prev) => {
+      const next = [...prev] as [string, string, string, string]
+      next[i] = value
+      return next
+    })
+
+  const save = () => {
+    const v = validateLineup(slots)
+    if (!v.ok) {
+      setError(v.error ?? 'Invalid line-up')
+      return
+    }
+    setError(null)
+    onSave([slots[0], slots[1]], [slots[2], slots[3]])
+  }
+
+  return (
+    <div className="space-y-2" data-testid={`lineup-editor-${result.id}`}>
+      {(['a1', 'a2', 'b1', 'b2'] as const).map((label, i) => (
+        <PlayerSelect
+          key={label}
+          present={present}
+          value={slots[i]}
+          onChange={(v) => setSlot(i, v)}
+          testid={`lineup-${result.id}-${label}`}
+        />
+      ))}
       {error && (
-        <p className="mt-2 text-xs text-negative" data-testid={`score-error-${result.id}`}>
+        <p className="text-xs text-negative" data-testid={`lineup-error-${result.id}`}>
           {error}
         </p>
       )}
-      {!disabled && (
+      <div className="flex gap-2">
         <Button
-          className="mt-2 w-full"
+          className="flex-1"
           variant="secondary"
           onClick={save}
           disabled={saving}
-          data-testid={`save-score-${result.id}`}
+          data-testid={`save-lineup-${result.id}`}
         >
-          {result.winner ? 'Update score' : 'Save score'}
+          Save line-up
         </Button>
-      )}
+        <Button
+          className="flex-1"
+          variant="ghost"
+          onClick={onCancel}
+          data-testid={`cancel-lineup-${result.id}`}
+        >
+          Cancel
+        </Button>
+      </div>
     </div>
+  )
+}
+
+/** Add an ad-hoc match by picking four present players. */
+function AddCustomMatch({
+  present,
+  saving,
+  onAdd,
+}: {
+  present: PresentPlayer[]
+  saving: boolean
+  onAdd: (players: [string, string, string, string]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [slots, setSlots] = useState<[string, string, string, string]>([
+    '',
+    '',
+    '',
+    '',
+  ])
+  const [error, setError] = useState<string | null>(null)
+
+  const setSlot = (i: number, value: string) =>
+    setSlots((prev) => {
+      const next = [...prev] as [string, string, string, string]
+      next[i] = value
+      return next
+    })
+
+  const add = () => {
+    const v = validateLineup(slots)
+    if (!v.ok) {
+      setError(v.error ?? 'Invalid line-up')
+      return
+    }
+    setError(null)
+    onAdd(slots)
+    setSlots(['', '', '', ''])
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <Button
+        variant="ghost"
+        onClick={() => setOpen(true)}
+        data-testid="add-custom-match"
+      >
+        + Add custom match
+      </Button>
+    )
+  }
+
+  return (
+    <Card title="Add custom match" icon="➕">
+      <div className="space-y-2" data-testid="custom-match-form">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {(['a1', 'a2', 'b1', 'b2'] as const).map((label, i) => (
+            <PlayerSelect
+              key={label}
+              present={present}
+              value={slots[i]}
+              onChange={(v) => setSlot(i, v)}
+              testid={`custom-${label}`}
+            />
+          ))}
+        </div>
+        {error && (
+          <p className="text-xs text-negative" data-testid="custom-match-error">
+            {error}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            onClick={add}
+            disabled={saving}
+            data-testid="save-custom-match"
+          >
+            Add match
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setOpen(false)
+              setError(null)
+            }}
+            data-testid="cancel-custom-match"
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+/** A <select> over the present roster (blank = unset). */
+function PlayerSelect({
+  present,
+  value,
+  onChange,
+  testid,
+}: {
+  present: PresentPlayer[]
+  value: string
+  onChange: (value: string) => void
+  testid: string
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+      data-testid={testid}
+    >
+      <option value="">— Pick a player —</option>
+      {present.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.nickname}
+        </option>
+      ))}
+    </select>
   )
 }
 
@@ -329,6 +648,18 @@ function groupByRound(results: MatchResult[]): RoundGroup[] {
     g.results.push(r)
   }
   return groups
+}
+
+/**
+ * Where a new custom match goes: the last round, on the next free court (or
+ * round 1 / court 1 when the game day has no matches yet).
+ */
+function nextSlot(results: MatchResult[]): { round: number; court: number } {
+  if (results.length === 0) return { round: 1, court: 1 }
+  const round = Math.max(...results.map((r) => r.round))
+  const court =
+    Math.max(...results.filter((r) => r.round === round).map((r) => r.court)) + 1
+  return { round, court }
 }
 
 const recordedCount = (results: MatchResult[]) =>

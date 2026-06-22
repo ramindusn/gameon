@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { GeneratedMatches } from '@gameon/domain'
 import {
+  addCustomMatch,
   createSessionFromPlan,
+  deleteMatch,
   deleteSession,
   getSession,
   listSessions,
   setScore,
   setSessionStatus,
+  updateMatchLineup,
   updateSessionPlayedAt,
   type Mode,
   type SessionStatus,
@@ -55,8 +58,49 @@ export function useSetScore(sessionId: string | undefined) {
   })
 }
 
-/** Flip a session between live/finished; refreshes the session + list. */
-export function useSetSessionStatus(sessionId: string | undefined) {
+/** Replace a live match's four players; refreshes the owning session. */
+export function useUpdateMatchLineup(sessionId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: {
+      resultId: string
+      teamA: [string, string]
+      teamB: [string, string]
+    }) => updateMatchLineup(v.resultId, v.teamA, v.teamB),
+    onSuccess: () => {
+      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+    },
+  })
+}
+
+/** Add an ad-hoc match to a live game day; refreshes the owning session. */
+export function useAddCustomMatch(sessionId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: {
+      clubId: string
+      round: number
+      court: number
+      players: [string, string, string, string]
+    }) => addCustomMatch(v.clubId, sessionId as string, v.round, v.court, v.players),
+    onSuccess: () => {
+      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+    },
+  })
+}
+
+/** Delete a single match; refreshes the owning session. */
+export function useDeleteMatch(sessionId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (resultId: string) => deleteMatch(resultId),
+    onSuccess: () => {
+      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+    },
+  })
+}
+
+/** Flip a session between live/finished; refreshes the session + list. */export function useSetSessionStatus(sessionId: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (status: SessionStatus) =>

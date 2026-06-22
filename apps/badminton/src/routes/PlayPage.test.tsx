@@ -3,7 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { MatchResult, MatchSession } from '../play/api'
 
-const { setScore, setStatus, sessionData } = vi.hoisted(() => {
+const { setScore, setStatus, updateLineup, addMatch, deleteMatch, sessionData } =
+  vi.hoisted(() => {
   const session: MatchSession = {
     id: 's1',
     clubId: 'c1',
@@ -40,6 +41,9 @@ const { setScore, setStatus, sessionData } = vi.hoisted(() => {
   return {
     setScore: vi.fn(),
     setStatus: vi.fn(),
+    updateLineup: vi.fn(),
+    addMatch: vi.fn(),
+    deleteMatch: vi.fn(),
     sessionData: { session, results },
   }
 })
@@ -50,6 +54,9 @@ vi.mock('../play/useMatchPlay', () => ({
   useSetSessionStatus: () => ({ mutate: setStatus, isPending: false }),
   useUpdateSessionPlayedAt: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteSession: () => ({ mutate: vi.fn(), isPending: false }),
+  useUpdateMatchLineup: () => ({ mutate: updateLineup, isPending: false }),
+  useAddCustomMatch: () => ({ mutate: addMatch, isPending: false }),
+  useDeleteMatch: () => ({ mutate: deleteMatch, isPending: false }),
 }))
 vi.mock('../roster/useRoster', () => ({
   useRoster: () => ({
@@ -88,6 +95,9 @@ describe('PlayPage', () => {
   beforeEach(() => {
     setScore.mockClear()
     setStatus.mockClear()
+    updateLineup.mockClear()
+    addMatch.mockClear()
+    deleteMatch.mockClear()
   })
 
   it('renders the session with player names and an existing winner', () => {
@@ -130,5 +140,62 @@ describe('PlayPage', () => {
     expect(screen.queryByTestId('confirm-delete-game-day')).toBeNull()
     fireEvent.click(screen.getByTestId('delete-game-day'))
     expect(screen.getByTestId('confirm-delete-game-day')).toBeInTheDocument()
+  })
+
+  it('replaces a match line-up (full substitution) from the present roster', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('edit-lineup-r1'))
+    // Swap team A slot 1 (p1 -> p5).
+    fireEvent.change(screen.getByTestId('lineup-r1-a1'), { target: { value: 'p5' } })
+    fireEvent.click(screen.getByTestId('save-lineup-r1'))
+    expect(updateLineup).toHaveBeenCalledWith({
+      resultId: 'r1',
+      teamA: ['p5', 'p2'],
+      teamB: ['p3', 'p4'],
+    })
+  })
+
+  it('rejects a line-up with a duplicate player and does not save', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('edit-lineup-r1'))
+    // Make slot a2 the same as a1 (p1).
+    fireEvent.change(screen.getByTestId('lineup-r1-a2'), { target: { value: 'p1' } })
+    fireEvent.click(screen.getByTestId('save-lineup-r1'))
+    expect(updateLineup).not.toHaveBeenCalled()
+    expect(screen.getByTestId('lineup-error-r1')).toBeInTheDocument()
+  })
+
+  it('adds a custom match from four present players', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-custom-match'))
+    fireEvent.change(screen.getByTestId('custom-a1'), { target: { value: 'p1' } })
+    fireEvent.change(screen.getByTestId('custom-a2'), { target: { value: 'p2' } })
+    fireEvent.change(screen.getByTestId('custom-b1'), { target: { value: 'p3' } })
+    fireEvent.change(screen.getByTestId('custom-b2'), { target: { value: 'p4' } })
+    fireEvent.click(screen.getByTestId('save-custom-match'))
+    expect(addMatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clubId: 'c1',
+        players: ['p1', 'p2', 'p3', 'p4'],
+      }),
+    )
+  })
+
+  it('deletes a match via a two-step confirm', () => {
+    renderPage()
+    expect(screen.queryByTestId('confirm-delete-match-r1')).toBeNull()
+    fireEvent.click(screen.getByTestId('delete-match-r1'))
+    fireEvent.click(screen.getByTestId('confirm-delete-match-r1'))
+    expect(deleteMatch).toHaveBeenCalledWith('r1')
+  })
+
+  it('hides live editing controls once the game day is finished', () => {
+    sessionData.session.status = 'finished'
+    renderPage()
+    expect(screen.queryByTestId('edit-lineup-r1')).toBeNull()
+    expect(screen.queryByTestId('delete-match-r1')).toBeNull()
+    expect(screen.queryByTestId('add-custom-match')).toBeNull()
+    expect(screen.queryByTestId('save-score-r1')).toBeNull()
+    sessionData.session.status = 'live'
   })
 })

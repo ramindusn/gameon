@@ -88,6 +88,46 @@ test('matchmaker sets a game-day date, edits it, then deletes the game day', asy
   await expect(page.getByTestId('sessions')).toBeVisible()
 })
 
+test('matchmaker edits a line-up, adds a custom match, and deletes a match', async ({
+  page,
+}) => {
+  await page.goto('/generate')
+  await page.getByTestId('rounds-input').fill('1')
+  await page.getByTestId('generate-button').click()
+  await expect(page.getByTestId('draw-result')).toBeVisible()
+  await page.getByTestId('create-game-day').click()
+  await expect(page).toHaveURL(/\/play\/[^/]+$/)
+  await expect(page.getByText(/0 \/ 2 recorded/)).toBeVisible()
+
+  // Edit the first court's line-up (full substitution): open the editor and
+  // re-pick all four slots from the present roster, then save.
+  const firstCourt = page.locator('[data-testid^="court-"]').first()
+  await firstCourt.locator('[data-testid^="edit-lineup-"]').click()
+  const editor = page.locator('[data-testid^="lineup-editor-"]').first()
+  await editor.locator('[data-testid$="-a1"]').selectOption({ index: 1 })
+  await editor.locator('[data-testid$="-a2"]').selectOption({ index: 2 })
+  await editor.locator('[data-testid$="-b1"]').selectOption({ index: 3 })
+  await editor.locator('[data-testid$="-b2"]').selectOption({ index: 4 })
+  await editor.locator('[data-testid^="save-lineup-"]').click()
+  await expect(page.locator('[data-testid^="lineup-editor-"]')).toHaveCount(0)
+
+  // Add a custom match → a third court appears (2 → 3 matches).
+  await page.getByTestId('add-custom-match').click()
+  await page.getByTestId('custom-a1').selectOption({ index: 1 })
+  await page.getByTestId('custom-a2').selectOption({ index: 2 })
+  await page.getByTestId('custom-b1').selectOption({ index: 3 })
+  await page.getByTestId('custom-b2').selectOption({ index: 4 })
+  await page.getByTestId('save-custom-match').click()
+  await expect(page.locator('[data-testid^="court-"]')).toHaveCount(3)
+  await expect(page.getByText(/0 \/ 3 recorded/)).toBeVisible()
+
+  // Delete a match (two-step) → back to 2 courts.
+  const lastCourt = page.locator('[data-testid^="court-"]').last()
+  await lastCourt.locator('[data-testid^="delete-match-"]').click()
+  await lastCourt.locator('[data-testid^="confirm-delete-match-"]').click()
+  await expect(page.locator('[data-testid^="court-"]')).toHaveCount(2)
+})
+
 test('signed-out visitor cannot reach /play or a session', async ({ page }) => {
   await page.evaluate(() => sessionStorage.clear())
 
