@@ -6,12 +6,15 @@
 // or a build without secrets) so importing this module never throws.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from './database.types'
+
+export type { Database } from './database.types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined
 
 export const isSupabaseConfigured = Boolean(url && publishableKey)
 
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(url as string, publishableKey as string)
+export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
+  ? createClient<Database>(url as string, publishableKey as string)
   : null

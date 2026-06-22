@@ -12,6 +12,6 @@ Short records of significant decisions: context, decision, consequences.
 | [0006](0006-data-layer-tanstack-query.md) | Data layer: **TanStack Query** |
 | [0007](0007-monorepo-npm-workspaces.md) | Monorepo: **npm workspaces** now |
 | [0008](0008-domain-subdomain.md) | Domain/DNS: **badmintonduo.club via Cloudflare**, subdomain for GameOn |
+| [0010](0010-auth-model-magic-link.md) | Auth: **Admin magic-link**, **Matchmaker username+password**, players don't log in |
 
 Roles + information architecture live in [`../REQUIREMENTS.md`](../REQUIREMENTS.md).
-Player auth specifics (D3) are decided in epic E01.
