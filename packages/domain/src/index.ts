@@ -1,5 +1,4 @@
 // @gameon/domain — pure logic (match generation, ranking, fund math) lives here.
-// Scaffold placeholder; real logic added in E03 / E05 / E06.
 
 export const APP_NAME = 'GameOn'
 
@@ -7,3 +6,7 @@ export const APP_NAME = 'GameOn'
 export function greet(name: string): string {
   return `Welcome to ${APP_NAME}, ${name}`
 }
+
+// Fund & inventory math + types (E06).
+export * from './fund/types'
+export * from './fund/calc'
