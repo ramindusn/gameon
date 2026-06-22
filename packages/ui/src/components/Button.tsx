@@ -4,7 +4,7 @@ import { cx } from '../cx'
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-white hover:bg-accent-strong focus:ring-accent',
+  primary: 'bg-accent text-neutral-950 hover:bg-accent-strong focus:ring-accent',
   secondary: 'bg-surface-muted text-fg hover:bg-line focus:ring-line',
   ghost: 'bg-transparent text-fg-muted hover:bg-surface-muted focus:ring-line',
   danger: 'bg-negative text-white hover:opacity-90 focus:ring-negative',

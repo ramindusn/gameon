@@ -36,6 +36,20 @@ evening, data-forward club app; scales cleanly web↔mobile.
 A **light variant** will be derived from the same tokens (CSS variables flipped) so
 the app can support light + dark.
 
+### Palette retune (2026-06, sampling the locked `emerald-pro__home` render)
+The dark surfaces moved from blue-graphite to **neutral near-black**, and the accent
+from teal-emerald to a **purer green**, to match the rendered home screen:
+| Token | Value |
+|---|---|
+| `--bg` | `#0A0A0A` |
+| `--surface` | `#171717` |
+| `--surface-muted` | `#262626` |
+| `--line` | `#2A2A2A` |
+| `--fg` | `#FAFAFA` |
+| `--fg-muted` | `#A1A1AA` · `--fg-subtle` `#71717A` |
+| `--accent` / `--accent-strong` | `#22C55E` / `#4ADE80` |
+Primary buttons use dark text on the green fill (per the render).
+
 ## Consequences
 - `packages/ui` is built from these tokens (TASK-1.5): CSS-variable semantic tokens +
   primitives (Button/Card/Field/Modal + dual-render list), Manrope + Inter.

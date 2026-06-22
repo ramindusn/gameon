@@ -3,31 +3,31 @@
    :root = light variant; .dark = Emerald Pro (the default, set on <html>). */
 
 :root {
-  --bg: 248 250 252; /* #F8FAFC */
+  --bg: 250 250 250; /* #FAFAFA */
   --surface: 255 255 255; /* #FFFFFF */
-  --surface-muted: 241 245 249; /* #F1F5F9 */
-  --line: 226 232 240; /* #E2E8F0 */
-  --fg: 15 23 42; /* #0F172A */
-  --fg-muted: 100 116 139; /* #64748B */
-  --fg-subtle: 148 163 184; /* #94A3B8 */
-  --accent: 5 150 105; /* #059669 (AA on white) */
-  --accent-strong: 16 185 129; /* #10B981 */
-  --positive: 5 150 105;
+  --surface-muted: 244 244 245; /* #F4F4F5 zinc-100 */
+  --line: 228 228 231; /* #E4E4E7 zinc-200 */
+  --fg: 9 9 11; /* #09090B zinc-950 */
+  --fg-muted: 113 113 122; /* #71717A zinc-500 */
+  --fg-subtle: 161 161 170; /* #A1A1AA zinc-400 */
+  --accent: 22 163 74; /* #16A34A green-600 (AA on white) */
+  --accent-strong: 34 197 94; /* #22C55E green-500 */
+  --positive: 22 163 74;
   --negative: 220 38 38; /* #DC2626 */
   --warning: 217 119 6; /* #D97706 */
 }
 
 .dark {
-  --bg: 11 18 32; /* #0B1220 graphite */
-  --surface: 19 28 43; /* #131C2B */
-  --surface-muted: 27 37 54; /* #1B2536 */
-  --line: 36 48 68; /* #243044 */
-  --fg: 232 237 244; /* #E8EDF4 */
-  --fg-muted: 148 163 184; /* #94A3B8 */
-  --fg-subtle: 100 116 139; /* #64748B */
-  --accent: 16 185 129; /* #10B981 emerald */
-  --accent-strong: 52 211 153; /* #34D399 */
-  --positive: 16 185 129;
+  --bg: 10 10 10; /* #0A0A0A near-black */
+  --surface: 23 23 23; /* #171717 neutral-900 */
+  --surface-muted: 38 38 38; /* #262626 neutral-800 */
+  --line: 42 42 42; /* #2A2A2A */
+  --fg: 250 250 250; /* #FAFAFA */
+  --fg-muted: 161 161 170; /* #A1A1AA zinc-400 */
+  --fg-subtle: 113 113 122; /* #71717A zinc-500 */
+  --accent: 34 197 94; /* #22C55E green-500 */
+  --accent-strong: 74 222 128; /* #4ADE80 green-400 */
+  --positive: 34 197 94;
   --negative: 244 63 94; /* #F43F5E */
   --warning: 245 158 11; /* #F59E0B */
 }
