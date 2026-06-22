@@ -1,10 +1,10 @@
 ---
 id: TASK-2
 title: E01 - Identity & Auth (Admin + Matchmaker)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 09:13'
-updated_date: '2026-06-21 19:42'
+updated_date: '2026-06-22 10:16'
 labels:
   - epic
 dependencies: []

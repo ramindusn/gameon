@@ -1,10 +1,11 @@
 ---
 id: TASK-2.6
 title: e2e for admin + matchmaker login
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@ramindusn'
 created_date: '2026-06-19 10:42'
-updated_date: '2026-06-21 19:42'
+updated_date: '2026-06-22 10:15'
 labels:
   - 'size:S'
   - E01
@@ -22,5 +23,11 @@ Playwright covers admin + matchmaker sign-in.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Playwright covers admin + player sign-in paths
+- [x] #1 Playwright covers admin + player sign-in paths
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+e2e/auth.spec.ts: Playwright drives the real login UI via the VITE_E2E bypass. Covers admin magic-link sign-in (-> Role: admin), matchmaker username+password sign-in (-> Role: matchmaker), and sign-out returning to the chooser. Runs on chromium + mobile-chrome; full e2e suite 10/10 green.
+<!-- SECTION:NOTES:END -->
