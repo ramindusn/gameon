@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Button, Card, Modal } from '@gameon/ui'
+import { Button, Card } from '@gameon/ui'
 import { useAuth } from '../auth/useAuth'
 import { roleHome } from '../auth/roleHome'
 import { AdminLogin } from '../auth/AdminLogin'
@@ -80,7 +80,7 @@ function PublicNav() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="relative flex items-center gap-3">
           <input
             type="search"
             placeholder="Search players…"
@@ -107,31 +107,44 @@ function PublicNav() {
             <>
               <Button
                 variant="ghost"
-                onClick={() => setLogin('admin')}
+                onClick={() => setLogin((k) => (k === 'admin' ? null : 'admin'))}
                 data-testid="nav-admin-login"
               >
                 Admin Login
               </Button>
               <Button
-                onClick={() => setLogin('matchmaker')}
+                onClick={() =>
+                  setLogin((k) => (k === 'matchmaker' ? null : 'matchmaker'))
+                }
                 data-testid="nav-matchmaker-login"
               >
                 Matchmaker Login
               </Button>
             </>
           )}
+
+          {login && (
+            <>
+              {/* click-away catcher */}
+              <button
+                type="button"
+                aria-label="Close login"
+                className="fixed inset-0 z-10 cursor-default"
+                onClick={() => setLogin(null)}
+              />
+              <div
+                className="absolute right-0 top-full z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface p-4 shadow-xl"
+                data-testid="login-dropdown"
+              >
+                <div className="mb-3 text-sm font-semibold text-fg">
+                  {login === 'admin' ? 'Admin login' : 'Matchmaker login'}
+                </div>
+                {login === 'admin' ? <AdminLogin /> : <MatchmakerLogin />}
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      {login && (
-        <Modal
-          open
-          title={login === 'admin' ? 'Admin login' : 'Matchmaker login'}
-          onClose={() => setLogin(null)}
-        >
-          {login === 'admin' ? <AdminLogin /> : <MatchmakerLogin />}
-        </Modal>
-      )}
     </header>
   )
 }
