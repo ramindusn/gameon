@@ -125,3 +125,38 @@ export function usageForDate(state: FundState, date?: string): UsageTotals {
   })
   return { perProduct, totalCost: perProduct.reduce((s, p) => s + p.cost, 0) }
 }
+
+export interface UsageDay {
+  id: string
+  date: string
+  totalShuttles: number
+  totalCost: number
+  parts: { name: string; shuttlesUsed: number }[]
+}
+
+/**
+ * Game-day usage history, newest first, with per-day cost computed from the
+ * current product prices.
+ */
+export function usageHistory(state: FundState): UsageDay[] {
+  const productById = new Map(state.products.map((p) => [p.id, p]))
+  return state.usage
+    .map((entry) => {
+      let totalShuttles = 0
+      let totalCost = 0
+      const parts: { name: string; shuttlesUsed: number }[] = []
+      for (const item of entry.items) {
+        const product = productById.get(item.productId)
+        totalShuttles += item.shuttlesUsed
+        if (product) {
+          totalCost += item.shuttlesUsed * costPerShuttle(state, product)
+          parts.push({
+            name: `${product.brand} ${product.model}`,
+            shuttlesUsed: item.shuttlesUsed,
+          })
+        }
+      }
+      return { id: entry.id, date: entry.date, totalShuttles, totalCost, parts }
+    })
+    .sort((a, b) => b.date.localeCompare(a.date))
+}

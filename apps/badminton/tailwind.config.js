@@ -18,6 +18,7 @@ export default {
         fg: {
           DEFAULT: 'rgb(var(--fg) / <alpha-value>)',
           muted: 'rgb(var(--fg-muted) / <alpha-value>)',
+          subtle: 'rgb(var(--fg-subtle) / <alpha-value>)',
         },
         accent: {
           DEFAULT: 'rgb(var(--accent) / <alpha-value>)',

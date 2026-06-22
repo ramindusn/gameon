@@ -10,3 +10,5 @@ export function greet(name: string): string {
 // Fund & inventory math + types (E06).
 export * from './fund/types'
 export * from './fund/calc'
+export * from './fund/format'
+export * from './fund/reducers'
