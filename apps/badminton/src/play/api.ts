@@ -4,8 +4,16 @@
 // session is marked finished when play is done. Reads are public (RLS); writes
 // are limited by RLS to admins/matchmakers of the club.
 
-import { supabase } from '@gameon/supabase'
+import { supabase, isE2E } from '@gameon/supabase'
 import type { GeneratedMatches } from '@gameon/domain'
+import {
+  e2eUid,
+  e2ePut,
+  e2eList,
+  e2eGet,
+  e2eSetResult,
+  e2eSetStatus,
+} from './e2eStore'
 
 export type SessionStatus = 'live' | 'finished'
 export type Mode = 'open' | 'mixed'
@@ -131,6 +139,20 @@ export async function createSessionFromPlan(
   plan: GeneratedMatches,
   mode: Mode,
 ): Promise<string> {
+  if (isE2E()) {
+    const id = e2eUid('session')
+    return e2ePut(
+      {
+        id,
+        clubId,
+        status: 'live',
+        mode,
+        rounds: plan.rounds.length,
+        createdAt: new Date().toISOString(),
+      },
+      planToResultRows(plan, id, clubId),
+    )
+  }
   const db = client()
   const { data: session, error: sErr } = await db
     .from('match_sessions')
@@ -149,6 +171,7 @@ export async function createSessionFromPlan(
 
 /** All sessions for the club(s) the caller can read, newest first. */
 export async function listSessions(): Promise<MatchSession[]> {
+  if (isE2E()) return e2eList()
   const { data } = await client()
     .from('match_sessions')
     .select(SESSION_COLS)
@@ -160,6 +183,7 @@ export async function listSessions(): Promise<MatchSession[]> {
 export async function getSession(
   id: string,
 ): Promise<{ session: MatchSession; results: MatchResult[] } | null> {
+  if (isE2E()) return e2eGet(id)
   const db = client()
   const [{ data: session }, { data: results }] = await Promise.all([
     db.from('match_sessions').select(SESSION_COLS).eq('id', id).maybeSingle(),
@@ -176,6 +200,7 @@ export async function getSession(
 
 /** Record (or clear) the winning side of a single court. */
 export async function setResult(resultId: string, winner: Side | null): Promise<void> {
+  if (isE2E()) return e2eSetResult(resultId, winner)
   const { error } = await client()
     .from('match_results')
     .update({ winner })
@@ -188,6 +213,7 @@ export async function setSessionStatus(
   id: string,
   status: SessionStatus,
 ): Promise<void> {
+  if (isE2E()) return e2eSetStatus(id, status)
   const { error } = await client()
     .from('match_sessions')
     .update({ status })

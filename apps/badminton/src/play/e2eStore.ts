@@ -1,0 +1,87 @@
+// E2E in-memory match-play store. E2E builds run with VITE_E2E=1 and no Supabase
+// env (the real client is null), so play/api.ts branches to these primitives
+// instead of hitting the database. State is persisted in sessionStorage so it
+// survives full page reloads within the tab — letting e2e tests navigate with
+// page.goto and still find the session they just created. It clears when the
+// tab/context closes (each Playwright test gets a fresh context).
+//
+// Only TYPES are imported from ./api (erased at runtime), so there is no runtime
+// import cycle: api.ts orchestrates and calls these helpers.
+import type { MatchSession, MatchResult, SessionStatus, Side, ResultInsert } from './api'
+
+const SESSIONS_KEY = 'gameon.e2e.sessions'
+const RESULTS_KEY = 'gameon.e2e.results'
+
+function read<T>(key: string): T[] {
+  try {
+    return JSON.parse(sessionStorage.getItem(key) ?? '[]') as T[]
+  } catch {
+    return []
+  }
+}
+
+function write<T>(key: string, rows: T[]): void {
+  sessionStorage.setItem(key, JSON.stringify(rows))
+}
+
+let seq = 0
+/** Monotonic, stable id for E2E (no crypto/uuid needed). */
+export const e2eUid = (prefix: string) => `${prefix}-e2e-${Date.now()}-${++seq}`
+
+/** Insert a session + its result rows. */
+export function e2ePut(session: MatchSession, rows: ResultInsert[]): string {
+  write(SESSIONS_KEY, [...read<MatchSession>(SESSIONS_KEY), session])
+  const results = read<MatchResult>(RESULTS_KEY)
+  for (const row of rows) {
+    results.push({
+      id: e2eUid('result'),
+      sessionId: session.id,
+      round: row.round,
+      court: row.court,
+      teamA: [row.team_a1, row.team_a2],
+      teamB: [row.team_b1, row.team_b2],
+      winner: null,
+    })
+  }
+  write(RESULTS_KEY, results)
+  return session.id
+}
+
+/** All sessions, newest first. */
+export function e2eList(): MatchSession[] {
+  return read<MatchSession>(SESSIONS_KEY).sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  )
+}
+
+/** One session + its results (ordered by round then court), or null. */
+export function e2eGet(
+  id: string,
+): { session: MatchSession; results: MatchResult[] } | null {
+  const session = read<MatchSession>(SESSIONS_KEY).find((s) => s.id === id)
+  if (!session) return null
+  const results = read<MatchResult>(RESULTS_KEY)
+    .filter((r) => r.sessionId === id)
+    .sort((a, b) => a.round - b.round || a.court - b.court)
+  return { session, results }
+}
+
+/** Record (or clear) a court's winner. */
+export function e2eSetResult(resultId: string, winner: Side | null): void {
+  const results = read<MatchResult>(RESULTS_KEY)
+  const i = results.findIndex((r) => r.id === resultId)
+  if (i >= 0) {
+    results[i] = { ...results[i], winner }
+    write(RESULTS_KEY, results)
+  }
+}
+
+/** Flip a session between live/finished. */
+export function e2eSetStatus(id: string, status: SessionStatus): void {
+  const sessions = read<MatchSession>(SESSIONS_KEY)
+  const i = sessions.findIndex((s) => s.id === id)
+  if (i >= 0) {
+    sessions[i] = { ...sessions[i], status }
+    write(SESSIONS_KEY, sessions)
+  }
+}
