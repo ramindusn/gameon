@@ -21,6 +21,9 @@ vi.mock('../roster/useRoster', () => ({
     isError: false,
   }),
 }))
+vi.mock('../play/useMatchPlay', () => ({
+  useCreateSession: () => ({ mutate: vi.fn(), isPending: false }),
+}))
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ role: 'matchmaker', signOut: vi.fn() }),
 }))

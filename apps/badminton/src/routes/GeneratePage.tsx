@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button, Card } from '@gameon/ui'
 import { generateRounds, type GeneratedMatches, type MatchPlayer } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { useRoster } from '../roster/useRoster'
+import { useCreateSession } from '../play/useMatchPlay'
 import type { Player } from '../roster/api'
 
 // Each player passed to the engine keeps its nickname (the engine only reads
@@ -16,8 +18,10 @@ type Mode = 'open' | 'mixed'
 // number of rounds + the format, and render the balanced rounds (courts +
 // sitting). Generation is the pure @gameon/domain engine — no backend call.
 export function GeneratePage() {
+  const navigate = useNavigate()
   const { data, isLoading } = useRoster()
   const roster = useMemo<Player[]>(() => data?.players ?? [], [data])
+  const createSession = useCreateSession()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [initialised, setInitialised] = useState(false)
@@ -146,7 +150,17 @@ export function GeneratePage() {
                 </p>
               </Card>
             ) : (
-              <Draw result={result} />
+              <Draw
+                result={result}
+                canStart={Boolean(data?.clubId)}
+                starting={createSession.isPending}
+                onStart={() =>
+                  createSession.mutate(
+                    { clubId: data!.clubId as string, plan: result, mode },
+                    { onSuccess: (id) => navigate(`/play/${id}`) },
+                  )
+                }
+              />
             )}
           </div>
         )}
@@ -155,14 +169,33 @@ export function GeneratePage() {
   )
 }
 
-function Draw({ result }: { result: GeneratedMatches }) {
+function Draw({
+  result,
+  canStart,
+  starting,
+  onStart,
+}: {
+  result: GeneratedMatches
+  canStart: boolean
+  starting: boolean
+  onStart: () => void
+}) {
   const name = (p: MatchPlayer) => (p as Named).nickname ?? p.id
   return (
     <div className="space-y-4">
-      <p className="text-sm text-fg-muted">
-        {result.rounds.length} rounds · {result.courts} court
-        {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-fg-muted">
+          {result.rounds.length} rounds · {result.courts} court
+          {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
+        </p>
+        <Button
+          onClick={onStart}
+          disabled={!canStart || starting}
+          data-testid="start-session"
+        >
+          {starting ? 'Starting…' : 'Start session'}
+        </Button>
+      </div>
       {result.unplaceable.length > 0 && (
         <p className="text-sm text-warning">
           Not placed (no male/female set): {result.unplaceable.map(name).join(', ')}
