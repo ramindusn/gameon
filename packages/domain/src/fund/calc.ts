@@ -91,6 +91,14 @@ export function totalShuttlesInStock(state: FundState): number {
   return state.products.reduce((sum, p) => sum + productShuttleCount(p), 0)
 }
 
+/** Total shuttles consumed across every logged game day. */
+export function totalShuttlesUsed(state: FundState): number {
+  return state.usage.reduce(
+    (sum, u) => sum + u.items.reduce((s, i) => s + i.shuttlesUsed, 0),
+    0,
+  )
+}
+
 /**
  * Per-member balances. **Net** spending — stock + expenses minus game-day usage
  * income — is split equally across all current members. Crediting usage income

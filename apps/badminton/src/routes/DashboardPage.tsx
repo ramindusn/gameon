@@ -1,4 +1,9 @@
-import { euro, remainingFund, totalShuttlesInStock } from '@gameon/domain'
+import {
+  euro,
+  remainingFund,
+  totalShuttlesInStock,
+  totalShuttlesUsed,
+} from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { StatCard } from '../app/StatCard'
 import { useFund } from '../fund/useFund'
@@ -56,9 +61,10 @@ export function DashboardPage() {
           />
           <StatCard
             icon="🏸"
-            label="Products"
-            value={String(state.products.length)}
-            testId="stat-products"
+            label="Shuttles Used"
+            value={String(totalShuttlesUsed(state))}
+            hint="all game days"
+            testId="stat-shuttles-used"
           />
           <StatCard
             icon="👥"
