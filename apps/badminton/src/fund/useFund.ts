@@ -54,6 +54,7 @@ export function useFund() {
   return {
     state: data?.state ?? emptyFundState(),
     clubId: data?.clubId,
+    playerCount: data?.playerCount ?? 0,
     hasClub: !!data,
     cloudBacked,
     isLoading: query.isLoading,

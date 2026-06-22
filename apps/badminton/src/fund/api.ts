@@ -10,6 +10,8 @@ export interface FundData {
   state: FundState
   /** Identity of the signed-in admin, stamped onto new transactions. */
   loggerLabel?: string
+  /** Roster size (player_profiles) for this club. */
+  playerCount: number
 }
 
 function client() {
@@ -40,6 +42,7 @@ export async function loadFund(): Promise<FundData | null> {
     usageEntries,
     usageItems,
     expenses,
+    players,
   ] = await Promise.all([
     db.from('members').select('*'),
     db.from('contributions').select('*'),
@@ -48,7 +51,12 @@ export async function loadFund(): Promise<FundData | null> {
     db.from('usage_entries').select('*'),
     db.from('usage_items').select('*'),
     db.from('expenses').select('*'),
+    db
+      .from('player_profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('club_id', clubId),
   ])
+  const playerCount = players.count ?? 0
 
   const contribByMember = new Map<string, NonNullable<typeof contributions.data>>()
   for (const c of contributions.data ?? []) {
@@ -117,5 +125,5 @@ export async function loadFund(): Promise<FundData | null> {
     })),
   }
 
-  return { clubId, state, loggerLabel }
+  return { clubId, state, loggerLabel, playerCount }
 }

@@ -19,7 +19,7 @@ import { MemberBalances } from '../fund/MemberBalances'
 // game-day usage, fund summary, inventory, transaction log and member balances,
 // all add/edit/delete-capable. Data via @gameon/domain + TanStack Query (ADR 0006).
 export function DashboardPage() {
-  const { state, isLoading, isError } = useFund()
+  const { state, playerCount, isLoading, isError } = useFund()
   const remaining = remainingFund(state)
   const shuttles = totalShuttlesInStock(state)
 
@@ -68,9 +68,10 @@ export function DashboardPage() {
           />
           <StatCard
             icon="👥"
-            label="Members"
+            label="Admins"
             value={String(state.members.length)}
-            testId="stat-members"
+            hint={`${playerCount} players`}
+            testId="stat-admins"
           />
         </div>
 
