@@ -31,7 +31,6 @@ export async function loadFund(): Promise<FundData | null> {
   const {
     data: { user },
   } = await db.auth.getUser()
-  const loggerLabel = user?.email ?? undefined
 
   const [
     members,
@@ -64,10 +63,18 @@ export async function loadFund(): Promise<FundData | null> {
     itemsByUsage.set(i.usage_id, list)
   }
 
+  // Resolve the signed-in admin to their member name (falls back to email).
+  const email = user?.email
+  const me = email
+    ? (members.data ?? []).find((m) => m.email?.toLowerCase() === email.toLowerCase())
+    : undefined
+  const loggerLabel = me?.name ?? email ?? undefined
+
   const state: FundState = {
     members: (members.data ?? []).map((m) => ({
       id: m.id,
       name: m.name,
+      email: m.email ?? undefined,
       contributions: (contribByMember.get(m.id) ?? []).map((c) => ({
         id: c.id,
         amount: Number(c.amount),

@@ -15,6 +15,7 @@ export interface Member {
   id: string
   name: string
   contributions: Contribution[]
+  email?: string // login email, when this member is also an admin/matchmaker
 }
 
 /** A shuttle product (brand + model). Price is tracked per purchase batch. */

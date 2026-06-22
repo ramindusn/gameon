@@ -190,18 +190,21 @@ export type Database = {
         Row: {
           club_id: string
           created_at: string
+          email: string | null
           id: string
           name: string
         }
         Insert: {
           club_id: string
           created_at?: string
+          email?: string | null
           id?: string
           name: string
         }
         Update: {
           club_id?: string
           created_at?: string
+          email?: string | null
           id?: string
           name?: string
         }

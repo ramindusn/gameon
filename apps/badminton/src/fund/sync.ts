@@ -11,7 +11,12 @@ type Row = Record<string, unknown>
 const toDb = (appDate: string) => appDate
 
 function rowsFromState(state: FundState, clubId: string) {
-  const members = state.members.map((m) => ({ id: m.id, club_id: clubId, name: m.name }))
+  const members = state.members.map((m) => ({
+    id: m.id,
+    club_id: clubId,
+    name: m.name,
+    email: m.email ?? null,
+  }))
   const contributions = state.members.flatMap((m) =>
     m.contributions.map((c) => ({
       id: c.id,

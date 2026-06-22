@@ -140,6 +140,7 @@ export function addMember(
   initialCash: number,
   when?: string,
   loggedBy?: string,
+  email?: string,
 ): FundState {
   return {
     ...s,
@@ -148,6 +149,7 @@ export function addMember(
       {
         id: uid(),
         name: name.trim(),
+        email: email?.trim() || undefined,
         contributions:
           initialCash > 0
             ? [{ id: uid(), amount: initialCash, date: when || now(), loggedBy }]

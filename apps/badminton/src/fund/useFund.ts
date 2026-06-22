@@ -69,8 +69,8 @@ export function useFund() {
       apply((s) => rUpdateBatchPrice(s, id, price)),
     recordUsage: (date: string, items: { productId: string; shuttlesUsed: number }[]) =>
       apply((s) => rRecordUsage(s, date, items, loggedBy)),
-    addMember: (name: string, cash: number, when?: string) =>
-      apply((s) => rAddMember(s, name, cash, when, loggedBy)),
+    addMember: (name: string, cash: number, when?: string, email?: string) =>
+      apply((s) => rAddMember(s, name, cash, when, loggedBy, email)),
     addCash: (memberId: string, amount: number, when?: string) =>
       apply((s) => rAddCash(s, memberId, amount, when, loggedBy)),
     addExpense: (description: string, amount: number, when?: string) =>

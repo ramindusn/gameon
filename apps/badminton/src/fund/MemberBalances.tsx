@@ -106,8 +106,8 @@ export function MemberBalances() {
       {addingMember && (
         <AddMemberModal
           onClose={() => setAddingMember(false)}
-          onSave={(name, cash, when) => {
-            addMember(name, cash, when)
+          onSave={(name, cash, when, email) => {
+            addMember(name, cash, when, email)
             setAddingMember(false)
           }}
         />
@@ -121,16 +121,17 @@ function AddMemberModal({
   onSave,
 }: {
   onClose: () => void
-  onSave: (name: string, cash: number, when: string) => void
+  onSave: (name: string, cash: number, when: string, email?: string) => void
 }) {
   const [name, setName] = useState('')
   const [cash, setCash] = useState('')
   const [when, setWhen] = useState(nowLocalInput())
+  const [email, setEmail] = useState('')
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
-    onSave(name, Number(cash) || 0, when)
+    onSave(name, Number(cash) || 0, when, email.trim() || undefined)
   }
 
   return (
@@ -142,6 +143,13 @@ function AddMemberModal({
           onChange={(e) => setName(e.target.value)}
           autoFocus
           placeholder="e.g. Kasun"
+        />
+        <Field
+          label="Login email (optional — links 'Logged by')"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="member@example.com"
         />
         <Field
           label="Initial cash into fund (€)"
