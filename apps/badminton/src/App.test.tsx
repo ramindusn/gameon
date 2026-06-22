@@ -4,7 +4,7 @@ import { App } from './App'
 import { AuthProvider } from './auth/useAuth'
 
 describe('App', () => {
-  it('renders the app shell within the auth provider', () => {
+  it('renders the app shell within the auth provider', async () => {
     render(
       <AuthProvider>
         <App />
@@ -12,7 +12,7 @@ describe('App', () => {
     )
     expect(screen.getByTestId('app-root')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
-    // Role region is present (resolves to signed-out without a session).
-    expect(screen.getByTestId('auth-role')).toBeInTheDocument()
+    // Signed out: the login chooser appears once the role resolves.
+    expect(await screen.findByTestId('tab-admin')).toBeInTheDocument()
   })
 })

@@ -22,8 +22,11 @@ type AuthContextValue = {
   role: Role
   loading: boolean
   refresh: () => Promise<void>
-  signInAdmin: (email: string, emailRedirectTo?: string) => Promise<void>
-  signInMatchmaker: (username: string, password: string) => Promise<void>
+  // Return the underlying result so forms can surface auth errors (e.g. bad password).
+  signInAdmin: (...args: Parameters<typeof signInAdmin>) => ReturnType<typeof signInAdmin>
+  signInMatchmaker: (
+    ...args: Parameters<typeof signInMatchmaker>
+  ) => ReturnType<typeof signInMatchmaker>
   signOut: () => Promise<void>
 }
 
@@ -52,12 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       refresh,
       signInAdmin: async (email, emailRedirectTo) => {
-        await signInAdmin(email, emailRedirectTo)
+        const result = await signInAdmin(email, emailRedirectTo)
         await refresh()
+        return result
       },
       signInMatchmaker: async (username, password) => {
-        await signInMatchmaker(username, password)
+        const result = await signInMatchmaker(username, password)
         await refresh()
+        return result
       },
       signOut: async () => {
         await signOutModule()
