@@ -11,9 +11,9 @@ import { MatchmakerLogin } from '../auth/MatchmakerLogin'
 // arrives with E03/E04/E05, so those sections show empty states for now.
 export function Home() {
   return (
-    <div className="min-h-screen bg-bg text-fg" data-testid="home">
+    <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="home">
       <PublicNav />
-      <main className="mx-auto max-w-6xl px-4 sm:px-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 sm:px-6">
         <Hero />
         <Section
           title="Scheduled Matches"
@@ -207,7 +207,7 @@ function MutedLink({ children }: { children: ReactNode }) {
 function Footer() {
   return (
     <footer className="border-t border-line">
-      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-xs text-fg-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-4 text-xs text-fg-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <span className="font-display text-sm font-bold text-fg">BadmintonDuo</span>
         <span>© 2026 BadmintonDuo Club Management.</span>
       </div>
