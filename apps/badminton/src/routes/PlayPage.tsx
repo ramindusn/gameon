@@ -1,20 +1,38 @@
-import { useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { useRoster } from '../roster/useRoster'
-import { useSession, useSetResult, useSetSessionStatus } from '../play/useMatchPlay'
+import {
+  useDeleteSession,
+  useSession,
+  useSetResult,
+  useSetSessionStatus,
+  useUpdateSessionPlayedAt,
+} from '../play/useMatchPlay'
+import {
+  formatPlayedAt,
+  isoToLocalInput,
+  localInputToIso,
+} from '../play/datetime'
 import type { MatchResult, Side } from '../play/api'
 
-// Live scoring (E04 / TASK-5.3). Open a session, tap the winning team on each
-// court, and mark the session finished. Player ids in results are resolved to
-// nicknames via the roster.
+// Live scoring (E04 / E09). Open a game day, tap the winning team on each court,
+// and finish it. The matchmaker can also correct the game-day date/time or delete
+// the game day. Player ids in results are resolved to nicknames via the roster.
 export function PlayPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { data, isLoading, isError } = useSession(id)
   const { data: roster } = useRoster()
   const setResult = useSetResult(id)
   const setStatus = useSetSessionStatus(id)
+  const updatePlayedAt = useUpdateSessionPlayedAt(id)
+  const deleteSession = useDeleteSession()
+
+  const [editingDate, setEditingDate] = useState(false)
+  const [dateValue, setDateValue] = useState('')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const nameOf = useMemo(() => {
     const byId = new Map((roster?.players ?? []).map((p) => [p.id, p.nickname]))
@@ -35,7 +53,7 @@ export function PlayPage() {
         {data && (
           <>
             <Card
-              title={`Session · ${data.session.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'}`}
+              title={`Game day · ${data.session.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'}`}
               icon="🏸"
               action={
                 <span
@@ -51,30 +69,123 @@ export function PlayPage() {
                 </span>
               }
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-fg-muted">
-                  {rounds.length} rounds · {recordedCount(data.results)} /{' '}
-                  {data.results.length} recorded
-                </p>
-                {data.session.status === 'live' ? (
-                  <Button
-                    variant="secondary"
-                    onClick={() => setStatus.mutate('finished')}
-                    disabled={setStatus.isPending}
-                    data-testid="finish-session"
-                  >
-                    Finish session
-                  </Button>
+              <div className="space-y-3">
+                {editingDate ? (
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="text-sm">
+                      <span className="mb-1 block text-fg-muted">
+                        Game day date &amp; time
+                      </span>
+                      <input
+                        type="datetime-local"
+                        value={dateValue}
+                        onChange={(e) => setDateValue(e.target.value)}
+                        className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                        data-testid="game-day-datetime-input"
+                      />
+                    </label>
+                    <Button
+                      onClick={() =>
+                        updatePlayedAt.mutate(localInputToIso(dateValue), {
+                          onSuccess: () => setEditingDate(false),
+                        })
+                      }
+                      disabled={updatePlayedAt.isPending}
+                      data-testid="save-datetime"
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setEditingDate(false)}
+                      data-testid="cancel-datetime"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 ) : (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setStatus.mutate('live')}
-                    disabled={setStatus.isPending}
-                    data-testid="reopen-session"
-                  >
-                    Reopen
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className="text-sm font-medium text-fg"
+                      data-testid="game-day-date"
+                    >
+                      {formatPlayedAt(data.session.playedAt)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setDateValue(isoToLocalInput(data.session.playedAt))
+                        setEditingDate(true)
+                      }}
+                      data-testid="edit-datetime"
+                    >
+                      Edit date
+                    </Button>
+                  </div>
                 )}
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-fg-muted">
+                    {rounds.length} rounds · {recordedCount(data.results)} /{' '}
+                    {data.results.length} recorded
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {data.session.status === 'live' ? (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setStatus.mutate('finished')}
+                        disabled={setStatus.isPending}
+                        data-testid="finish-session"
+                      >
+                        Finish game day
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setStatus.mutate('live')}
+                        disabled={setStatus.isPending}
+                        data-testid="reopen-session"
+                      >
+                        Reopen
+                      </Button>
+                    )}
+                    {confirmingDelete ? (
+                      <>
+                        <Button
+                          variant="danger"
+                          onClick={() =>
+                            deleteSession.mutate(
+                              {
+                                id: data.session.id,
+                                wasFinished: data.session.status === 'finished',
+                              },
+                              { onSuccess: () => navigate('/play') },
+                            )
+                          }
+                          disabled={deleteSession.isPending}
+                          data-testid="confirm-delete-game-day"
+                        >
+                          Confirm delete
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setConfirmingDelete(false)}
+                          data-testid="cancel-delete-game-day"
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setConfirmingDelete(true)}
+                        data-testid="delete-game-day"
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
             </Card>
 

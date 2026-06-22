@@ -26,8 +26,8 @@ test('matchmaker starts a session, records a winner, and finds it in history', a
   await page.getByTestId('generate-button').click()
   await expect(page.getByTestId('draw-result')).toBeVisible()
 
-  // Start a live session → routed to the scoring view.
-  await page.getByTestId('start-session').click()
+  // Create a game day → routed to the scoring view.
+  await page.getByTestId('create-game-day').click()
   await expect(page).toHaveURL(/\/play\/[^/]+$/)
   const sessionUrl = page.url()
   await expect(page.getByTestId('session-status')).toHaveText('Live')
@@ -53,6 +53,35 @@ test('matchmaker starts a session, records a winner, and finds it in history', a
   await link.click()
   await expect(page).toHaveURL(new RegExp(`/play/${sessionId}$`))
   await expect(page.getByText(/1 \/ 2 recorded/)).toBeVisible()
+})
+
+test('matchmaker sets a game-day date, edits it, then deletes the game day', async ({
+  page,
+}) => {
+  await page.goto('/generate')
+  await page.getByTestId('rounds-input').fill('1')
+  await page.getByTestId('generate-button').click()
+  await expect(page.getByTestId('draw-result')).toBeVisible()
+
+  // The game-day date/time defaults to now and is editable before creating.
+  const dt = page.getByTestId('game-day-datetime')
+  await expect(dt).toBeVisible()
+  await dt.fill('2026-05-01T19:30')
+  await page.getByTestId('create-game-day').click()
+  await expect(page).toHaveURL(/\/play\/[^/]+$/)
+
+  // The chosen date shows on the play view; edit it to a new value.
+  await expect(page.getByTestId('game-day-date')).toContainText('2026')
+  await page.getByTestId('edit-datetime').click()
+  await page.getByTestId('game-day-datetime-input').fill('2026-05-02T20:00')
+  await page.getByTestId('save-datetime').click()
+  await expect(page.getByTestId('game-day-date')).toBeVisible()
+
+  // Delete the game day (two-step confirm) → back to the (empty) history.
+  await page.getByTestId('delete-game-day').click()
+  await page.getByTestId('confirm-delete-game-day').click()
+  await expect(page).toHaveURL(/\/play$/)
+  await expect(page.getByTestId('sessions')).toBeVisible()
 })
 
 test('signed-out visitor cannot reach /play or a session', async ({ page }) => {

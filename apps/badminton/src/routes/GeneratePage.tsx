@@ -5,6 +5,7 @@ import { generateRounds, type GeneratedMatches, type MatchPlayer } from '@gameon
 import { AppShell } from '../app/AppShell'
 import { useRoster } from '../roster/useRoster'
 import { useCreateSession } from '../play/useMatchPlay'
+import { localInputToIso, nowLocalInput } from '../play/datetime'
 import type { Player } from '../roster/api'
 
 // Each player passed to the engine keeps its nickname (the engine only reads
@@ -29,6 +30,8 @@ export function GeneratePage() {
   const [mode, setMode] = useState<Mode>('open')
   const [result, setResult] = useState<GeneratedMatches | null>(null)
   const [generated, setGenerated] = useState(false)
+  // Game-day date/time the matchmaker confirms on "Create game day" (default now).
+  const [playedAt, setPlayedAt] = useState(nowLocalInput())
 
   // Default selection = everyone not marked absent (once the roster loads).
   if (!initialised && roster.length > 0) {
@@ -154,9 +157,16 @@ export function GeneratePage() {
                 result={result}
                 canStart={Boolean(data?.clubId)}
                 starting={createSession.isPending}
+                playedAt={playedAt}
+                onPlayedAtChange={setPlayedAt}
                 onStart={() =>
                   createSession.mutate(
-                    { clubId: data!.clubId as string, plan: result, mode },
+                    {
+                      clubId: data!.clubId as string,
+                      plan: result,
+                      mode,
+                      playedAt: localInputToIso(playedAt),
+                    },
                     { onSuccess: (id) => navigate(`/play/${id}`) },
                   )
                 }
@@ -173,27 +183,43 @@ function Draw({
   result,
   canStart,
   starting,
+  playedAt,
+  onPlayedAtChange,
   onStart,
 }: {
   result: GeneratedMatches
   canStart: boolean
   starting: boolean
+  playedAt: string
+  onPlayedAtChange: (v: string) => void
   onStart: () => void
 }) {
   const name = (p: MatchPlayer) => (p as Named).nickname ?? p.id
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-fg-muted">
-          {result.rounds.length} rounds · {result.courts} court
-          {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end gap-4">
+          <p className="text-sm text-fg-muted">
+            {result.rounds.length} rounds · {result.courts} court
+            {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
+          </p>
+          <label className="text-sm">
+            <span className="mb-1 block text-fg-muted">Game day date &amp; time</span>
+            <input
+              type="datetime-local"
+              value={playedAt}
+              onChange={(e) => onPlayedAtChange(e.target.value)}
+              className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="game-day-datetime"
+            />
+          </label>
+        </div>
         <Button
           onClick={onStart}
           disabled={!canStart || starting}
-          data-testid="start-session"
+          data-testid="create-game-day"
         >
-          {starting ? 'Starting…' : 'Start session'}
+          {starting ? 'Creating…' : 'Create game day'}
         </Button>
       </div>
       {result.unplaceable.length > 0 && (

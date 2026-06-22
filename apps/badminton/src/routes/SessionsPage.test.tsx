@@ -11,6 +11,7 @@ const { sessions } = vi.hoisted(() => ({
       status: 'live',
       mode: 'mixed',
       rounds: 3,
+      playedAt: '2026-06-22T10:00:00Z',
       createdAt: '2026-06-22T10:00:00Z',
     },
     {
@@ -19,6 +20,7 @@ const { sessions } = vi.hoisted(() => ({
       status: 'finished',
       mode: 'open',
       rounds: 5,
+      playedAt: '2026-06-21T18:00:00Z',
       createdAt: '2026-06-21T18:00:00Z',
     },
   ] satisfies MatchSession[],

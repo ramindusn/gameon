@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { GeneratedMatches } from '@gameon/domain'
 import {
   createSessionFromPlan,
+  deleteSession,
   getSession,
   listSessions,
   setResult,
   setSessionStatus,
+  updateSessionPlayedAt,
   type Mode,
   type SessionStatus,
   type Side,
@@ -28,12 +30,16 @@ export function useSession(id: string | undefined) {
   })
 }
 
-/** Create a live session from a generated draw; refreshes the session list. */
+/** Create a live game day from a generated draw; refreshes the session list. */
 export function useCreateSession() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { clubId: string; plan: GeneratedMatches; mode: Mode }) =>
-      createSessionFromPlan(v.clubId, v.plan, v.mode),
+    mutationFn: (v: {
+      clubId: string
+      plan: GeneratedMatches
+      mode: Mode
+      playedAt: string
+    }) => createSessionFromPlan(v.clubId, v.plan, v.mode, v.playedAt),
     onSuccess: () => qc.invalidateQueries({ queryKey: SESSIONS_KEY }),
   })
 }
@@ -60,5 +66,28 @@ export function useSetSessionStatus(sessionId: string | undefined) {
       qc.invalidateQueries({ queryKey: SESSIONS_KEY })
       if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
     },
+  })
+}
+
+/** Edit a game day's date/time; refreshes the game day + list. */
+export function useUpdateSessionPlayedAt(sessionId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (playedAt: string) =>
+      updateSessionPlayedAt(sessionId as string, playedAt),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SESSIONS_KEY })
+      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+    },
+  })
+}
+
+/** Delete a game day; refreshes the list. */
+export function useDeleteSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { id: string; wasFinished: boolean }) =>
+      deleteSession(v.id, v.wasFinished),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SESSIONS_KEY }),
   })
 }

@@ -10,6 +10,7 @@ const { setResult, setStatus, sessionData } = vi.hoisted(() => {
     status: 'live',
     mode: 'open',
     rounds: 1,
+    playedAt: '2026-06-22T10:00:00Z',
     createdAt: '2026-06-22T10:00:00Z',
   }
   const results: MatchResult[] = [
@@ -43,6 +44,8 @@ vi.mock('../play/useMatchPlay', () => ({
   useSession: () => ({ data: sessionData, isLoading: false, isError: false }),
   useSetResult: () => ({ mutate: setResult, isPending: false }),
   useSetSessionStatus: () => ({ mutate: setStatus, isPending: false }),
+  useUpdateSessionPlayedAt: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteSession: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 vi.mock('../roster/useRoster', () => ({
   useRoster: () => ({
@@ -98,5 +101,14 @@ describe('PlayPage', () => {
     renderPage()
     fireEvent.click(screen.getByTestId('finish-session'))
     expect(setStatus).toHaveBeenCalledWith('finished')
+  })
+
+  it('shows the game-day date and a two-step delete confirm', () => {
+    renderPage()
+    expect(screen.getByTestId('game-day-date')).toBeInTheDocument()
+    // Delete is a guarded two-step action.
+    expect(screen.queryByTestId('confirm-delete-game-day')).toBeNull()
+    fireEvent.click(screen.getByTestId('delete-game-day'))
+    expect(screen.getByTestId('confirm-delete-game-day')).toBeInTheDocument()
   })
 })

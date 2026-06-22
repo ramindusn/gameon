@@ -2,23 +2,24 @@ import { Link } from 'react-router-dom'
 import { Card } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { useSessions } from '../play/useMatchPlay'
+import { formatPlayedAt } from '../play/datetime'
 
-// Session history (E04 / TASK-5.3). Lists past + live sessions; each links to
-// the scoring view at /play/:id.
+// Game-day history (E04 / E09). Lists past + live game days, newest game-day
+// date first; each links to the scoring view at /play/:id.
 export function SessionsPage() {
   const { data: sessions, isLoading, isError } = useSessions()
 
   return (
-    <AppShell title="Sessions">
+    <AppShell title="Game days">
       <div data-testid="sessions">
         <Card title="History" icon="📋">
-          {isLoading && <p className="text-sm text-fg-muted">Loading sessions…</p>}
+          {isLoading && <p className="text-sm text-fg-muted">Loading game days…</p>}
           {isError && (
-            <p className="text-sm text-negative">Could not load sessions.</p>
+            <p className="text-sm text-negative">Could not load game days.</p>
           )}
           {!isLoading && (sessions?.length ?? 0) === 0 && (
             <p className="text-sm text-fg-muted">
-              No sessions yet — generate a draw and start one.
+              No game days yet — generate a draw and create one.
             </p>
           )}
 
@@ -33,7 +34,7 @@ export function SessionsPage() {
                   >
                     <span className="flex flex-col">
                       <span className="font-medium text-fg">
-                        {formatDate(s.createdAt)}
+                        {formatPlayedAt(s.playedAt)}
                       </span>
                       <span className="text-xs text-fg-muted">
                         {s.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'} ·{' '}
@@ -58,14 +59,4 @@ export function SessionsPage() {
       </div>
     </AppShell>
   )
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? iso
-    : d.toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })
 }

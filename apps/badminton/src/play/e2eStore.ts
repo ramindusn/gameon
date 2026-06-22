@@ -47,10 +47,10 @@ export function e2ePut(session: MatchSession, rows: ResultInsert[]): string {
   return session.id
 }
 
-/** All sessions, newest first. */
+/** All sessions, newest game day first. */
 export function e2eList(): MatchSession[] {
   return read<MatchSession>(SESSIONS_KEY).sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
+    b.playedAt.localeCompare(a.playedAt),
   )
 }
 
@@ -84,4 +84,26 @@ export function e2eSetStatus(id: string, status: SessionStatus): void {
     sessions[i] = { ...sessions[i], status }
     write(SESSIONS_KEY, sessions)
   }
+}
+
+/** Update a game day's date/time. */
+export function e2eSetPlayedAt(id: string, playedAt: string): void {
+  const sessions = read<MatchSession>(SESSIONS_KEY)
+  const i = sessions.findIndex((s) => s.id === id)
+  if (i >= 0) {
+    sessions[i] = { ...sessions[i], playedAt }
+    write(SESSIONS_KEY, sessions)
+  }
+}
+
+/** Delete a game day and its result rows. */
+export function e2eDelete(id: string): void {
+  write(
+    SESSIONS_KEY,
+    read<MatchSession>(SESSIONS_KEY).filter((s) => s.id !== id),
+  )
+  write(
+    RESULTS_KEY,
+    read<MatchResult>(RESULTS_KEY).filter((r) => r.sessionId !== id),
+  )
 }

@@ -13,6 +13,8 @@ import {
   e2eGet,
   e2eSetResult,
   e2eSetStatus,
+  e2eSetPlayedAt,
+  e2eDelete,
 } from './e2eStore'
 
 export type SessionStatus = 'live' | 'finished'
@@ -25,6 +27,8 @@ export interface MatchSession {
   status: SessionStatus
   mode: Mode
   rounds: number
+  /** The game-day date/time the matchmaker chose (editable). */
+  playedAt: string
   createdAt: string
 }
 
@@ -53,6 +57,7 @@ export const mapSessionRow = (r: {
   status: string
   mode: string
   rounds: number
+  played_at: string
   created_at: string
 }): MatchSession => ({
   id: r.id,
@@ -60,6 +65,7 @@ export const mapSessionRow = (r: {
   status: r.status as SessionStatus,
   mode: r.mode as Mode,
   rounds: r.rounds,
+  playedAt: r.played_at,
   createdAt: r.created_at,
 })
 
@@ -126,18 +132,20 @@ export function planToResultRows(
 
 // ---- data access ----------------------------------------------------------
 
-const SESSION_COLS = 'id, club_id, status, mode, rounds, created_at'
+const SESSION_COLS = 'id, club_id, status, mode, rounds, played_at, created_at'
 const RESULT_COLS =
   'id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, winner'
 
 /**
- * Persist a generated draw as a live session: insert the session, then its
- * result rows (one per court). Returns the new session id.
+ * Persist a generated draw as a live game day: insert the session (with the
+ * matchmaker-chosen date/time), then its result rows (one per court). Returns
+ * the new session id.
  */
 export async function createSessionFromPlan(
   clubId: string,
   plan: GeneratedMatches,
   mode: Mode,
+  playedAt: string,
 ): Promise<string> {
   if (isE2E()) {
     const id = e2eUid('session')
@@ -148,6 +156,7 @@ export async function createSessionFromPlan(
         status: 'live',
         mode,
         rounds: plan.rounds.length,
+        playedAt,
         createdAt: new Date().toISOString(),
       },
       planToResultRows(plan, id, clubId),
@@ -156,7 +165,13 @@ export async function createSessionFromPlan(
   const db = client()
   const { data: session, error: sErr } = await db
     .from('match_sessions')
-    .insert({ club_id: clubId, mode, rounds: plan.rounds.length, status: 'live' })
+    .insert({
+      club_id: clubId,
+      mode,
+      rounds: plan.rounds.length,
+      status: 'live',
+      played_at: playedAt,
+    })
     .select('id')
     .single()
   if (sErr) throw sErr
@@ -169,13 +184,13 @@ export async function createSessionFromPlan(
   return session.id
 }
 
-/** All sessions for the club(s) the caller can read, newest first. */
+/** All game days for the club(s) the caller can read, newest game day first. */
 export async function listSessions(): Promise<MatchSession[]> {
   if (isE2E()) return e2eList()
   const { data } = await client()
     .from('match_sessions')
     .select(SESSION_COLS)
-    .order('created_at', { ascending: false })
+    .order('played_at', { ascending: false })
   return (data ?? []).map(mapSessionRow)
 }
 
@@ -221,6 +236,41 @@ export async function setSessionStatus(
   // ask the server to replay the boards. Best-effort: a failed recompute must
   // not roll back the finish; the next finish (or TASK-8.3 trigger) will retry.
   if (status === 'finished') {
+    try {
+      await db.functions.invoke('recompute-ratings')
+    } catch (e) {
+      console.error('recompute-ratings failed', e)
+    }
+  }
+}
+
+/** Update a game day's date/time (the matchmaker can correct it any time). */
+export async function updateSessionPlayedAt(
+  id: string,
+  playedAt: string,
+): Promise<void> {
+  if (isE2E()) return e2eSetPlayedAt(id, playedAt)
+  const { error } = await client()
+    .from('match_sessions')
+    .update({ played_at: playedAt })
+    .eq('id', id)
+  if (error) throw error
+}
+
+/**
+ * Delete a game day (and its results, via ON DELETE CASCADE). If it was already
+ * finished it contributed to the boards, so replay ratings afterwards (best-
+ * effort) to drop its contribution.
+ */
+export async function deleteSession(
+  id: string,
+  wasFinished: boolean,
+): Promise<void> {
+  if (isE2E()) return e2eDelete(id)
+  const db = client()
+  const { error } = await db.from('match_sessions').delete().eq('id', id)
+  if (error) throw error
+  if (wasFinished) {
     try {
       await db.functions.invoke('recompute-ratings')
     } catch (e) {
