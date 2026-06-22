@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Card } from '@gameon/ui'
 import {
+  useInactivePlayers,
   usePairBoard,
   usePlayerBoard,
   usePlayerNames,
@@ -19,6 +20,7 @@ export function LeaderboardPage() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
   const form = useRecentForm()
+  const inactive = useInactivePlayers()
   const nameOf = usePlayerNames()
 
   return (
@@ -49,6 +51,7 @@ export function LeaderboardPage() {
                 players={players.data!}
                 nameOf={nameOf}
                 form={form.data ?? {}}
+                inactive={inactive.data}
               />
             )}
           </Card>

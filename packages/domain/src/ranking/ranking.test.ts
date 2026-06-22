@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeRatings, scoreShare } from './ranking'
+import { ABSENCE_DECAY, ABSENCE_FLOOR, computeRatings, scoreShare } from './ranking'
 import { DEFAULT_RATING, DEFAULT_RD } from './glicko2'
 import { pairKey, type MatchRecord, type RatingPeriod } from './types'
 
@@ -76,6 +76,58 @@ describe('computeRatings — individual board', () => {
     expect(aSatOut.rating).toBeCloseTo(aPlayed.rating, 6) // rating unchanged
     expect(aSatOut.games).toBe(1) // no new games
     expect(aSatOut.rd).toBeGreaterThan(aPlayed.rd) // uncertainty grew
+  })
+})
+
+describe('computeRatings — absence decay', () => {
+  // 'a' wins a match (rating climbs above the floor), then skips the next day.
+  const winThenAbsent = (absentLater: boolean) =>
+    computeRatings([
+      period(match(['a', 'b'], ['c', 'd'], 21, 5)),
+      {
+        matches: [match(['e', 'f'], ['g', 'h'], 21, 10)],
+        absentees: absentLater ? ['a'] : [],
+      },
+    ])
+
+  it('docks an absent established player ABSENCE_DECAY points', () => {
+    const present = winThenAbsent(false)
+    const absent = winThenAbsent(true)
+    expect(playerById(absent, 'a').rating).toBeCloseTo(
+      playerById(present, 'a').rating - ABSENCE_DECAY,
+      6,
+    )
+  })
+
+  it('never decays below the floor', () => {
+    // 'a' is only just above the floor; repeated absence clamps to the floor.
+    const tables = computeRatings([
+      period(match(['a', 'b'], ['c', 'd'], 21, 20)), // small win -> just above 1500
+      { matches: [], absentees: ['a'] },
+      { matches: [], absentees: ['a'] },
+      { matches: [], absentees: ['a'] },
+    ])
+    expect(playerById(tables, 'a').rating).toBe(ABSENCE_FLOOR)
+  })
+
+  it('leaves players already at/below the floor untouched', () => {
+    // 'c' lost badly (rating below the floor); absence must not move it.
+    const baseline = computeRatings([period(match(['a', 'b'], ['c', 'd'], 21, 2))])
+    const withAbsence = computeRatings([
+      period(match(['a', 'b'], ['c', 'd'], 21, 2)),
+      { matches: [], absentees: ['c'] },
+    ])
+    const cBase = playerById(baseline, 'c')
+    const cAbsent = playerById(withAbsence, 'c')
+    expect(cBase.rating).toBeLessThan(ABSENCE_FLOOR)
+    expect(cAbsent.rating).toBeCloseTo(cBase.rating, 6) // unchanged by absence
+  })
+
+  it('does not create a board entry for an absentee who never played', () => {
+    const tables = computeRatings([
+      { matches: [match(['a', 'b'], ['c', 'd'], 21, 10)], absentees: ['zzz'] },
+    ])
+    expect(tables.players.find((p) => p.id === 'zzz')).toBeUndefined()
   })
 })
 

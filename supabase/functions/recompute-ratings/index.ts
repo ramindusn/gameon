@@ -126,7 +126,68 @@ Deno.serve(async (req) => {
     .eq('club_id', clubId)
   if (rErr) return json(500, { error: rErr.message })
 
-  // 3) One finished session = one rating period (ADR 0011), in chronological
+  // 3) Attendance snapshot (ADR 0011 / TASK-6.5). Absence must be historical, so
+  //    for any finished session that has no attendance yet we freeze a snapshot:
+  //    every CURRENT club player is marked present (played a court that day) or
+  //    absent. Once written it is never changed, so players added later are not
+  //    retroactively penalised for past game days.
+  const presentBySession = new Map<string, Set<string>>()
+  for (const r of (results ?? []) as ResultRow[]) {
+    let set = presentBySession.get(r.session_id)
+    if (!set) {
+      set = new Set<string>()
+      presentBySession.set(r.session_id, set)
+    }
+    for (const pid of [r.team_a1, r.team_a2, r.team_b1, r.team_b2]) {
+      if (pid) set.add(pid)
+    }
+  }
+
+  const { data: roster, error: pErr } = await db
+    .from('player_profiles')
+    .select('id')
+    .eq('club_id', clubId)
+  if (pErr) return json(500, { error: pErr.message })
+  const rosterIds = (roster ?? []).map((p) => p.id as string)
+
+  const { data: attendance, error: aErr } = await db
+    .from('session_attendance')
+    .select('session_id, player_id, present')
+    .eq('club_id', clubId)
+  if (aErr) return json(500, { error: aErr.message })
+
+  type AttendanceRow = { session_id: string; player_id: string; present: boolean }
+  const recorded = (attendance ?? []) as AttendanceRow[]
+  const sessionsWithAttendance = new Set(recorded.map((a) => a.session_id))
+
+  const newRows: (AttendanceRow & { club_id: string })[] = []
+  for (const s of sessionRows) {
+    if (sessionsWithAttendance.has(s.id)) continue
+    const present = presentBySession.get(s.id) ?? new Set<string>()
+    for (const pid of rosterIds) {
+      newRows.push({
+        session_id: s.id,
+        player_id: pid,
+        club_id: clubId,
+        present: present.has(pid),
+      })
+    }
+  }
+  if (newRows.length > 0) {
+    const { error } = await db.from('session_attendance').insert(newRows)
+    if (error) return json(500, { error: error.message })
+  }
+
+  // Absentees per session, from the (now complete) stored attendance.
+  const absenteesBySession = new Map<string, string[]>()
+  for (const a of [...recorded, ...newRows]) {
+    if (a.present) continue
+    const list = absenteesBySession.get(a.session_id)
+    if (list) list.push(a.player_id)
+    else absenteesBySession.set(a.session_id, [a.player_id])
+  }
+
+  // 4) One finished session = one rating period (ADR 0011), in chronological
   //    order. Within a period, match order does not matter (engine snapshots).
   const bySession = new Map<string, MatchRecord[]>()
   for (const r of (results ?? []) as ResultRow[]) {
@@ -138,11 +199,12 @@ Deno.serve(async (req) => {
   }
   const periods: RatingPeriod[] = sessionRows.map((s) => ({
     matches: bySession.get(s.id) ?? [],
+    absentees: absenteesBySession.get(s.id) ?? [],
   }))
 
   const tables = computeRatings(periods)
 
-  // 4) Overwrite both boards for this club (full replace keeps it deterministic
+  // 5) Overwrite both boards for this club (full replace keeps it deterministic
   //    and idempotent — matches the replay model).
   const playerRows = tables.players.map((p) => ({
     player_id: p.id,

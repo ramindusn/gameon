@@ -68,11 +68,13 @@ export function PlayerBoardList({
   players,
   nameOf,
   form,
+  inactive,
   limit,
 }: {
   players: RatedPlayer[]
   nameOf: NameOf
   form: FormMap
+  inactive?: Set<string>
   limit?: number
 }) {
   const rows = limit ? players.slice(0, limit) : players
@@ -85,8 +87,19 @@ export function PlayerBoardList({
           data-testid={`player-row-${p.playerId}`}
         >
           <Rank n={i + 1} />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
-            {nameOf(p.playerId)}
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="truncate text-sm font-medium text-fg">
+              {nameOf(p.playerId)}
+            </span>
+            {inactive?.has(p.playerId) && (
+              <span
+                className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-fg-muted"
+                title="Missed the last game day — rating is decaying"
+                data-testid="inactive-tag"
+              >
+                inactive
+              </span>
+            )}
           </span>
           <FormStrip results={form[p.playerId]} />
           <Rating rating={p.rating} rd={p.rd} />

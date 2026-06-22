@@ -584,6 +584,52 @@ export type Database = {
           },
         ]
       }
+      session_attendance: {
+        Row: {
+          club_id: string
+          player_id: string
+          present: boolean
+          recorded_at: string
+          session_id: string
+        }
+        Insert: {
+          club_id: string
+          player_id: string
+          present: boolean
+          recorded_at?: string
+          session_id: string
+        }
+        Update: {
+          club_id?: string
+          player_id?: string
+          present?: boolean
+          recorded_at?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_attendance_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_attendance_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "player_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_attendance_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "match_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_entries: {
         Row: {
           club_id: string

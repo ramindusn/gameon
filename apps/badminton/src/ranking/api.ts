@@ -179,6 +179,30 @@ export async function loadRecentForm(): Promise<FormMap> {
   return buildFormMap(rows)
 }
 
+/**
+ * Players flagged inactive on the board: those who were absent from the most
+ * recent finished game day (TASK-6.5). Their rating has already decayed; the UI
+ * adds an "inactive" tag so the drop is explained.
+ */
+export async function loadInactivePlayers(): Promise<string[]> {
+  if (isE2E()) return E2E_INACTIVE
+  const db = client()
+  const { data: latest } = await db
+    .from('match_sessions')
+    .select('id')
+    .eq('status', 'finished')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!latest) return []
+  const { data } = await db
+    .from('session_attendance')
+    .select('player_id')
+    .eq('session_id', latest.id)
+    .eq('present', false)
+  return (data ?? []).map((r) => r.player_id)
+}
+
 // ---- E2E seed -------------------------------------------------------------
 // E2E builds run with VITE_E2E=1 and no Supabase env (the client is null), so —
 // mirroring the roster's fixed 8-player club (e2e-1…e2e-8) — the boards resolve
@@ -209,3 +233,6 @@ const E2E_FORM: FormMap = {
   'e2e-7': ['L', 'L', 'L', 'W', 'L'],
   'e2e-8': ['L', 'W', 'L', 'L', 'L'],
 }
+
+// The two tail players skipped the latest game day — decayed + flagged inactive.
+const E2E_INACTIVE: string[] = ['e2e-7', 'e2e-8']

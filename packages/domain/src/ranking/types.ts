@@ -16,6 +16,12 @@ export interface MatchRecord {
 /** A rating period = all matches from one locked game day, replayed as a batch. */
 export interface RatingPeriod {
   matches: MatchRecord[]
+  /**
+   * Player ids who were on the roster but did NOT play this game day. They take
+   * an absence decay on the individual board (ADR 0011) — you must keep playing
+   * to hold your ranking. Optional; omit/empty for no decay.
+   */
+  absentees?: string[]
 }
 
 /** A player's individual rating plus how many games fed it (for provisional UI). */

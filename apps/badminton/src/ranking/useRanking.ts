@@ -1,7 +1,12 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRoster } from '../roster/useRoster'
-import { loadPairBoard, loadPlayerBoard, loadRecentForm } from './api'
+import {
+  loadInactivePlayers,
+  loadPairBoard,
+  loadPlayerBoard,
+  loadRecentForm,
+} from './api'
 
 // Leaderboard read hooks (E05 / TASK-6.4, ADR 0006: TanStack Query). The boards
 // are public, so these work for logged-out visitors on the Home/leaderboard.
@@ -19,6 +24,15 @@ export function usePairBoard() {
 /** Recent game-day form per player. */
 export function useRecentForm() {
   return useQuery({ queryKey: ['ratings', 'form'], queryFn: loadRecentForm })
+}
+
+/** Player ids flagged inactive (absent from the latest game day), as a Set. */
+export function useInactivePlayers() {
+  return useQuery({
+    queryKey: ['ratings', 'inactive'],
+    queryFn: loadInactivePlayers,
+    select: (ids) => new Set(ids),
+  })
 }
 
 /** Resolve a player id to their nickname via the (public) roster. */

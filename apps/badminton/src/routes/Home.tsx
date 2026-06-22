@@ -6,6 +6,7 @@ import { roleHome } from '../auth/roleHome'
 import { AdminLogin } from '../auth/AdminLogin'
 import { MatchmakerLogin } from '../auth/MatchmakerLogin'
 import {
+  useInactivePlayers,
   usePairBoard,
   usePlayerBoard,
   usePlayerNames,
@@ -53,6 +54,7 @@ function RankingPreview() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
   const form = useRecentForm()
+  const inactive = useInactivePlayers()
   const nameOf = usePlayerNames()
 
   return (
@@ -80,6 +82,7 @@ function RankingPreview() {
             players={players.data!}
             nameOf={nameOf}
             form={form.data ?? {}}
+            inactive={inactive.data}
             limit={PREVIEW_LIMIT}
           />
         )}

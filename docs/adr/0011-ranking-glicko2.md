@@ -79,12 +79,46 @@ documented, pragmatic extension of canonical Glicko-2 (which assumes
 `s ∈ {0, 0.5, 1}`); the math is well-defined for any `s ∈ [0,1]` and suits a
 points-based sport better than pure win/loss.
 
+### Absence decay: active play is required to hold position (TASK-6.5)
+Glicko-2's built-in idle handling only **inflates RD** (rising uncertainty), which
+leaves an inactive player's *rating* — and therefore their board position —
+untouched. The product owner requires the opposite: a player who stops attending
+should visibly **drift down** the board. We add an explicit **absence-decay**
+penalty on top of (not replacing) the engine's idle-RD inflation.
+
+Rules:
+
+- **Attendance is historical, recorded per game day.** A `session_attendance`
+  row (`session_id, player_id, present`) is **snapshotted once** by the recompute
+  Edge Function for each finished session that lacks it: `present = true` for every
+  player who appeared in that session's results, across the **club roster at
+  snapshot time**. Rows are insert-if-missing, so attendance is **frozen** —
+  players added later are never retroactively penalized for past days.
+- **−20 rating points per missed game day**, applied to each **already-rated**
+  absentee on the **individual board only** (pairs don't attend), *after* the
+  period's normal Glicko-2 update. Floor at the **1500 baseline**: decay pulls
+  established (>1500) players back toward baseline but never below it, and never
+  touches players already at or under 1500. Constants live in the pure engine
+  (`ABSENCE_DECAY=20`, `ABSENCE_FLOOR=DEFAULT_RATING`) and are unit-tested.
+- **Surfaced in the UI** as the lower rating itself plus an **"inactive" tag** on
+  players absent from the **latest finished game day** (`loadInactivePlayers` reads
+  `session_attendance.present = false` for that day). The tag explains the drop.
+
+This keeps absence penalties **deterministic and replayable** (they fall out of the
+same full-replay recompute) and distinct from idle-RD inflation, which still
+applies on top.
+
 ## Consequences
 - **Schema dependency: per-match point scores are required.** `match_results`
   currently stores only the winning **side**; that is insufficient for margin.
   E05 must add **`team_a_score` / `team_b_score`** to the match (owned by
   TASK-6.2/6.3) before ratings are meaningful. Until scores exist, a win/loss
   fallback (`s ∈ {0,1}`) is the degenerate case of the same formula.
+- **Attendance store.** A `session_attendance` board (`session_id, player_id,
+  club_id, present, recorded_at`; PK `(session_id, player_id)`) records who played
+  each finished day. Public-read (the leaderboard derives the inactive set);
+  writes are **service-role only** (the Edge Function snapshots it). Owned by
+  TASK-6.5.
 - **Two ratings stores.** A `player_ratings` board and a `pair_ratings` board
   (each: rating, rd, volatility, games, last period). Exact tables/RLS are owned
   by TASK-6.3; reads are public.

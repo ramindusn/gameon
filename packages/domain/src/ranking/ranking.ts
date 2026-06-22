@@ -14,6 +14,7 @@
 
 import {
   defaultGlicko2,
+  DEFAULT_RATING,
   updateGlicko2,
   type Glicko2,
   type Glicko2Game,
@@ -25,6 +26,15 @@ import {
   type RatingPeriod,
   type RatingTables,
 } from './types.ts'
+
+/** Rating points an absent player loses per missed game day (ADR 0011). */
+export const ABSENCE_DECAY = 20
+/**
+ * Absence never drags a player below the starting rating: it pulls established
+ * (>1500) players back toward baseline, no further, and never touches players
+ * already at/below it.
+ */
+export const ABSENCE_FLOOR = DEFAULT_RATING
 
 /** Point share for side A; a 0–0 (unplayed) match is treated as a draw. */
 export function scoreShare(scoreA: number, scoreB: number): number {
@@ -94,6 +104,7 @@ export function computeRatings(periods: RatingPeriod[]): RatingTables {
 
     applyPeriod(players, playerPeriodGames, playerGames)
     applyPeriod(pairs, pairPeriodGames, pairGames)
+    applyAbsenceDecay(players, period.absentees)
   }
 
   const playerBoard: PlayerRating[] = [...players.entries()].map(([id, g]) => ({
@@ -126,6 +137,26 @@ function applyPeriod(
     const games = periodGames.get(id) ?? []
     ratings.set(id, updateGlicko2(current, games))
     if (games.length > 0) totals.set(id, (totals.get(id) ?? 0) + games.length)
+  }
+}
+
+/**
+ * Absence decay (ADR 0011): each player who was on the roster but skipped this
+ * game day loses ABSENCE_DECAY rating points, floored at ABSENCE_FLOOR. Only
+ * already-rated players are touched (you can't decay someone who never played),
+ * and players already at/below the floor are left alone — so absence pulls
+ * established players back toward baseline but never below new players.
+ */
+function applyAbsenceDecay(
+  ratings: Map<string, Glicko2>,
+  absentees: string[] | undefined,
+): void {
+  if (!absentees) return
+  for (const id of absentees) {
+    const current = ratings.get(id)
+    if (!current || current.rating <= ABSENCE_FLOOR) continue
+    const rating = Math.max(ABSENCE_FLOOR, current.rating - ABSENCE_DECAY)
+    ratings.set(id, { ...current, rating })
   }
 }
 
