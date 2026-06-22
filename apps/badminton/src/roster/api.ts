@@ -2,7 +2,7 @@
 // (RLS allows anyone); writes are limited by RLS to admins/matchmakers of the
 // club. A plain player has user_id = null; matchmakers have a login.
 
-import { supabase } from '@gameon/supabase'
+import { supabase, isE2E } from '@gameon/supabase'
 
 export type Gender = 'male' | 'female' | 'other'
 
@@ -63,8 +63,24 @@ export async function resolveClubId(): Promise<string | null> {
   return profile?.club_id ?? null
 }
 
+// E2E seed: e2e builds run with VITE_E2E=1 (see playwright.config) and no
+// Supabase env, so the real client is null. Mirroring the auth bypass, the
+// roster resolves to a fixed, balanced 8-player club (4 male / 4 female, skills
+// 1–8, all present) — enough for the generator to draw 2 courts.
+const E2E_CLUB_ID = 'e2e-club'
+const E2E_ROSTER: Player[] = Array.from({ length: 8 }, (_, i) => ({
+  id: `e2e-${i + 1}`,
+  nickname: `E2E Player ${i + 1}`,
+  skill: i + 1,
+  gender: i % 2 === 0 ? 'male' : 'female',
+  absent: false,
+  isMatchmaker: false,
+  hasLogin: false,
+}))
+
 /** Load the roster (public read) plus the acting user's club id for writes. */
 export async function loadRoster(): Promise<RosterData> {
+  if (isE2E()) return { clubId: E2E_CLUB_ID, players: E2E_ROSTER }
   const db = client()
   const [clubId, players] = await Promise.all([
     resolveClubId(),
