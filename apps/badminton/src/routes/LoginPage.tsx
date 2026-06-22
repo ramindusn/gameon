@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, Button } from '@gameon/ui'
 import { isSupabaseConfigured } from '@gameon/supabase'
 import { useAuth } from '../auth/useAuth'
@@ -13,7 +13,10 @@ type LoginTab = 'admin' | 'matchmaker'
 export function LoginPage() {
   const { role, loading } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<LoginTab>('admin')
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState<LoginTab>(
+    params.get('as') === 'matchmaker' ? 'matchmaker' : 'admin',
+  )
 
   // Once a role resolves (after sign-in), send the user to their home.
   useEffect(() => {

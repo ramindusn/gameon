@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test'
 // bypass: the forms drive the real UI but resolve the role without Supabase.
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/login')
   // Start each test signed out.
   await page.evaluate(() => sessionStorage.clear())
   await page.reload()

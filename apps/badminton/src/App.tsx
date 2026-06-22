@@ -1,9 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { Home } from './routes/Home'
 import { LoginPage } from './routes/LoginPage'
 import { DashboardPage } from './routes/DashboardPage'
 import { MatchmakerHome } from './routes/MatchmakerHome'
 import { ProtectedRoute } from './auth/ProtectedRoute'
-import { HomeRedirect } from './auth/HomeRedirect'
 
 // E2E builds run with VITE_E2E=1; auth uses this to bypass real sign-in.
 export const e2e = import.meta.env.VITE_E2E === '1'
@@ -12,7 +12,7 @@ export function App() {
   return (
     <div data-testid="app-root" data-e2e={e2e ? '1' : undefined}>
       <Routes>
-        <Route path="/" element={<HomeRedirect />} />
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginPage />} />
 
         <Route element={<ProtectedRoute allow={['admin']} />}>
