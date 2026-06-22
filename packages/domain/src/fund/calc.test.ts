@@ -11,8 +11,11 @@ import {
   totalExpenses,
   totalPurchases,
   totalShuttlesInStock,
+  totalShuttlesUsed,
+  totalSpent,
   totalUsageIncome,
   usageForDate,
+  usageHistory,
 } from './calc'
 import { makeMember, makeProduct, makePurchase, makeState } from './fixtures'
 
@@ -63,6 +66,16 @@ describe('totalPurchases / totalExpenses', () => {
       ],
     })
     expect(totalExpenses(state)).toBe(20)
+  })
+})
+
+describe('totalSpent', () => {
+  it('adds purchases and expenses together', () => {
+    const state = makeState({
+      purchases: [makePurchase({ barrels: 10, pricePerBarrel: 24 })], // 240
+      expenses: [{ id: 'e1', description: 'boxes', amount: 10, date: '2026-01-01' }],
+    })
+    expect(totalSpent(state)).toBe(250)
   })
 })
 
@@ -117,6 +130,31 @@ describe('isLowStock', () => {
 
   it('does not flag a well-stocked product', () => {
     expect(isLowStock(makeProduct({ barrels: 5, shuttlesPerBarrel: 12 }))).toBe(false)
+  })
+
+  it('honours a custom threshold', () => {
+    const product = makeProduct({ barrels: 5, shuttlesPerBarrel: 12 }) // 60 shuttles
+    expect(isLowStock(product, 100)).toBe(true)
+    expect(isLowStock(product, 50)).toBe(false)
+  })
+})
+
+describe('totalShuttlesUsed', () => {
+  it('sums shuttles across every game day', () => {
+    const state = makeState({
+      usage: [
+        {
+          id: 'u1',
+          date: '2026-01-02',
+          items: [
+            { productId: 'p1', shuttlesUsed: 4 },
+            { productId: 'p2', shuttlesUsed: 2 },
+          ],
+        },
+        { id: 'u2', date: '2026-01-03', items: [{ productId: 'p1', shuttlesUsed: 3 }] },
+      ],
+    })
+    expect(totalShuttlesUsed(state)).toBe(9)
   })
 })
 
@@ -219,5 +257,38 @@ describe('usageForDate', () => {
     const totals = usageForDate(state, '2026-01-02')
     expect(totals.totalCost).toBe(8) // 4 shuttles * 2
     expect(totals.perProduct[0].shuttlesUsed).toBe(4)
+  })
+
+  it('aggregates every day when no date is given', () => {
+    const product = makeProduct({ id: 'p1', shuttlesPerBarrel: 12 })
+    const state = makeState({
+      products: [product],
+      purchases: [makePurchase({ productId: 'p1', barrels: 1, pricePerBarrel: 24 })],
+      usage: [
+        { id: 'u1', date: '2026-01-02', items: [{ productId: 'p1', shuttlesUsed: 4 }] },
+        { id: 'u2', date: '2026-01-03', items: [{ productId: 'p1', shuttlesUsed: 2 }] },
+      ],
+    })
+    const totals = usageForDate(state)
+    expect(totals.perProduct[0].shuttlesUsed).toBe(6)
+    expect(totals.totalCost).toBe(12) // 6 * 2
+  })
+})
+
+describe('usageHistory', () => {
+  it('lists game days newest-first with per-day cost and parts', () => {
+    const product = makeProduct({ id: 'p1', brand: 'Yonex', model: 'AS-30', shuttlesPerBarrel: 12 })
+    const state = makeState({
+      products: [product],
+      purchases: [makePurchase({ productId: 'p1', barrels: 1, pricePerBarrel: 24 })],
+      usage: [
+        { id: 'u1', date: '2026-01-02', items: [{ productId: 'p1', shuttlesUsed: 4 }] },
+        { id: 'u2', date: '2026-01-05', items: [{ productId: 'p1', shuttlesUsed: 2 }] },
+      ],
+    })
+    const history = usageHistory(state)
+    expect(history.map((d) => d.id)).toEqual(['u2', 'u1']) // newest first
+    expect(history[0]).toMatchObject({ totalShuttles: 2, totalCost: 4 })
+    expect(history[1].parts).toEqual([{ name: 'Yonex AS-30', shuttlesUsed: 4 }])
   })
 })
