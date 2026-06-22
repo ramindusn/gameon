@@ -1,47 +1,48 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { App } from '../App'
 import { AuthProvider } from './useAuth'
 
-// Drives the real login forms through the VITE_E2E bypass: sign-in records a
-// role in sessionStorage and the app resolves it — no Supabase round-trip.
+// Drives the real login forms + routing through the VITE_E2E bypass: sign-in
+// records a role in sessionStorage, the app resolves it and routes accordingly.
 function renderApp() {
   return render(
-    <AuthProvider>
-      <App />
-    </AuthProvider>,
+    <MemoryRouter initialEntries={['/login']}>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </MemoryRouter>,
   )
 }
 
-describe('login flows (E2E bypass)', () => {
+describe('login + routing (E2E bypass)', () => {
   beforeEach(() => vi.stubEnv('VITE_E2E', '1'))
   afterEach(() => {
     vi.unstubAllEnvs()
     sessionStorage.clear()
   })
 
-  it('admin can request a magic link and lands signed in as admin', async () => {
+  it('admin sign-in routes to the dashboard', async () => {
     renderApp()
     fireEvent.change(await screen.findByTestId('admin-email'), {
       target: { value: 'admin@badmintonduo.club' },
     })
     fireEvent.click(screen.getByTestId('admin-magic-link-submit'))
 
-    await waitFor(() =>
-      expect(screen.getByTestId('auth-role')).toHaveTextContent('Role: admin'),
-    )
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument()
+    expect(screen.getByTestId('auth-role')).toHaveTextContent('Role: admin')
   })
 
-  it('matchmaker can log in with username + password', async () => {
+  it('matchmaker sign-in routes to the matchmaker home', async () => {
     renderApp()
     fireEvent.click(await screen.findByTestId('tab-matchmaker'))
     fireEvent.change(screen.getByTestId('mm-username'), { target: { value: 'rohan' } })
     fireEvent.change(screen.getByTestId('mm-password'), { target: { value: 'secret' } })
     fireEvent.click(screen.getByTestId('mm-login-submit'))
 
-    await waitFor(() =>
-      expect(screen.getByTestId('auth-role')).toHaveTextContent('Role: matchmaker'),
-    )
+    expect(await screen.findByTestId('matchmaker-home')).toBeInTheDocument()
+    expect(screen.getByTestId('auth-role')).toHaveTextContent('Role: matchmaker')
   })
 
   it('sign out returns to the login chooser', async () => {
@@ -50,9 +51,9 @@ describe('login flows (E2E bypass)', () => {
       target: { value: 'admin@badmintonduo.club' },
     })
     fireEvent.click(screen.getByTestId('admin-magic-link-submit'))
-    await waitFor(() => expect(screen.getByTestId('sign-out')).toBeInTheDocument())
+    await screen.findByTestId('sign-out')
 
     fireEvent.click(screen.getByTestId('sign-out'))
-    await waitFor(() => expect(screen.getByTestId('tab-admin')).toBeInTheDocument())
+    expect(await screen.findByTestId('tab-admin')).toBeInTheDocument()
   })
 })

@@ -1,18 +1,19 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { App } from './App'
 import { AuthProvider } from './auth/useAuth'
 
 describe('App', () => {
-  it('renders the app shell within the auth provider', async () => {
+  it('shows the login chooser when signed out', async () => {
     render(
-      <AuthProvider>
-        <App />
-      </AuthProvider>,
+      <MemoryRouter initialEntries={['/login']}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </MemoryRouter>,
     )
-    expect(screen.getByTestId('app-root')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
-    // Signed out: the login chooser appears once the role resolves.
     expect(await screen.findByTestId('tab-admin')).toBeInTheDocument()
+    expect(screen.getByTestId('tab-matchmaker')).toBeInTheDocument()
   })
 })
