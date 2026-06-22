@@ -91,8 +91,10 @@ Rules:
 - **Attendance is historical, recorded per game day.** A `session_attendance`
   row (`session_id, player_id, present`) is **snapshotted once** by the recompute
   Edge Function for each finished session that lacks it: `present = true` for every
-  player who appeared in that session's results, across the **club roster at
-  snapshot time**. Rows are insert-if-missing, so attendance is **frozen** —
+  player who appeared in a **played (scored) match** of that session, across the
+  **club roster at snapshot time**. A game day can only be finished once every
+  match is scored or deleted (TASK-10.5), so unplayed/deleted matches never make
+  their players present. Rows are insert-if-missing, so attendance is **frozen** —
   players added later are never retroactively penalized for past days.
 - **−20 rating points per missed game day**, applied to each **already-rated**
   absentee on the **individual board only** (pairs don't attend), *after* the

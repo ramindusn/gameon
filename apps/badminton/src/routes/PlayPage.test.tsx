@@ -104,8 +104,8 @@ describe('PlayPage', () => {
     renderPage()
     expect(screen.getByTestId('play')).toBeInTheDocument()
     expect(screen.getByText('Round 1')).toBeInTheDocument()
-    // Names resolved from the roster.
-    expect(screen.getByText(/Player 1 & Player 2/)).toBeInTheDocument()
+    // Names resolved from the roster (shown on the court and in the outstanding list).
+    expect(screen.getAllByText(/Player 1 & Player 2/).length).toBeGreaterThan(0)
     // Court 2 already has team A as winner.
     expect(screen.getByTestId('session-status')).toHaveTextContent('Live')
   })
@@ -127,10 +127,25 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('score-error-r1')).toBeInTheDocument()
   })
 
-  it('finishes the session', () => {
+  it('blocks finishing while a match is unscored and lists the outstanding match', () => {
+    // r1 has no winner (unscored), r2 is scored → one match outstanding.
     renderPage()
+    expect(screen.getByTestId('finish-session')).toBeDisabled()
+    expect(screen.getByTestId('outstanding-matches')).toBeInTheDocument()
+    expect(screen.getByTestId('outstanding-r1')).toBeInTheDocument()
+    // The scored match is not listed.
+    expect(screen.queryByTestId('outstanding-r2')).toBeNull()
+  })
+
+  it('allows finishing once every match is scored', () => {
+    // Temporarily resolve r1 so nothing is outstanding.
+    sessionData.results[0].winner = 'a'
+    renderPage()
+    expect(screen.queryByTestId('outstanding-matches')).toBeNull()
+    expect(screen.getByTestId('finish-session')).not.toBeDisabled()
     fireEvent.click(screen.getByTestId('finish-session'))
     expect(setStatus).toHaveBeenCalledWith('finished')
+    sessionData.results[0].winner = null
   })
 
   it('shows the game-day date and a two-step delete confirm', () => {

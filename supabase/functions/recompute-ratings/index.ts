@@ -44,6 +44,15 @@ interface ResultRow {
 }
 
 /**
+ * Whether a match was actually played (resolved): it has a derived winner or a
+ * pair of point scores. Drives attendance — only players in a scored match are
+ * "present" that day (TASK-10.5 / AC#4).
+ */
+function isScored(r: ResultRow): boolean {
+  return r.winner != null || (r.score_a != null && r.score_b != null)
+}
+
+/**
  * Build a MatchRecord from a result row, or null if it can't be rated (missing a
  * player, or no outcome at all). Scores default from the winner when point
  * scores were not entered (degenerate 1/0 win-share — ADR 0011).
@@ -128,11 +137,14 @@ Deno.serve(async (req) => {
 
   // 3) Attendance snapshot (ADR 0011 / TASK-6.5). Absence must be historical, so
   //    for any finished session that has no attendance yet we freeze a snapshot:
-  //    every CURRENT club player is marked present (played a court that day) or
-  //    absent. Once written it is never changed, so players added later are not
-  //    retroactively penalised for past game days.
+  //    every CURRENT club player is marked present (appeared in a PLAYED — i.e.
+  //    scored — match that day) or absent. Once written it is never changed, so
+  //    players added later are not retroactively penalised for past game days.
   const presentBySession = new Map<string, Set<string>>()
   for (const r of (results ?? []) as ResultRow[]) {
+    // Only a scored (resolved) match counts as having been played — an unscored
+    // or deleted match does not make its players "present" (TASK-10.5 / AC#4).
+    if (!isScored(r)) continue
     let set = presentBySession.get(r.session_id)
     if (!set) {
       set = new Set<string>()

@@ -63,6 +63,13 @@ export function PlayPage() {
 
   const rounds = useMemo(() => groupByRound(data?.results ?? []), [data])
 
+  // A game day can only be finished once every match is resolved (scored) or
+  // deleted. An unscored match has no derived winner (TASK-10.5 / AC#1).
+  const outstanding = useMemo(
+    () => (data?.results ?? []).filter((r) => r.winner === null),
+    [data],
+  )
+
   return (
     <AppShell title="Play">
       <div data-testid="play">
@@ -156,7 +163,7 @@ export function PlayPage() {
                       <Button
                         variant="secondary"
                         onClick={() => setStatus.mutate('finished')}
-                        disabled={setStatus.isPending}
+                        disabled={setStatus.isPending || outstanding.length > 0}
                         data-testid="finish-session"
                       >
                         Finish game day
@@ -210,6 +217,27 @@ export function PlayPage() {
                 </div>
               </div>
             </Card>
+
+            {data.session.status === 'live' && outstanding.length > 0 && (
+              <div
+                className="mt-4 rounded-lg border border-amber-300/60 bg-amber-50/60 px-4 py-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10"
+                data-testid="outstanding-matches"
+              >
+                <p className="font-medium text-fg">
+                  Score or delete every match to finish ({outstanding.length}{' '}
+                  outstanding)
+                </p>
+                <ul className="mt-1 list-disc pl-5 text-fg-muted">
+                  {outstanding.map((r) => (
+                    <li key={r.id} data-testid={`outstanding-${r.id}`}>
+                      Round {r.round} · Court {r.court} — {nameOf(r.teamA[0])} &amp;{' '}
+                      {nameOf(r.teamA[1])} vs {nameOf(r.teamB[0])} &amp;{' '}
+                      {nameOf(r.teamB[1])}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="mt-6 space-y-4">
               {rounds.map(({ round, results }) => (

@@ -41,7 +41,20 @@ test('matchmaker starts a session, scores a match, and finds it in history', asy
   await court.locator('[data-testid^="save-score-"]').click()
   await expect(page.getByText(/1 \/ 2 recorded/)).toBeVisible()
 
+  // Finishing is blocked while the second court is still unscored.
+  await expect(page.getByTestId('finish-session')).toBeDisabled()
+  await expect(page.getByTestId('outstanding-matches')).toBeVisible()
+
+  // Score the second court too → nothing outstanding.
+  const court2 = page.locator('[data-testid^="court-"]').nth(1)
+  await court2.locator('[data-testid^="score-"][data-testid$="-a"]').fill('21')
+  await court2.locator('[data-testid^="score-"][data-testid$="-b"]').fill('19')
+  await court2.locator('[data-testid^="save-score-"]').click()
+  await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
+  await expect(page.getByTestId('outstanding-matches')).toHaveCount(0)
+
   // Finish the session.
+  await expect(page.getByTestId('finish-session')).toBeEnabled()
   await page.getByTestId('finish-session').click()
   await expect(page.getByTestId('session-status')).toHaveText('Finished')
 
@@ -56,7 +69,7 @@ test('matchmaker starts a session, scores a match, and finds it in history', asy
   // Reopening the session from history shows the recorded score.
   await link.click()
   await expect(page).toHaveURL(new RegExp(`/play/${sessionId}$`))
-  await expect(page.getByText(/1 \/ 2 recorded/)).toBeVisible()
+  await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
 })
 
 test('matchmaker sets a game-day date, edits it, then deletes the game day', async ({
@@ -88,13 +101,16 @@ test('matchmaker sets a game-day date, edits it, then deletes the game day', asy
   await expect(page.getByTestId('sessions')).toBeVisible()
 })
 
-test('matchmaker edits a line-up, adds a custom match, and deletes a match', async ({
+test('matchmaker edits a line-up, adds a custom match, scores all, and finishes', async ({
   page,
 }) => {
   await page.goto('/generate')
   await page.getByTestId('rounds-input').fill('1')
   await page.getByTestId('generate-button').click()
   await expect(page.getByTestId('draw-result')).toBeVisible()
+
+  // Create the game day with an explicit date/time.
+  await page.getByTestId('game-day-datetime').fill('2026-05-10T18:00')
   await page.getByTestId('create-game-day').click()
   await expect(page).toHaveURL(/\/play\/[^/]+$/)
   await expect(page.getByText(/0 \/ 2 recorded/)).toBeVisible()
@@ -121,11 +137,31 @@ test('matchmaker edits a line-up, adds a custom match, and deletes a match', asy
   await expect(page.locator('[data-testid^="court-"]')).toHaveCount(3)
   await expect(page.getByText(/0 \/ 3 recorded/)).toBeVisible()
 
-  // Delete a match (two-step) → back to 2 courts.
+  // Delete the custom match (two-step) → back to 2 courts.
   const lastCourt = page.locator('[data-testid^="court-"]').last()
   await lastCourt.locator('[data-testid^="delete-match-"]').click()
   await lastCourt.locator('[data-testid^="confirm-delete-match-"]').click()
   await expect(page.locator('[data-testid^="court-"]')).toHaveCount(2)
+
+  // Finishing is blocked until every remaining match is scored.
+  await expect(page.getByTestId('finish-session')).toBeDisabled()
+  await expect(page.getByTestId('outstanding-matches')).toBeVisible()
+
+  // Score both courts.
+  const courts = page.locator('[data-testid^="court-"]')
+  for (let i = 0; i < 2; i++) {
+    const c = courts.nth(i)
+    await c.locator('[data-testid^="score-"][data-testid$="-a"]').fill('21')
+    await c.locator('[data-testid^="score-"][data-testid$="-b"]').fill(String(15 + i))
+    await c.locator('[data-testid^="save-score-"]').click()
+  }
+  await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
+  await expect(page.getByTestId('outstanding-matches')).toHaveCount(0)
+
+  // Now finishing succeeds (which, in production, triggers the ranking recompute).
+  await expect(page.getByTestId('finish-session')).toBeEnabled()
+  await page.getByTestId('finish-session').click()
+  await expect(page.getByTestId('session-status')).toHaveText('Finished')
 })
 
 test('signed-out visitor cannot reach /play or a session', async ({ page }) => {
