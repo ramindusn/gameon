@@ -5,6 +5,17 @@ import { useAuth } from '../auth/useAuth'
 import { roleHome } from '../auth/roleHome'
 import { AdminLogin } from '../auth/AdminLogin'
 import { MatchmakerLogin } from '../auth/MatchmakerLogin'
+import {
+  usePairBoard,
+  usePlayerBoard,
+  usePlayerNames,
+  useRecentForm,
+} from '../ranking/useRanking'
+import {
+  BoardState,
+  PairBoardList,
+  PlayerBoardList,
+} from '../ranking/Leaderboard'
 
 // Public, logged-out home (TASK-9.1). Top bar with the two login buttons, hero,
 // then Scheduled matches → Played matches → Leaderboard. Match/ranking data
@@ -27,21 +38,65 @@ export function Home() {
         <Section title="Recent Results" icon="🏁">
           <EmptyState>No matches have been played yet.</EmptyState>
         </Section>
-        <div className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card title="Doubles Ranking" icon="👥">
-            <EmptyState>
-              The doubles leaderboard appears once matches are played.
-            </EmptyState>
-          </Card>
-          <Card title="Individual Ranking" icon="🏅">
-            <EmptyState>
-              The singles leaderboard appears once matches are played.
-            </EmptyState>
-          </Card>
-        </div>
+        <RankingPreview />
       </main>
       <Footer />
     </div>
+  )
+}
+
+// Top-of-board previews for the public home; "View all" opens the full
+// /leaderboard. Reuses the same board components as the leaderboard page.
+const PREVIEW_LIMIT = 5
+
+function RankingPreview() {
+  const players = usePlayerBoard()
+  const pairs = usePairBoard()
+  const form = useRecentForm()
+  const nameOf = usePlayerNames()
+
+  return (
+    <div className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <Card title="Doubles Ranking" icon="👥" action={<ViewAll />}>
+        <BoardState
+          isLoading={pairs.isLoading}
+          isError={pairs.isError}
+          count={pairs.data?.length ?? 0}
+          noun="doubles leaderboard"
+        />
+        {(pairs.data?.length ?? 0) > 0 && (
+          <PairBoardList pairs={pairs.data!} nameOf={nameOf} limit={PREVIEW_LIMIT} />
+        )}
+      </Card>
+      <Card title="Individual Ranking" icon="🏅" action={<ViewAll />}>
+        <BoardState
+          isLoading={players.isLoading}
+          isError={players.isError}
+          count={players.data?.length ?? 0}
+          noun="individual leaderboard"
+        />
+        {(players.data?.length ?? 0) > 0 && (
+          <PlayerBoardList
+            players={players.data!}
+            nameOf={nameOf}
+            form={form.data ?? {}}
+            limit={PREVIEW_LIMIT}
+          />
+        )}
+      </Card>
+    </div>
+  )
+}
+
+function ViewAll() {
+  return (
+    <Link
+      to="/leaderboard"
+      className="text-sm font-medium text-accent-strong hover:underline"
+      data-testid="view-all-leaderboard"
+    >
+      View all
+    </Link>
   )
 }
 
@@ -69,14 +124,24 @@ function PublicNav() {
             BadmintonDuo
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
-            {links.map((l) => (
-              <span
-                key={l}
-                className="cursor-default rounded-lg px-3 py-1.5 text-sm font-medium text-fg-muted"
-              >
-                {l}
-              </span>
-            ))}
+            {links.map((l) =>
+              l === 'Leaderboards' ? (
+                <Link
+                  key={l}
+                  to="/leaderboard"
+                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-fg-muted hover:text-fg"
+                >
+                  {l}
+                </Link>
+              ) : (
+                <span
+                  key={l}
+                  className="cursor-default rounded-lg px-3 py-1.5 text-sm font-medium text-fg-muted"
+                >
+                  {l}
+                </span>
+              ),
+            )}
           </nav>
         </div>
 

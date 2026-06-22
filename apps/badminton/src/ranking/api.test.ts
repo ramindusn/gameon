@@ -1,0 +1,99 @@
+import { describe, expect, it } from 'vitest'
+import {
+  buildFormMap,
+  mapPairRatingRow,
+  mapPlayerRatingRow,
+  type FormResultRow,
+} from './api'
+
+describe('mapPlayerRatingRow', () => {
+  it('maps a player_ratings row to camelCase', () => {
+    expect(
+      mapPlayerRatingRow({ player_id: 'p1', rating: 1532.4, rd: 80, games: 7 }),
+    ).toEqual({ playerId: 'p1', rating: 1532.4, rd: 80, games: 7 })
+  })
+})
+
+describe('mapPairRatingRow', () => {
+  it('maps a pair_ratings row to camelCase', () => {
+    expect(
+      mapPairRatingRow({
+        player1_id: 'p1',
+        player2_id: 'p2',
+        rating: 1600,
+        rd: 60,
+        games: 4,
+      }),
+    ).toEqual({ player1Id: 'p1', player2Id: 'p2', rating: 1600, rd: 60, games: 4 })
+  })
+})
+
+describe('buildFormMap', () => {
+  const row = (
+    sessionId: string,
+    createdAt: string,
+    winner: 'a' | 'b',
+    a: [string, string],
+    b: [string, string],
+  ): FormResultRow => ({ sessionId, createdAt, teamA: a, teamB: b, winner })
+
+  it('records a win for the winning side and a loss for the other', () => {
+    const form = buildFormMap([
+      row('s1', '2026-06-20T10:00:00Z', 'a', ['p1', 'p2'], ['p3', 'p4']),
+    ])
+    expect(form.p1).toEqual(['W'])
+    expect(form.p2).toEqual(['W'])
+    expect(form.p3).toEqual(['L'])
+    expect(form.p4).toEqual(['L'])
+  })
+
+  it('aggregates a game day: more wins than losses is a W', () => {
+    const form = buildFormMap([
+      row('s1', '2026-06-20T10:00:00Z', 'a', ['p1', 'p2'], ['p3', 'p4']),
+      row('s1', '2026-06-20T11:00:00Z', 'a', ['p1', 'p9'], ['p5', 'p6']),
+      row('s1', '2026-06-20T12:00:00Z', 'b', ['p1', 'p7'], ['p8', 'p9']),
+    ])
+    // p1: 2 wins, 1 loss across one game day -> single 'W'
+    expect(form.p1).toEqual(['W'])
+  })
+
+  it('marks an even game day (equal wins/losses) as a draw', () => {
+    const form = buildFormMap([
+      row('s1', '2026-06-20T10:00:00Z', 'a', ['p1', 'p2'], ['p3', 'p4']),
+      row('s1', '2026-06-20T11:00:00Z', 'b', ['p1', 'p5'], ['p6', 'p7']),
+    ])
+    expect(form.p1).toEqual(['D'])
+  })
+
+  it('orders days newest-first and caps at the limit', () => {
+    const rows: FormResultRow[] = []
+    for (let d = 1; d <= 12; d++) {
+      const day = String(d).padStart(2, '0')
+      // p1 wins every odd day, loses every even day; each day is its own session.
+      const winner = d % 2 === 1 ? 'a' : 'b'
+      rows.push(
+        row(`s${d}`, `2026-06-${day}T10:00:00Z`, winner, ['p1', 'p2'], ['p3', 'p4']),
+      )
+    }
+    const form = buildFormMap(rows, 10)
+    expect(form.p1).toHaveLength(10)
+    // newest day is d=12 (even -> loss for p1)
+    expect(form.p1[0]).toBe('L')
+    // next is d=11 (odd -> win)
+    expect(form.p1[1]).toBe('W')
+  })
+
+  it('ignores null player slots', () => {
+    const form = buildFormMap([
+      {
+        sessionId: 's1',
+        createdAt: '2026-06-20T10:00:00Z',
+        teamA: ['p1', null],
+        teamB: ['p3', 'p4'],
+        winner: 'a',
+      },
+    ])
+    expect(form.p1).toEqual(['W'])
+    expect(Object.keys(form)).not.toContain('null')
+  })
+})

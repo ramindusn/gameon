@@ -8,6 +8,7 @@ import { PlayPage } from './routes/PlayPage'
 import { SessionsPage } from './routes/SessionsPage'
 import { PlayersPage } from './routes/PlayersPage'
 import { PlayerProfilePage } from './routes/PlayerProfilePage'
+import { LeaderboardPage } from './routes/LeaderboardPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 
 // E2E builds run with VITE_E2E=1; auth uses this to bypass real sign-in.
@@ -19,6 +20,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/players/:id" element={<PlayerProfilePage />} />
 
         <Route element={<ProtectedRoute allow={['admin']} />}>
