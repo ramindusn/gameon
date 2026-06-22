@@ -114,6 +114,7 @@ export type Database = {
           amount: number
           club_id: string
           id: string
+          logged_by: string | null
           member_id: string
           occurred_at: string
         }
@@ -121,6 +122,7 @@ export type Database = {
           amount: number
           club_id: string
           id?: string
+          logged_by?: string | null
           member_id: string
           occurred_at?: string
         }
@@ -128,6 +130,7 @@ export type Database = {
           amount?: number
           club_id?: string
           id?: string
+          logged_by?: string | null
           member_id?: string
           occurred_at?: string
         }
@@ -154,6 +157,7 @@ export type Database = {
           club_id: string
           description: string
           id: string
+          logged_by: string | null
           occurred_at: string
         }
         Insert: {
@@ -161,6 +165,7 @@ export type Database = {
           club_id: string
           description: string
           id?: string
+          logged_by?: string | null
           occurred_at?: string
         }
         Update: {
@@ -168,6 +173,7 @@ export type Database = {
           club_id?: string
           description?: string
           id?: string
+          logged_by?: string | null
           occurred_at?: string
         }
         Relationships: [
@@ -299,6 +305,7 @@ export type Database = {
           barrels: number
           club_id: string
           id: string
+          logged_by: string | null
           note: string | null
           occurred_at: string
           price_per_barrel: number
@@ -308,6 +315,7 @@ export type Database = {
           barrels: number
           club_id: string
           id?: string
+          logged_by?: string | null
           note?: string | null
           occurred_at?: string
           price_per_barrel: number
@@ -317,6 +325,7 @@ export type Database = {
           barrels?: number
           club_id?: string
           id?: string
+          logged_by?: string | null
           note?: string | null
           occurred_at?: string
           price_per_barrel?: number
@@ -343,16 +352,19 @@ export type Database = {
         Row: {
           club_id: string
           id: string
+          logged_by: string | null
           occurred_at: string
         }
         Insert: {
           club_id: string
           id?: string
+          logged_by?: string | null
           occurred_at?: string
         }
         Update: {
           club_id?: string
           id?: string
+          logged_by?: string | null
           occurred_at?: string
         }
         Relationships: [

@@ -15,6 +15,7 @@ export interface NewProductInput {
   barrels: number
   note?: string
   when?: string
+  loggedBy?: string
 }
 
 /** Editable fields of a product (descriptive + manual stock counts, no pricing). */
@@ -49,6 +50,7 @@ export function addProduct(s: FundState, input: NewProductInput): FundState {
     pricePerBarrel: input.pricePerBarrel,
     date: input.when || now(),
     note: input.note?.trim() || 'New product stock',
+    loggedBy: input.loggedBy,
   }
   return {
     ...s,
@@ -111,6 +113,7 @@ export function recordUsage(
   s: FundState,
   date: string,
   items: { productId: string; shuttlesUsed: number }[],
+  loggedBy?: string,
 ): FundState {
   const used = items.filter((i) => i.shuttlesUsed > 0)
   if (used.length === 0) return s
@@ -124,7 +127,11 @@ export function recordUsage(
       looseShuttles: remaining % p.shuttlesPerBarrel,
     }
   })
-  return { ...s, products, usage: [...s.usage, { id: uid(), date, items: used }] }
+  return {
+    ...s,
+    products,
+    usage: [...s.usage, { id: uid(), date, items: used, loggedBy }],
+  }
 }
 
 export function addMember(
@@ -132,6 +139,7 @@ export function addMember(
   name: string,
   initialCash: number,
   when?: string,
+  loggedBy?: string,
 ): FundState {
   return {
     ...s,
@@ -142,7 +150,7 @@ export function addMember(
         name: name.trim(),
         contributions:
           initialCash > 0
-            ? [{ id: uid(), amount: initialCash, date: when || now() }]
+            ? [{ id: uid(), amount: initialCash, date: when || now(), loggedBy }]
             : [],
       },
     ],
@@ -154,6 +162,7 @@ export function addCash(
   memberId: string,
   amount: number,
   when?: string,
+  loggedBy?: string,
 ): FundState {
   if (amount <= 0) return s
   return {
@@ -164,7 +173,7 @@ export function addCash(
             ...m,
             contributions: [
               ...m.contributions,
-              { id: uid(), amount, date: when || now() },
+              { id: uid(), amount, date: when || now(), loggedBy },
             ],
           }
         : m,
@@ -177,13 +186,20 @@ export function addExpense(
   description: string,
   amount: number,
   when?: string,
+  loggedBy?: string,
 ): FundState {
   if (amount <= 0) return s
   return {
     ...s,
     expenses: [
       ...s.expenses,
-      { id: uid(), description: description.trim(), amount, date: when || now() },
+      {
+        id: uid(),
+        description: description.trim(),
+        amount,
+        date: when || now(),
+        loggedBy,
+      },
     ],
   }
 }

@@ -19,6 +19,7 @@ function rowsFromState(state: FundState, clubId: string) {
       member_id: m.id,
       amount: c.amount,
       occurred_at: toDb(c.date),
+      logged_by: c.loggedBy ?? null,
     })),
   )
   const products = state.products.map((p) => ({
@@ -38,11 +39,13 @@ function rowsFromState(state: FundState, clubId: string) {
     price_per_barrel: p.pricePerBarrel,
     occurred_at: toDb(p.date),
     note: p.note ?? null,
+    logged_by: p.loggedBy ?? null,
   }))
   const usageEntries = state.usage.map((u) => ({
     id: u.id,
     club_id: clubId,
     occurred_at: toDb(u.date),
+    logged_by: u.loggedBy ?? null,
   }))
   const usageItems = state.usage.flatMap((u) =>
     u.items.map((i) => ({
@@ -58,6 +61,7 @@ function rowsFromState(state: FundState, clubId: string) {
     description: e.description,
     amount: e.amount,
     occurred_at: toDb(e.date),
+    logged_by: e.loggedBy ?? null,
   }))
   return {
     members,

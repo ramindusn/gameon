@@ -31,6 +31,7 @@ export function useFund() {
   const query = useQuery({ queryKey: FUND_KEY, queryFn: loadFund })
   const data = query.data ?? null
   const cloudBacked = isSupabaseConfigured
+  const loggedBy = data?.loggerLabel
 
   async function apply(mutate: (s: FundState) => FundState) {
     const current = qc.getQueryData<FundData | null>(FUND_KEY) ?? data
@@ -38,7 +39,9 @@ export function useFund() {
     const clubId = current?.clubId
     const next = mutate(baseline)
 
-    qc.setQueryData<FundData | null>(FUND_KEY, (prev) => (prev ? { ...prev, state: next } : prev))
+    qc.setQueryData<FundData | null>(FUND_KEY, (prev) =>
+      prev ? { ...prev, state: next } : prev,
+    )
     if (clubId && cloudBacked) {
       try {
         await syncState(clubId, baseline, next)
@@ -55,21 +58,23 @@ export function useFund() {
     cloudBacked,
     isLoading: query.isLoading,
     isError: query.isError,
-    // actions (mirror the prototype's AppContext API)
-    addProduct: (input: NewProductInput) => apply((s) => rAddProduct(s, input)),
+    // actions (mirror the prototype's AppContext API). The signed-in admin's
+    // label is stamped onto each new transaction automatically.
+    addProduct: (input: NewProductInput) =>
+      apply((s) => rAddProduct(s, { ...input, loggedBy })),
     updateProduct: (id: string, details: ProductDetails) =>
       apply((s) => rUpdateProduct(s, id, details)),
     deleteProduct: (id: string) => apply((s) => rDeleteProduct(s, id)),
     updateBatchPrice: (id: string, price: number) =>
       apply((s) => rUpdateBatchPrice(s, id, price)),
     recordUsage: (date: string, items: { productId: string; shuttlesUsed: number }[]) =>
-      apply((s) => rRecordUsage(s, date, items)),
+      apply((s) => rRecordUsage(s, date, items, loggedBy)),
     addMember: (name: string, cash: number, when?: string) =>
-      apply((s) => rAddMember(s, name, cash, when)),
+      apply((s) => rAddMember(s, name, cash, when, loggedBy)),
     addCash: (memberId: string, amount: number, when?: string) =>
-      apply((s) => rAddCash(s, memberId, amount, when)),
+      apply((s) => rAddCash(s, memberId, amount, when, loggedBy)),
     addExpense: (description: string, amount: number, when?: string) =>
-      apply((s) => rAddExpense(s, description, amount, when)),
+      apply((s) => rAddExpense(s, description, amount, when, loggedBy)),
     deleteTransaction: (ref: TxRef) => apply((s) => rDeleteTransaction(s, ref)),
   }
 }

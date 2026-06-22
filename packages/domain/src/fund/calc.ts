@@ -140,6 +140,7 @@ export interface UsageDay {
   totalShuttles: number
   totalCost: number
   parts: { name: string; shuttlesUsed: number }[]
+  loggedBy?: string
 }
 
 /**
@@ -164,7 +165,14 @@ export function usageHistory(state: FundState): UsageDay[] {
           })
         }
       }
-      return { id: entry.id, date: entry.date, totalShuttles, totalCost, parts }
+      return {
+        id: entry.id,
+        date: entry.date,
+        totalShuttles,
+        totalCost,
+        parts,
+        loggedBy: entry.loggedBy,
+      }
     })
     .sort((a, b) => b.date.localeCompare(a.date))
 }

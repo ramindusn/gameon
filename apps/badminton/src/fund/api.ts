@@ -8,6 +8,8 @@ import { supabase } from '@gameon/supabase'
 export interface FundData {
   clubId: string
   state: FundState
+  /** Identity of the signed-in admin, stamped onto new transactions. */
+  loggerLabel?: string
 }
 
 function client() {
@@ -25,6 +27,11 @@ export async function loadFund(): Promise<FundData | null> {
   const { data: admin } = await db.from('admins').select('club_id').limit(1).maybeSingle()
   if (!admin) return null
   const clubId = admin.club_id
+
+  const {
+    data: { user },
+  } = await db.auth.getUser()
+  const loggerLabel = user?.email ?? undefined
 
   const [
     members,
@@ -65,6 +72,7 @@ export async function loadFund(): Promise<FundData | null> {
         id: c.id,
         amount: Number(c.amount),
         date: fromDb(c.occurred_at),
+        loggedBy: c.logged_by ?? undefined,
       })),
     })),
     products: (products.data ?? []).map((p) => ({
@@ -82,10 +90,12 @@ export async function loadFund(): Promise<FundData | null> {
       pricePerBarrel: Number(p.price_per_barrel),
       date: fromDb(p.occurred_at),
       note: p.note ?? undefined,
+      loggedBy: p.logged_by ?? undefined,
     })),
     usage: (usageEntries.data ?? []).map((u) => ({
       id: u.id,
       date: fromDb(u.occurred_at),
+      loggedBy: u.logged_by ?? undefined,
       items: (itemsByUsage.get(u.id) ?? []).map((i) => ({
         productId: i.product_id,
         shuttlesUsed: i.shuttles_used,
@@ -96,8 +106,9 @@ export async function loadFund(): Promise<FundData | null> {
       description: e.description,
       amount: Number(e.amount),
       date: fromDb(e.occurred_at),
+      loggedBy: e.logged_by ?? undefined,
     })),
   }
 
-  return { clubId, state }
+  return { clubId, state, loggerLabel }
 }

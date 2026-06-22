@@ -12,6 +12,7 @@ interface LogRow {
   label: string
   amount: number // positive = into fund, negative = out
   date: string
+  loggedBy?: string
   batch?: { id: string; pricePerBarrel: number; barrels: number }
 }
 
@@ -45,6 +46,7 @@ export function TransactionLog() {
           label: `Cash from ${m.name}`,
           amount: c.amount,
           date: c.date,
+          loggedBy: c.loggedBy,
         })),
       ),
       ...state.purchases.map((p) => ({
@@ -53,6 +55,7 @@ export function TransactionLog() {
         label: `Bought ${p.barrels} × ${productName(p.productId)} barrel${p.barrels === 1 ? '' : 's'} @ ${euro(p.pricePerBarrel)}`,
         amount: -(p.barrels * p.pricePerBarrel),
         date: p.date,
+        loggedBy: p.loggedBy,
         batch: { id: p.id, pricePerBarrel: p.pricePerBarrel, barrels: p.barrels },
       })),
       ...state.expenses.map((e) => ({
@@ -61,6 +64,7 @@ export function TransactionLog() {
         label: e.description,
         amount: -e.amount,
         date: e.date,
+        loggedBy: e.loggedBy,
       })),
       ...usageHistory(state).map((u) => ({
         ref: { kind: 'usage', id: u.id } as TxRef,
@@ -68,6 +72,7 @@ export function TransactionLog() {
         label: `Members paid for ${u.totalShuttles} shuttle${u.totalShuttles === 1 ? '' : 's'} used`,
         amount: u.totalCost,
         date: u.date,
+        loggedBy: u.loggedBy,
       })),
     ]
     return all.sort((a, b) => b.date.localeCompare(a.date))
@@ -125,6 +130,7 @@ export function TransactionLog() {
                     <div className="flex items-center justify-between gap-2 border-t border-line bg-surface-muted px-3 py-1.5">
                       <span className="text-xs text-fg-muted">
                         {formatDateTime(r.date)}
+                        {r.loggedBy ? ` · by ${r.loggedBy}` : ''}
                       </span>
                       {isAuthenticated && (
                         <div className="flex items-center gap-1">
@@ -163,6 +169,7 @@ export function TransactionLog() {
                     <th className="py-2 pr-3 font-medium">Date</th>
                     <th className="py-2 pr-3 font-medium">Type</th>
                     <th className="py-2 pr-3 font-medium">Description</th>
+                    <th className="py-2 pr-3 font-medium">Logged by</th>
                     <th className="py-2 pr-3 text-right font-medium">Amount</th>
                     {isAuthenticated && <th className="py-2 font-medium" />}
                   </tr>
@@ -186,6 +193,9 @@ export function TransactionLog() {
                           </span>
                         </td>
                         <td className="py-2.5 pr-3 text-fg">{r.label}</td>
+                        <td className="whitespace-nowrap py-2.5 pr-3 text-fg-muted">
+                          {r.loggedBy ?? '—'}
+                        </td>
                         <td
                           className={`whitespace-nowrap py-2.5 pr-3 text-right font-bold ${r.amount >= 0 ? 'text-emerald-500' : 'text-red-500'}`}
                         >

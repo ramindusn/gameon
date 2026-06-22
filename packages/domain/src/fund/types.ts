@@ -7,6 +7,7 @@ export interface Contribution {
   id: string
   amount: number
   date: string // ISO date
+  loggedBy?: string // who recorded this entry
 }
 
 /** A club member who puts cash into the shared fund. */
@@ -34,6 +35,7 @@ export interface Purchase {
   pricePerBarrel: number
   date: string
   note?: string
+  loggedBy?: string
 }
 
 /** A single day's shuttle usage across products. */
@@ -41,6 +43,7 @@ export interface UsageEntry {
   id: string
   date: string
   items: { productId: string; shuttlesUsed: number }[]
+  loggedBy?: string
 }
 
 /** Any other expense (e.g. storage boxes). */
@@ -49,6 +52,7 @@ export interface Expense {
   description: string
   amount: number
   date: string
+  loggedBy?: string
 }
 
 /** The full fund/inventory state the calculations operate on. */
