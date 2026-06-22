@@ -1,9 +1,10 @@
 ---
 id: TASK-1.3
 title: CI pipeline (lint + unit + e2e + build)
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 09:14'
+updated_date: '2026-06-22 06:06'
 labels:
   - 'size:S'
   - E00
@@ -20,5 +21,5 @@ GitHub Actions gate run on PRs.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Workflow runs lint, unit, e2e, build and blocks merge on failure
+- [x] #1 Workflow runs lint, unit, e2e, build and blocks merge on failure
 <!-- AC:END -->
