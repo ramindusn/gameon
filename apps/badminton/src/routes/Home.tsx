@@ -12,11 +12,8 @@ import {
   usePlayerNames,
   useRecentForm,
 } from '../ranking/useRanking'
-import {
-  BoardState,
-  PairBoardList,
-  PlayerBoardList,
-} from '../ranking/Leaderboard'
+import { BoardState, PairBoardList, PlayerBoardList } from '../ranking/Leaderboard'
+import { SearchBox } from '../search/SearchBox'
 
 // Public, logged-out home (TASK-9.1). Top bar with the two login buttons, hero,
 // then Scheduled matches → Played matches → Leaderboard. Match/ranking data
@@ -149,12 +146,9 @@ function PublicNav() {
         </div>
 
         <div className="relative flex items-center gap-3">
-          <input
-            type="search"
-            placeholder="Search players…"
-            aria-label="Search players"
-            className="hidden w-56 rounded-full border border-line bg-surface-muted px-4 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent lg:block"
-          />
+          <div className="hidden lg:block">
+            <SearchBox />
+          </div>
           {role ? (
             <>
               <Link

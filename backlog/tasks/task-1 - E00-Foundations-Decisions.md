@@ -1,9 +1,10 @@
 ---
 id: TASK-1
 title: E00 - Foundations & Decisions
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 09:13'
+updated_date: '2026-06-22 21:29'
 labels:
   - epic
 dependencies: []
