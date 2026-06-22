@@ -97,9 +97,10 @@ describe('PlayersPage', () => {
     fireEvent.change(screen.getByTestId('mm-new-password'), {
       target: { value: 'secret1' },
     })
+    fireEvent.change(screen.getByTestId('mm-skill'), { target: { value: '7' } })
     fireEvent.click(screen.getByTestId('mm-create-submit'))
     expect(createMatchmaker).toHaveBeenCalledWith(
-      { name: 'rohan', username: 'rohan', password: 'secret1' },
+      { name: 'rohan', username: 'rohan', password: 'secret1', skill: 7 },
       expect.anything(),
     )
   })

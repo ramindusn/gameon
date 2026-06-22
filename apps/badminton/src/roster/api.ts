@@ -114,6 +114,7 @@ export interface MatchmakerInput {
   name: string
   username: string
   password: string
+  skill: number | null // 1–10
 }
 
 /**

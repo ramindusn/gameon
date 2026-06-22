@@ -192,6 +192,7 @@ function MatchmakerModal({
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [skill, setSkill] = useState('')
   const [localError, setLocalError] = useState('')
 
   function submit(e: React.FormEvent) {
@@ -201,7 +202,12 @@ function MatchmakerModal({
       return
     }
     setLocalError('')
-    onSave({ name: name.trim() || username.trim(), username: username.trim(), password })
+    onSave({
+      name: name.trim() || username.trim(),
+      username: username.trim(),
+      password,
+      skill: skill === '' ? null : Number(skill),
+    })
   }
 
   return (
@@ -231,6 +237,7 @@ function MatchmakerModal({
           autoComplete="new-password"
           data-testid="mm-new-password"
         />
+        <SkillSelect value={skill} onChange={setSkill} testId="mm-skill" />
         {(localError || error) && (
           <p className="text-sm font-medium text-red-500" data-testid="mm-create-error">
             {localError || error}
@@ -249,6 +256,35 @@ function MatchmakerModal({
         </div>
       </form>
     </Modal>
+  )
+}
+
+function SkillSelect({
+  value,
+  onChange,
+  testId,
+}: {
+  value: string
+  onChange: (v: string) => void
+  testId: string
+}) {
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block text-fg-muted">Skill (1–10)</span>
+      <select
+        className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid={testId}
+      >
+        <option value="">Not set</option>
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -304,22 +340,7 @@ function PlayerModal({
           placeholder="e.g. SmashKing"
           data-testid="player-name"
         />
-        <label className="block text-sm">
-          <span className="mb-1 block text-fg-muted">Skill (1–5)</span>
-          <select
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            value={skill}
-            onChange={(e) => setSkill(e.target.value)}
-            data-testid="player-skill"
-          >
-            <option value="">Not set</option>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SkillSelect value={skill} onChange={setSkill} testId="player-skill" />
         <label className="flex items-center gap-2 text-sm text-fg">
           <input
             type="checkbox"
