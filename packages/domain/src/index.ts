@@ -12,3 +12,7 @@ export * from './fund/types'
 export * from './fund/calc'
 export * from './fund/format'
 export * from './fund/reducers'
+
+// Match generator (E03).
+export * from './matches/types'
+export * from './matches/generate'
