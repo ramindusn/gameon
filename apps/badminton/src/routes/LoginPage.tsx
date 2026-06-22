@@ -31,7 +31,7 @@ export function LoginPage() {
         <div className="mb-2 inline-grid h-10 w-10 place-items-center rounded-xl bg-accent text-white">
           🏸
         </div>
-        <h1 className="font-display text-2xl font-bold text-fg">GameOn</h1>
+        <h1 className="font-display text-2xl font-bold text-fg">BadmintonDuo</h1>
         <p className="text-sm text-fg-muted">Sign in to manage your club</p>
       </div>
 

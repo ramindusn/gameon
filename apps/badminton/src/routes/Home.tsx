@@ -53,7 +53,7 @@ function PublicNav() {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-6">
           <Link to="/" className="font-display text-lg font-bold text-accent-strong">
-            GameOn
+            BadmintonDuo
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
             {links.map((l) => (
@@ -172,8 +172,8 @@ function Footer() {
   return (
     <footer className="border-t border-line">
       <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-xs text-fg-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <span className="font-display text-sm font-bold text-fg">GameOn</span>
-        <span>© 2026 GameOn Badminton Club Management.</span>
+        <span className="font-display text-sm font-bold text-fg">BadmintonDuo</span>
+        <span>© 2026 BadmintonDuo Club Management.</span>
       </div>
     </footer>
   )

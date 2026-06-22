@@ -22,7 +22,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-6">
             <NavLink to="/" className="font-display text-lg font-bold text-accent-strong">
-              GameOn
+              BadmintonDuo
             </NavLink>
             <nav className="hidden items-center gap-1 sm:flex">
               {nav.map((item) => (
