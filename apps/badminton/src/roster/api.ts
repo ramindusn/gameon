@@ -109,3 +109,29 @@ export async function removePlayer(id: string) {
   const { error } = await client().from('player_profiles').delete().eq('id', id)
   if (error) throw error
 }
+
+export interface MatchmakerInput {
+  name: string
+  username: string
+  password: string
+}
+
+/**
+ * Create a Matchmaker login. Admin-only privileged op handled by the
+ * `create-matchmaker` Edge Function (service role); the bootstrap trigger then
+ * enrols the new user as a Matchmaker player_profile.
+ */
+export async function createMatchmaker(input: MatchmakerInput) {
+  const { error } = await client().functions.invoke('create-matchmaker', { body: input })
+  if (error) {
+    let message = error.message
+    // FunctionsHttpError carries the response; surface our JSON {error} message.
+    try {
+      const body = await (error as { context?: Response }).context?.json()
+      if (body?.error) message = body.error
+    } catch {
+      /* keep default message */
+    }
+    throw new Error(message)
+  }
+}

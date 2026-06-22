@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
-const { add, update, remove, players } = vi.hoisted(() => ({
+const { add, update, remove, createMatchmaker, players } = vi.hoisted(() => ({
   add: vi.fn(),
   update: vi.fn(),
   remove: vi.fn(),
+  createMatchmaker: vi.fn(),
   players: [
     {
       id: 'p1',
@@ -28,6 +29,7 @@ vi.mock('../roster/useRoster', () => ({
     add: { mutate: add },
     update: { mutate: update },
     remove: { mutate: remove },
+    createMatchmaker: { mutate: createMatchmaker, isPending: false, error: null },
   }),
 }))
 vi.mock('../auth/useAuth', () => ({
@@ -49,6 +51,7 @@ describe('PlayersPage', () => {
     add.mockClear()
     update.mockClear()
     remove.mockClear()
+    createMatchmaker.mockClear()
     vi.restoreAllMocks()
   })
 
@@ -83,5 +86,21 @@ describe('PlayersPage', () => {
     renderPage()
     fireEvent.click(screen.getAllByText('Remove')[0])
     expect(remove).toHaveBeenCalledWith('p1')
+  })
+
+  it('admin can create a matchmaker (username + password)', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-matchmaker-button'))
+    fireEvent.change(screen.getByTestId('mm-new-username'), {
+      target: { value: 'rohan' },
+    })
+    fireEvent.change(screen.getByTestId('mm-new-password'), {
+      target: { value: 'secret1' },
+    })
+    fireEvent.click(screen.getByTestId('mm-create-submit'))
+    expect(createMatchmaker).toHaveBeenCalledWith(
+      { name: 'rohan', username: 'rohan', password: 'secret1' },
+      expect.anything(),
+    )
   })
 })

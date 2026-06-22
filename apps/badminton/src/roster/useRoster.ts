@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addPlayer,
+  createMatchmaker,
   loadRoster,
   removePlayer,
   updatePlayer,
+  type MatchmakerInput,
   type PlayerInput,
 } from './api'
 
@@ -34,6 +36,10 @@ export function useRosterMutations(clubId: string | null | undefined) {
     }),
     remove: useMutation({
       mutationFn: (id: string) => removePlayer(id),
+      onSuccess: invalidate,
+    }),
+    createMatchmaker: useMutation({
+      mutationFn: (input: MatchmakerInput) => createMatchmaker(input),
       onSuccess: invalidate,
     }),
   }
