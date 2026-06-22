@@ -71,6 +71,16 @@ export async function loadRoster(): Promise<RosterData> {
   return { clubId, players: (players.data ?? []).map(mapRow) }
 }
 
+/** Public read of a single player by id (no login required). */
+export async function getPlayer(id: string): Promise<Player | null> {
+  const { data } = await client()
+    .from('player_profiles')
+    .select('id, nickname, skill, absent, is_matchmaker, user_id')
+    .eq('id', id)
+    .maybeSingle()
+  return data ? mapRow(data) : null
+}
+
 export interface PlayerInput {
   nickname: string
   skill: number | null

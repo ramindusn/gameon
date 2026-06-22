@@ -9,6 +9,13 @@ test('signed-out visitor is redirected away from /players', async ({ page }) => 
   await expect(page.getByTestId('players')).toHaveCount(0)
 })
 
+test('a player profile is publicly viewable (no login)', async ({ page }) => {
+  await page.goto('/players/00000000-0000-0000-0000-000000000000')
+  // Reachable without auth (no redirect to /login); empty DB -> not found.
+  await expect(page.getByTestId('player-profile')).toBeVisible()
+  await expect(page.getByTestId('tab-admin')).toHaveCount(0)
+})
+
 test('admin can open the players page', async ({ page }) => {
   await page.goto('/login')
   await page.evaluate(() => sessionStorage.clear())

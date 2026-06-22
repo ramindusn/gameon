@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button, Card, Field, Modal } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { useRoster, useRosterMutations } from '../roster/useRoster'
@@ -38,7 +39,12 @@ export function PlayersPage() {
                     className="rounded-lg border border-line bg-surface px-3 py-2 shadow-sm"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-fg">{p.nickname}</span>
+                      <Link
+                        to={`/players/${p.id}`}
+                        className="font-semibold text-fg hover:text-accent-strong"
+                      >
+                        {p.nickname}
+                      </Link>
                       <Badges player={p} />
                     </div>
                     <div className="mt-1 flex items-center justify-between text-sm text-fg-muted">
@@ -83,7 +89,14 @@ export function PlayersPage() {
                         key={p.id}
                         className="border-b border-line hover:bg-surface-muted"
                       >
-                        <td className="py-2 pr-3 font-semibold text-fg">{p.nickname}</td>
+                        <td className="py-2 pr-3 font-semibold">
+                          <Link
+                            to={`/players/${p.id}`}
+                            className="text-fg hover:text-accent-strong"
+                          >
+                            {p.nickname}
+                          </Link>
+                        </td>
                         <td className="py-2 pr-3 text-fg-muted">{p.skill ?? '—'}</td>
                         <td className="py-2 pr-3">
                           <Badges player={p} />

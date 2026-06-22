@@ -1,9 +1,10 @@
 ---
 id: TASK-3
 title: E02 - Players & Roster
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 09:13'
+updated_date: '2026-06-22 12:45'
 labels:
   - epic
 dependencies: []
