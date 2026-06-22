@@ -5,13 +5,13 @@
 // are limited by RLS to admins/matchmakers of the club.
 
 import { supabase, isE2E } from '@gameon/supabase'
-import type { GeneratedMatches } from '@gameon/domain'
+import { deriveWinner, type GeneratedMatches } from '@gameon/domain'
 import {
   e2eUid,
   e2ePut,
   e2eList,
   e2eGet,
-  e2eSetResult,
+  e2eSetScore,
   e2eSetStatus,
   e2eSetPlayedAt,
   e2eDelete,
@@ -33,7 +33,8 @@ export interface MatchSession {
 }
 
 /** A single court within a session. Player ids may be null if a roster player
- *  was later deleted (FK ON DELETE SET NULL). Winner is null until recorded. */
+ *  was later deleted (FK ON DELETE SET NULL). Scores/winner are null until the
+ *  match is played; winner is derived from the scores. */
 export interface MatchResult {
   id: string
   sessionId: string
@@ -41,6 +42,8 @@ export interface MatchResult {
   court: number
   teamA: [string | null, string | null]
   teamB: [string | null, string | null]
+  scoreA: number | null
+  scoreB: number | null
   winner: Side | null
 }
 
@@ -78,6 +81,8 @@ export const mapResultRow = (r: {
   team_a2: string | null
   team_b1: string | null
   team_b2: string | null
+  score_a: number | null
+  score_b: number | null
   winner: string | null
 }): MatchResult => ({
   id: r.id,
@@ -86,6 +91,8 @@ export const mapResultRow = (r: {
   court: r.court,
   teamA: [r.team_a1, r.team_a2],
   teamB: [r.team_b1, r.team_b2],
+  scoreA: r.score_a,
+  scoreB: r.score_b,
   winner: (r.winner as Side | null) ?? null,
 })
 
@@ -134,7 +141,7 @@ export function planToResultRows(
 
 const SESSION_COLS = 'id, club_id, status, mode, rounds, played_at, created_at'
 const RESULT_COLS =
-  'id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, winner'
+  'id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, score_a, score_b, winner'
 
 /**
  * Persist a generated draw as a live game day: insert the session (with the
@@ -213,12 +220,22 @@ export async function getSession(
   return { session: mapSessionRow(session), results: (results ?? []).map(mapResultRow) }
 }
 
-/** Record (or clear) the winning side of a single court. */
-export async function setResult(resultId: string, winner: Side | null): Promise<void> {
-  if (isE2E()) return e2eSetResult(resultId, winner)
+/**
+ * Record a match's point scores. The winning side is derived from the scores
+ * (ADR 0011 — the recompute uses the point margin). Throws on invalid scores
+ * (missing/negative/non-integer/tied) so callers must validate first.
+ */
+export async function setScore(
+  resultId: string,
+  scoreA: number,
+  scoreB: number,
+): Promise<void> {
+  const winner = deriveWinner(scoreA, scoreB)
+  if (!winner) throw new Error('Invalid scores')
+  if (isE2E()) return e2eSetScore(resultId, scoreA, scoreB, winner)
   const { error } = await client()
     .from('match_results')
-    .update({ winner })
+    .update({ score_a: scoreA, score_b: scoreB, winner })
     .eq('id', resultId)
   if (error) throw error
 }

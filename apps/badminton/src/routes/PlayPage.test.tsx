@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { MatchResult, MatchSession } from '../play/api'
 
-const { setResult, setStatus, sessionData } = vi.hoisted(() => {
+const { setScore, setStatus, sessionData } = vi.hoisted(() => {
   const session: MatchSession = {
     id: 's1',
     clubId: 'c1',
@@ -21,6 +21,8 @@ const { setResult, setStatus, sessionData } = vi.hoisted(() => {
       court: 1,
       teamA: ['p1', 'p2'],
       teamB: ['p3', 'p4'],
+      scoreA: null,
+      scoreB: null,
       winner: null,
     },
     {
@@ -30,11 +32,13 @@ const { setResult, setStatus, sessionData } = vi.hoisted(() => {
       court: 2,
       teamA: ['p5', 'p6'],
       teamB: ['p7', 'p8'],
+      scoreA: 21,
+      scoreB: 15,
       winner: 'a',
     },
   ]
   return {
-    setResult: vi.fn(),
+    setScore: vi.fn(),
     setStatus: vi.fn(),
     sessionData: { session, results },
   }
@@ -42,7 +46,7 @@ const { setResult, setStatus, sessionData } = vi.hoisted(() => {
 
 vi.mock('../play/useMatchPlay', () => ({
   useSession: () => ({ data: sessionData, isLoading: false, isError: false }),
-  useSetResult: () => ({ mutate: setResult, isPending: false }),
+  useSetScore: () => ({ mutate: setScore, isPending: false }),
   useSetSessionStatus: () => ({ mutate: setStatus, isPending: false }),
   useUpdateSessionPlayedAt: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteSession: () => ({ mutate: vi.fn(), isPending: false }),
@@ -81,6 +85,11 @@ function renderPage() {
 }
 
 describe('PlayPage', () => {
+  beforeEach(() => {
+    setScore.mockClear()
+    setStatus.mockClear()
+  })
+
   it('renders the session with player names and an existing winner', () => {
     renderPage()
     expect(screen.getByTestId('play')).toBeInTheDocument()
@@ -91,10 +100,21 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('session-status')).toHaveTextContent('Live')
   })
 
-  it('records a winner when a team is tapped', () => {
+  it('records point scores (winner derived) when a match is saved', () => {
     renderPage()
-    fireEvent.click(screen.getByTestId('pick-r1-b'))
-    expect(setResult).toHaveBeenCalledWith({ resultId: 'r1', winner: 'b' })
+    fireEvent.change(screen.getByTestId('score-r1-a'), { target: { value: '21' } })
+    fireEvent.change(screen.getByTestId('score-r1-b'), { target: { value: '18' } })
+    fireEvent.click(screen.getByTestId('save-score-r1'))
+    expect(setScore).toHaveBeenCalledWith({ resultId: 'r1', scoreA: 21, scoreB: 18 })
+  })
+
+  it('rejects tied scores with an inline error and no save', () => {
+    renderPage()
+    fireEvent.change(screen.getByTestId('score-r1-a'), { target: { value: '21' } })
+    fireEvent.change(screen.getByTestId('score-r1-b'), { target: { value: '21' } })
+    fireEvent.click(screen.getByTestId('save-score-r1'))
+    expect(setScore).not.toHaveBeenCalled()
+    expect(screen.getByTestId('score-error-r1')).toBeInTheDocument()
   })
 
   it('finishes the session', () => {

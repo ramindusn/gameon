@@ -8,7 +8,6 @@
 // Only TYPES are imported from ./api (erased at runtime), so there is no runtime
 // import cycle: api.ts orchestrates and calls these helpers.
 import type { MatchSession, MatchResult, SessionStatus, Side, ResultInsert } from './api'
-
 const SESSIONS_KEY = 'gameon.e2e.sessions'
 const RESULTS_KEY = 'gameon.e2e.results'
 
@@ -40,6 +39,8 @@ export function e2ePut(session: MatchSession, rows: ResultInsert[]): string {
       court: row.court,
       teamA: [row.team_a1, row.team_a2],
       teamB: [row.team_b1, row.team_b2],
+      scoreA: null,
+      scoreB: null,
       winner: null,
     })
   }
@@ -66,12 +67,17 @@ export function e2eGet(
   return { session, results }
 }
 
-/** Record (or clear) a court's winner. */
-export function e2eSetResult(resultId: string, winner: Side | null): void {
+/** Record a court's point scores + derived winner. */
+export function e2eSetScore(
+  resultId: string,
+  scoreA: number,
+  scoreB: number,
+  winner: Side,
+): void {
   const results = read<MatchResult>(RESULTS_KEY)
   const i = results.findIndex((r) => r.id === resultId)
   if (i >= 0) {
-    results[i] = { ...results[i], winner }
+    results[i] = { ...results[i], scoreA, scoreB, winner }
     write(RESULTS_KEY, results)
   }
 }

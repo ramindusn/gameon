@@ -16,6 +16,8 @@ export * from './fund/reducers'
 // Match generator (E03).
 export * from './matches/types'
 export * from './matches/generate'
+// Match scoring — point scores + derived winner (E09).
+export * from './matches/score'
 
 // Ranking — Glicko-2 individual + per-pair boards (E05).
 export * from './ranking/glicko2'

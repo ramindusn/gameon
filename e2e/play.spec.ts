@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
 
-// Live sessions & scoring (E04 / TASK-5.4). The dev server runs with VITE_E2E=1,
-// so sign-in uses the auth bypass, the roster resolves to a seeded 8-player club,
-// and match-play reads/writes go to an in-memory sessionStorage store (see
-// play/e2eStore.ts) — no live Supabase needed. A matchmaker turns a generated
-// draw into a session, records a winner, finishes it, and finds it in history.
+// Live sessions & scoring (E04 / TASK-5.4, E09 / TASK-10.3). The dev server runs
+// with VITE_E2E=1, so sign-in uses the auth bypass, the roster resolves to a
+// seeded 8-player club, and match-play reads/writes go to an in-memory
+// sessionStorage store (see play/e2eStore.ts) — no live Supabase needed. A
+// matchmaker turns a generated draw into a session, records point scores (the
+// winner is derived), finishes it, and finds it in history.
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/login')
@@ -17,7 +18,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByTestId('auth-role')).toHaveText('Role: matchmaker')
 })
 
-test('matchmaker starts a session, records a winner, and finds it in history', async ({
+test('matchmaker starts a session, scores a match, and finds it in history', async ({
   page,
 }) => {
   // Generate a one-round draw from the seeded roster (8 players → 2 courts).
@@ -33,8 +34,11 @@ test('matchmaker starts a session, records a winner, and finds it in history', a
   await expect(page.getByTestId('session-status')).toHaveText('Live')
   await expect(page.getByText(/0 \/ 2 recorded/)).toBeVisible()
 
-  // Record a winner on the first court (team A).
-  await page.locator('[data-testid^="pick-"][data-testid$="-a"]').first().click()
+  // Record point scores on the first court; the winner is derived.
+  const court = page.locator('[data-testid^="court-"]').first()
+  await court.locator('[data-testid^="score-"][data-testid$="-a"]').fill('21')
+  await court.locator('[data-testid^="score-"][data-testid$="-b"]').fill('17')
+  await court.locator('[data-testid^="save-score-"]').click()
   await expect(page.getByText(/1 \/ 2 recorded/)).toBeVisible()
 
   // Finish the session.
@@ -49,7 +53,7 @@ test('matchmaker starts a session, records a winner, and finds it in history', a
   await expect(link).toBeVisible()
   await expect(link).toContainText('Finished')
 
-  // Reopening the session from history shows the recorded winner.
+  // Reopening the session from history shows the recorded score.
   await link.click()
   await expect(page).toHaveURL(new RegExp(`/play/${sessionId}$`))
   await expect(page.getByText(/1 \/ 2 recorded/)).toBeVisible()

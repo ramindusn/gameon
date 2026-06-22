@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, cx } from '@gameon/ui'
+import { validateScores } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { useRoster } from '../roster/useRoster'
 import {
   useDeleteSession,
   useSession,
-  useSetResult,
+  useSetScore,
   useSetSessionStatus,
   useUpdateSessionPlayedAt,
 } from '../play/useMatchPlay'
@@ -17,15 +18,16 @@ import {
 } from '../play/datetime'
 import type { MatchResult, Side } from '../play/api'
 
-// Live scoring (E04 / E09). Open a game day, tap the winning team on each court,
-// and finish it. The matchmaker can also correct the game-day date/time or delete
-// the game day. Player ids in results are resolved to nicknames via the roster.
+// Live scoring (E04 / E09). Open a game day, enter the point scores for each
+// court (the winner is derived from the scores), and finish it. The matchmaker
+// can also correct the game-day date/time or delete the game day. Player ids in
+// results are resolved to nicknames via the roster.
 export function PlayPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data, isLoading, isError } = useSession(id)
   const { data: roster } = useRoster()
-  const setResult = useSetResult(id)
+  const setScore = useSetScore(id)
   const setStatus = useSetSessionStatus(id)
   const updatePlayedAt = useUpdateSessionPlayedAt(id)
   const deleteSession = useDeleteSession()
@@ -198,8 +200,11 @@ export function PlayPage() {
                         key={r.id}
                         result={r}
                         nameOf={nameOf}
-                        disabled={data.session.status !== 'live' || setResult.isPending}
-                        onPick={(winner) => setResult.mutate({ resultId: r.id, winner })}
+                        disabled={data.session.status !== 'live'}
+                        saving={setScore.isPending}
+                        onSave={(scoreA, scoreB) =>
+                          setScore.mutate({ resultId: r.id, scoreA, scoreB })
+                        }
                       />
                     ))}
                   </div>
@@ -217,35 +222,60 @@ function CourtScore({
   result,
   nameOf,
   disabled,
-  onPick,
+  saving,
+  onSave,
 }: {
   result: MatchResult
   nameOf: (id: string | null) => string
   disabled: boolean
-  onPick: (winner: Side) => void
+  saving: boolean
+  onSave: (scoreA: number, scoreB: number) => void
 }) {
-  const team = (side: Side, ids: [string | null, string | null]) => {
+  const [a, setA] = useState(result.scoreA?.toString() ?? '')
+  const [b, setB] = useState(result.scoreB?.toString() ?? '')
+  const [error, setError] = useState<string | null>(null)
+
+  const save = () => {
+    const scoreA = a === '' ? null : Number(a)
+    const scoreB = b === '' ? null : Number(b)
+    const v = validateScores(scoreA, scoreB)
+    if (!v.ok) {
+      setError(v.error ?? 'Invalid scores')
+      return
+    }
+    setError(null)
+    onSave(scoreA as number, scoreB as number)
+  }
+
+  const teamRow = (side: Side, ids: [string | null, string | null]) => {
     const won = result.winner === side
+    const value = side === 'a' ? a : b
+    const set = side === 'a' ? setA : setB
     return (
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onPick(side)}
+      <div
         className={cx(
-          'w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed',
+          'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm',
           won
             ? 'border-accent bg-accent/15 font-semibold text-fg'
-            : 'border-line bg-surface-muted text-fg hover:border-accent',
+            : 'border-line bg-surface-muted text-fg',
         )}
-        data-testid={`pick-${result.id}-${side}`}
       >
-        <span className="flex items-center justify-between gap-2">
-          <span className="truncate">
-            {nameOf(ids[0])} &amp; {nameOf(ids[1])}
-          </span>
-          {won && <span aria-label="winner">✓</span>}
+        <span className="min-w-0 flex-1 truncate">
+          {nameOf(ids[0])} &amp; {nameOf(ids[1])}
         </span>
-      </button>
+        {won && <span aria-label="winner">✓</span>}
+        <input
+          type="number"
+          min={0}
+          inputMode="numeric"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => set(e.target.value)}
+          className="w-14 rounded-md border border-line bg-surface px-2 py-1 text-right text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+          data-testid={`score-${result.id}-${side}`}
+          aria-label={`Score for ${side === 'a' ? 'team A' : 'team B'}`}
+        />
+      </div>
     )
   }
 
@@ -258,10 +288,26 @@ function CourtScore({
         Court {result.court}
       </div>
       <div className="space-y-1.5">
-        {team('a', result.teamA)}
+        {teamRow('a', result.teamA)}
         <div className="text-center text-xs text-fg-muted">vs</div>
-        {team('b', result.teamB)}
+        {teamRow('b', result.teamB)}
       </div>
+      {error && (
+        <p className="mt-2 text-xs text-negative" data-testid={`score-error-${result.id}`}>
+          {error}
+        </p>
+      )}
+      {!disabled && (
+        <Button
+          className="mt-2 w-full"
+          variant="secondary"
+          onClick={save}
+          disabled={saving}
+          data-testid={`save-score-${result.id}`}
+        >
+          {result.winner ? 'Update score' : 'Save score'}
+        </Button>
+      )}
     </div>
   )
 }

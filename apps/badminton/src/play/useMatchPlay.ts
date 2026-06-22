@@ -5,12 +5,11 @@ import {
   deleteSession,
   getSession,
   listSessions,
-  setResult,
+  setScore,
   setSessionStatus,
   updateSessionPlayedAt,
   type Mode,
   type SessionStatus,
-  type Side,
 } from './api'
 
 const SESSIONS_KEY = ['sessions'] as const
@@ -44,12 +43,12 @@ export function useCreateSession() {
   })
 }
 
-/** Record a court's winner; refreshes the owning session. */
-export function useSetResult(sessionId: string | undefined) {
+/** Record a court's point scores (winner derived); refreshes the owning session. */
+export function useSetScore(sessionId: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { resultId: string; winner: Side | null }) =>
-      setResult(v.resultId, v.winner),
+    mutationFn: (v: { resultId: string; scoreA: number; scoreB: number }) =>
+      setScore(v.resultId, v.scoreA, v.scoreB),
     onSuccess: () => {
       if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
     },
