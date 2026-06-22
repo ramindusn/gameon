@@ -7,8 +7,14 @@ type NavItem = { to: string; label: string }
 
 // Top-nav links per role; more sections light up as their epics land.
 const NAV_BY_ROLE: Record<'admin' | 'matchmaker', NavItem[]> = {
-  admin: [{ to: '/dashboard', label: 'Dashboard' }],
-  matchmaker: [{ to: '/matchmaker', label: 'Home' }],
+  admin: [
+    { to: '/dashboard', label: 'Dashboard' },
+    { to: '/players', label: 'Players' },
+  ],
+  matchmaker: [
+    { to: '/matchmaker', label: 'Home' },
+    { to: '/players', label: 'Players' },
+  ],
 }
 
 export function AppShell({ title, children }: { title: string; children: ReactNode }) {
