@@ -13,5 +13,6 @@ Short records of significant decisions: context, decision, consequences.
 | [0007](0007-monorepo-npm-workspaces.md) | Monorepo: **npm workspaces** now |
 | [0008](0008-domain-subdomain.md) | Domain/DNS: **badmintonduo.club via Cloudflare**, subdomain for GameOn |
 | [0010](0010-auth-model-magic-link.md) | Auth: **Admin magic-link**, **Matchmaker username+password**, players don't log in |
+| [0011](0011-ranking-glicko2.md) | Ranking: **Glicko-2** for **individual + per-pair** boards, **point-margin** outcomes |
 
 Roles + information architecture live in [`../REQUIREMENTS.md`](../REQUIREMENTS.md).
