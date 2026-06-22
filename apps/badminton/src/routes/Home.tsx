@@ -1,8 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom'
-import type { ReactNode } from 'react'
-import { Button, Card } from '@gameon/ui'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Button, Card, Modal } from '@gameon/ui'
 import { useAuth } from '../auth/useAuth'
 import { roleHome } from '../auth/roleHome'
+import { AdminLogin } from '../auth/AdminLogin'
+import { MatchmakerLogin } from '../auth/MatchmakerLogin'
 
 // Public, logged-out home (TASK-9.1). Top bar with the two login buttons, hero,
 // then Scheduled matches → Played matches → Leaderboard. Match/ranking data
@@ -43,10 +45,21 @@ export function Home() {
   )
 }
 
+type LoginKind = 'admin' | 'matchmaker' | null
+
 function PublicNav() {
   const { role, signOut } = useAuth()
   const navigate = useNavigate()
+  const [login, setLogin] = useState<LoginKind>(null)
   const links = ['Leagues', 'Matches', 'Leaderboards', 'Clubs']
+
+  // When a sign-in started here resolves a role, close the modal and route on.
+  useEffect(() => {
+    if (login && role) {
+      setLogin(null)
+      navigate(roleHome(role))
+    }
+  }, [login, role, navigate])
 
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
@@ -94,13 +107,13 @@ function PublicNav() {
             <>
               <Button
                 variant="ghost"
-                onClick={() => navigate('/login?as=admin')}
+                onClick={() => setLogin('admin')}
                 data-testid="nav-admin-login"
               >
                 Admin Login
               </Button>
               <Button
-                onClick={() => navigate('/login?as=matchmaker')}
+                onClick={() => setLogin('matchmaker')}
                 data-testid="nav-matchmaker-login"
               >
                 Matchmaker Login
@@ -109,6 +122,16 @@ function PublicNav() {
           )}
         </div>
       </div>
+
+      {login && (
+        <Modal
+          open
+          title={login === 'admin' ? 'Admin login' : 'Matchmaker login'}
+          onClose={() => setLogin(null)}
+        >
+          {login === 'admin' ? <AdminLogin /> : <MatchmakerLogin />}
+        </Modal>
+      )}
     </header>
   )
 }
