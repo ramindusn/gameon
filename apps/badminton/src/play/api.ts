@@ -354,3 +354,67 @@ export async function deleteSession(
     }
   }
 }
+
+// ---- public player history (E08 / TASK-9.3) -------------------------------
+
+/** One played match from a player's perspective. */
+export interface PlayerMatch {
+  id: string
+  date: string
+  mode: Mode
+  partnerId: string | null
+  opponentIds: [string | null, string | null]
+  scoreFor: number
+  scoreAgainst: number
+  won: boolean
+}
+
+function toPlayerMatch(
+  r: MatchResult,
+  session: { played_at: string; mode: string },
+  playerId: string,
+): PlayerMatch {
+  const onA = r.teamA[0] === playerId || r.teamA[1] === playerId
+  const mine = onA ? r.teamA : r.teamB
+  const theirs = onA ? r.teamB : r.teamA
+  return {
+    id: r.id,
+    date: session.played_at,
+    mode: session.mode as Mode,
+    partnerId: mine.find((x) => x !== playerId) ?? null,
+    opponentIds: theirs,
+    scoreFor: (onA ? r.scoreA : r.scoreB) ?? 0,
+    scoreAgainst: (onA ? r.scoreB : r.scoreA) ?? 0,
+    won: onA ? r.winner === 'a' : r.winner === 'b',
+  }
+}
+
+/** A player's played matches, newest first. Public read (RLS allows anyone). */
+export async function loadPlayerHistory(playerId: string): Promise<PlayerMatch[]> {
+  if (!playerId) return []
+  const db = client()
+  const { data: rows } = await db
+    .from('match_results')
+    .select(RESULT_COLS)
+    .or(
+      `team_a1.eq.${playerId},team_a2.eq.${playerId},team_b1.eq.${playerId},team_b2.eq.${playerId}`,
+    )
+    .not('winner', 'is', null)
+  const results = (rows ?? []).map(mapResultRow)
+  if (results.length === 0) return []
+
+  const sessionIds = [...new Set(results.map((r) => r.sessionId))]
+  const { data: srows } = await db
+    .from('match_sessions')
+    .select('id, played_at, mode')
+    .in('id', sessionIds)
+  const byId = new Map((srows ?? []).map((s) => [s.id, s]))
+
+  return results
+    .map((r) => {
+      const s = byId.get(r.sessionId)
+      return s ? toPlayerMatch(r, s, playerId) : null
+    })
+    .filter((m): m is PlayerMatch => m !== null)
+    .sort((a, b) => b.date.localeCompare(a.date))
+}

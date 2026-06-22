@@ -12,36 +12,94 @@ import {
   usePlayerNames,
   useRecentForm,
 } from '../ranking/useRanking'
-import {
-  BoardState,
-  PairBoardList,
-  PlayerBoardList,
-} from '../ranking/Leaderboard'
+import { BoardState, PairBoardList, PlayerBoardList } from '../ranking/Leaderboard'
+import { SearchBox } from '../search/SearchBox'
+import { useSessions } from '../play/useMatchPlay'
+import type { MatchSession } from '../play/api'
 
-// Public, logged-out home (TASK-9.1). Top bar with the two login buttons, hero,
-// then Scheduled matches → Played matches → Leaderboard. Match/ranking data
-// arrives with E03/E04/E05, so those sections show empty states for now.
+// Public, logged-out home (TASK-9.1 / 9.2). Top bar with the two login buttons,
+// hero, then game-day draws → results → leaderboard. When no draws exist yet the
+// game-day sections are hidden and only the leaderboard shows (TASK-9.2).
 export function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="home">
       <PublicNav />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 sm:px-6">
         <Hero />
-        <Section
-          title="Scheduled Matches"
-          icon="📅"
-          action={<MutedLink>View Schedule</MutedLink>}
-        >
-          <EmptyState>
-            No matches scheduled yet. Check back once a Matchmaker creates a draw.
-          </EmptyState>
-        </Section>
-        <Section title="Recent Results" icon="🏁">
-          <EmptyState>No matches have been played yet.</EmptyState>
-        </Section>
+        <GameDays />
         <RankingPreview />
       </main>
       <Footer />
+    </div>
+  )
+}
+
+// Game-day draws + results. Per TASK-9.2: if there are no draws at all, render
+// nothing here so the page shows only the leaderboard. Once draws exist, show
+// the in-progress game days and the most recent finished ones.
+const RECENT_LIMIT = 6
+
+function GameDays() {
+  const { data, isLoading } = useSessions()
+  const sessions = data ?? []
+
+  // No draws yet (and not mid-load) → leaderboard-only: render nothing.
+  if (isLoading || sessions.length === 0) return null
+
+  const live = sessions.filter((s) => s.status === 'live')
+  const finished = sessions.filter((s) => s.status === 'finished').slice(0, RECENT_LIMIT)
+
+  return (
+    <>
+      {live.length > 0 && (
+        <Section title="Game Days in Progress" icon="📅">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {live.map((s) => (
+              <SessionCard key={s.id} session={s} />
+            ))}
+          </div>
+        </Section>
+      )}
+      {finished.length > 0 && (
+        <Section title="Recent Game Days" icon="🏁">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {finished.map((s) => (
+              <SessionCard key={s.id} session={s} />
+            ))}
+          </div>
+        </Section>
+      )}
+    </>
+  )
+}
+
+function SessionCard({ session }: { session: MatchSession }) {
+  const date = new Date(session.playedAt)
+  const when = Number.isNaN(date.getTime())
+    ? session.playedAt
+    : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  const live = session.status === 'live'
+  return (
+    <div
+      className="rounded-2xl border border-line bg-surface p-4"
+      data-testid={`session-card-${session.id}`}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="font-display text-sm font-bold text-fg">{when}</span>
+        <span
+          className={
+            live
+              ? 'rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-accent-strong'
+              : 'rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-fg-muted'
+          }
+        >
+          {live ? 'Live' : 'Final'}
+        </span>
+      </div>
+      <p className="text-xs text-fg-muted">
+        {session.mode === 'mixed' ? 'Mixed doubles' : 'Open doubles'} · {session.rounds}{' '}
+        {session.rounds === 1 ? 'round' : 'rounds'}
+      </p>
     </div>
   )
 }
@@ -149,12 +207,9 @@ function PublicNav() {
         </div>
 
         <div className="relative flex items-center gap-3">
-          <input
-            type="search"
-            placeholder="Search players…"
-            aria-label="Search players"
-            className="hidden w-56 rounded-full border border-line bg-surface-muted px-4 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent lg:block"
-          />
+          <div className="hidden lg:block">
+            <SearchBox />
+          </div>
           {role ? (
             <>
               <Link
@@ -253,22 +308,6 @@ function Section({
       </div>
       {children}
     </section>
-  )
-}
-
-function EmptyState({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-line bg-surface/50 px-6 py-10 text-center text-sm text-fg-muted">
-      {children}
-    </div>
-  )
-}
-
-function MutedLink({ children }: { children: ReactNode }) {
-  return (
-    <span className="cursor-default text-sm font-medium text-accent-strong">
-      {children}
-    </span>
   )
 }
 
