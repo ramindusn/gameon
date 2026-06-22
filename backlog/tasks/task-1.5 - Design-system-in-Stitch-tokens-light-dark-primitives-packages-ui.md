@@ -1,10 +1,10 @@
 ---
 id: TASK-1.5
 title: Build Emerald Pro design system in packages/ui
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-19 09:14'
-updated_date: '2026-06-21 20:21'
+updated_date: '2026-06-22 06:05'
 labels:
   - 'size:M'
   - E00
@@ -21,6 +21,6 @@ Emerald Pro (dark): emerald #10B981 accent, Manrope headings + Inter body, 8px r
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Stitch design generated and saved as reference
-- [ ] #2 packages/ui exposes tokens (bg/surface/fg/line/accent) + light/dark + Button/Card/Field/Modal + a dual-render list
+- [x] #1 Stitch design generated and saved as reference
+- [x] #2 packages/ui exposes tokens (bg/surface/fg/line/accent) + light/dark + Button/Card/Field/Modal + a dual-render list
 <!-- AC:END -->

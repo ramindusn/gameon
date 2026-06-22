@@ -1,0 +1,31 @@
+/* GameOn — Emerald Pro design tokens (ADR 0001 / 0009).
+   Values are space-separated RGB channels so Tailwind's /<alpha-value> works.
+   :root = light variant; .dark = Emerald Pro (the default, set on <html>). */
+
+:root {
+  --bg: 248 250 252; /* #F8FAFC */
+  --surface: 255 255 255; /* #FFFFFF */
+  --surface-muted: 241 245 249; /* #F1F5F9 */
+  --line: 226 232 240; /* #E2E8F0 */
+  --fg: 15 23 42; /* #0F172A */
+  --fg-muted: 100 116 139; /* #64748B */
+  --accent: 5 150 105; /* #059669 (AA on white) */
+  --accent-strong: 16 185 129; /* #10B981 */
+  --positive: 5 150 105;
+  --negative: 220 38 38; /* #DC2626 */
+  --warning: 217 119 6; /* #D97706 */
+}
+
+.dark {
+  --bg: 11 18 32; /* #0B1220 graphite */
+  --surface: 19 28 43; /* #131C2B */
+  --surface-muted: 27 37 54; /* #1B2536 */
+  --line: 36 48 68; /* #243044 */
+  --fg: 232 237 244; /* #E8EDF4 */
+  --fg-muted: 148 163 184; /* #94A3B8 */
+  --accent: 16 185 129; /* #10B981 emerald */
+  --accent-strong: 52 211 153; /* #34D399 */
+  --positive: 16 185 129;
+  --negative: 244 63 94; /* #F43F5E */
+  --warning: 245 158 11; /* #F59E0B */
+}

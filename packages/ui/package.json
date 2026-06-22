@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "src/index.ts",
+  "main": "src/index.tsx",
   "exports": {
-    ".": "./src/index.tsx"
+    ".": "./src/index.tsx",
+    "./theme.css": "./src/theme.css"
   },
   "peerDependencies": {
     "react": "^18"

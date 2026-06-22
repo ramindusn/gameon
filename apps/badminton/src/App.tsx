@@ -1,4 +1,4 @@
-import { Hello } from '@gameon/ui'
+import { Card, Button, Field } from '@gameon/ui'
 import { greet } from '@gameon/domain'
 import { isSupabaseConfigured } from '@gameon/supabase'
 
@@ -10,17 +10,25 @@ export function App() {
     <main
       data-testid="app-root"
       data-e2e={e2e ? '1' : undefined}
-      style={{ fontFamily: 'system-ui, sans-serif', padding: 24 }}
+      className="mx-auto max-w-2xl p-6"
     >
-      <h1>{greet('Coach')}</h1>
-      <p>Monorepo scaffold is wired:</p>
-      <ul>
-        <li>
-          <Hello />
-        </li>
-        <li>@gameon/domain ✔</li>
-        <li>@gameon/supabase configured: {String(isSupabaseConfigured)}</li>
-      </ul>
+      <h1 className="mb-1 font-display text-2xl font-bold text-fg">{greet('Coach')}</h1>
+      <p className="mb-6 text-sm text-fg-muted">Emerald Pro design system — packages/ui</p>
+
+      <Card title="Design system check" icon="🏸">
+        <div className="space-y-4">
+          <Field label="Nickname" placeholder="SmashKing" />
+          <div className="flex flex-wrap gap-2">
+            <Button>Primary</Button>
+            <Button variant="secondary">Secondary</Button>
+            <Button variant="ghost">Ghost</Button>
+            <Button variant="danger">Danger</Button>
+          </div>
+          <p className="text-xs text-fg-muted">
+            Supabase configured: {String(isSupabaseConfigured)}
+          </p>
+        </div>
+      </Card>
     </main>
   )
 }
