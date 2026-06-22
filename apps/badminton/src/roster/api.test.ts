@@ -8,6 +8,7 @@ describe('mapRow', () => {
         id: 'p1',
         nickname: 'SmashKing',
         skill: 4,
+        gender: 'male',
         absent: false,
         is_matchmaker: false,
         user_id: null,
@@ -16,17 +17,19 @@ describe('mapRow', () => {
       id: 'p1',
       nickname: 'SmashKing',
       skill: 4,
+      gender: 'male',
       absent: false,
       isMatchmaker: false,
       hasLogin: false,
     })
   })
 
-  it('flags matchmakers (with a login) and absences', () => {
+  it('flags matchmakers (with a login) and absences; defaults gender to null', () => {
     const p = mapRow({
       id: 'p2',
       nickname: 'Rohan',
       skill: null,
+      gender: null,
       absent: true,
       is_matchmaker: true,
       user_id: 'u2',
@@ -35,5 +38,6 @@ describe('mapRow', () => {
     expect(p.hasLogin).toBe(true)
     expect(p.absent).toBe(true)
     expect(p.skill).toBeNull()
+    expect(p.gender).toBeNull()
   })
 })

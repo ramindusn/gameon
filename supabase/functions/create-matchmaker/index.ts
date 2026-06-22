@@ -42,7 +42,13 @@ Deno.serve(async (req) => {
   if (!admin) return json(403, { error: 'Admins only' })
 
   // 2) Validate input.
-  let body: { username?: string; password?: string; name?: string; skill?: number | null }
+  let body: {
+    username?: string
+    password?: string
+    name?: string
+    skill?: number | null
+    gender?: string | null
+  }
   try {
     body = await req.json()
   } catch {
@@ -52,10 +58,13 @@ Deno.serve(async (req) => {
   const password = body.password ?? ''
   const name = (body.name ?? '').trim() || username
   const skill = body.skill == null ? null : Number(body.skill)
+  const gender = body.gender ?? null
   if (!username || !password) return json(400, { error: 'username and password are required' })
   if (password.length < 6) return json(400, { error: 'password must be at least 6 characters' })
   if (skill !== null && (!Number.isInteger(skill) || skill < 1 || skill > 10))
     return json(400, { error: 'skill must be an integer 1–10' })
+  if (gender !== null && !['male', 'female', 'other'].includes(gender))
+    return json(400, { error: 'gender must be male, female or other' })
 
   // 3) Create the matchmaker auth user (service role). The trigger enrols them.
   const adminClient = createClient(url, serviceKey)
@@ -63,7 +72,7 @@ Deno.serve(async (req) => {
     email: `${username}@${MATCHMAKER_EMAIL_DOMAIN}`,
     password,
     email_confirm: true,
-    user_metadata: { username, nickname: name, club_id: admin.club_id, skill },
+    user_metadata: { username, nickname: name, club_id: admin.club_id, skill, gender },
   })
   if (error) {
     const msg = /already.*registered|exists/i.test(error.message)

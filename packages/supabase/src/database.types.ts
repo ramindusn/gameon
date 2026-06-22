@@ -223,6 +223,7 @@ export type Database = {
           absent: boolean
           club_id: string
           created_at: string
+          gender: string | null
           id: string
           is_matchmaker: boolean
           nickname: string
@@ -235,6 +236,7 @@ export type Database = {
           absent?: boolean
           club_id: string
           created_at?: string
+          gender?: string | null
           id?: string
           is_matchmaker?: boolean
           nickname: string
@@ -247,6 +249,7 @@ export type Database = {
           absent?: boolean
           club_id?: string
           created_at?: string
+          gender?: string | null
           id?: string
           is_matchmaker?: boolean
           nickname?: string

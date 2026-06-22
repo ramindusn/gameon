@@ -4,7 +4,7 @@ import { Button, Card, Field, Modal } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { useAuth } from '../auth/useAuth'
 import { useRoster, useRosterMutations } from '../roster/useRoster'
-import type { MatchmakerInput, Player, PlayerInput } from '../roster/api'
+import type { Gender, MatchmakerInput, Player, PlayerInput } from '../roster/api'
 
 // Roster management (E02 / TASK-3.2). Admins & Matchmakers add/edit/remove
 // players (name + skill + absent). Plain players have no login; matchmakers do.
@@ -62,7 +62,9 @@ export function PlayersPage() {
                       <Badges player={p} />
                     </div>
                     <div className="mt-1 flex items-center justify-between text-sm text-fg-muted">
-                      <span>Skill: {p.skill ?? '—'}</span>
+                      <span className="capitalize">
+                        Skill {p.skill ?? '—'} · {p.gender ?? '—'}
+                      </span>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
@@ -93,6 +95,7 @@ export function PlayersPage() {
                     <tr className="border-b border-line text-left text-fg-muted">
                       <th className="py-2 pr-3 font-medium">Player</th>
                       <th className="py-2 pr-3 font-medium">Skill</th>
+                      <th className="py-2 pr-3 font-medium">Gender</th>
                       <th className="py-2 pr-3 font-medium">Status</th>
                       <th className="py-2 font-medium">Actions</th>
                     </tr>
@@ -112,6 +115,9 @@ export function PlayersPage() {
                           </Link>
                         </td>
                         <td className="py-2 pr-3 text-fg-muted">{p.skill ?? '—'}</td>
+                        <td className="py-2 pr-3 capitalize text-fg-muted">
+                          {p.gender ?? '—'}
+                        </td>
                         <td className="py-2 pr-3">
                           <Badges player={p} />
                         </td>
@@ -193,6 +199,7 @@ function MatchmakerModal({
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [skill, setSkill] = useState('')
+  const [gender, setGender] = useState('')
   const [localError, setLocalError] = useState('')
 
   function submit(e: React.FormEvent) {
@@ -207,6 +214,7 @@ function MatchmakerModal({
       username: username.trim(),
       password,
       skill: skill === '' ? null : Number(skill),
+      gender: gender === '' ? null : (gender as Gender),
     })
   }
 
@@ -238,6 +246,7 @@ function MatchmakerModal({
           data-testid="mm-new-password"
         />
         <SkillSelect value={skill} onChange={setSkill} testId="mm-skill" />
+        <GenderSelect value={gender} onChange={setGender} testId="mm-gender" />
         {(localError || error) && (
           <p className="text-sm font-medium text-red-500" data-testid="mm-create-error">
             {localError || error}
@@ -288,6 +297,33 @@ function SkillSelect({
   )
 }
 
+function GenderSelect({
+  value,
+  onChange,
+  testId,
+}: {
+  value: string
+  onChange: (v: string) => void
+  testId: string
+}) {
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block text-fg-muted">Gender (for mixed doubles)</span>
+      <select
+        className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid={testId}
+      >
+        <option value="">Not set</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+  )
+}
+
 function Badges({ player }: { player: Player }) {
   return (
     <span className="flex gap-1">
@@ -317,6 +353,7 @@ function PlayerModal({
   const isEdit = player !== null
   const [nickname, setNickname] = useState(player?.nickname ?? '')
   const [skill, setSkill] = useState(player?.skill != null ? String(player.skill) : '')
+  const [gender, setGender] = useState<string>(player?.gender ?? '')
   const [absent, setAbsent] = useState(player?.absent ?? false)
   const [error, setError] = useState('')
 
@@ -326,7 +363,12 @@ function PlayerModal({
       setError('Name is required.')
       return
     }
-    onSave({ nickname, skill: skill === '' ? null : Number(skill), absent })
+    onSave({
+      nickname,
+      skill: skill === '' ? null : Number(skill),
+      gender: gender === '' ? null : (gender as Gender),
+      absent,
+    })
   }
 
   return (
@@ -341,6 +383,7 @@ function PlayerModal({
           data-testid="player-name"
         />
         <SkillSelect value={skill} onChange={setSkill} testId="player-skill" />
+        <GenderSelect value={gender} onChange={setGender} testId="player-gender" />
         <label className="flex items-center gap-2 text-sm text-fg">
           <input
             type="checkbox"

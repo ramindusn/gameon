@@ -4,10 +4,13 @@
 
 import { supabase } from '@gameon/supabase'
 
+export type Gender = 'male' | 'female' | 'other'
+
 export interface Player {
   id: string
   nickname: string
-  skill: number | null // 1–5; null until set
+  skill: number | null // 1–10; null until set
+  gender: Gender | null
   absent: boolean
   isMatchmaker: boolean
   hasLogin: boolean
@@ -28,6 +31,7 @@ export const mapRow = (r: {
   id: string
   nickname: string
   skill: number | null
+  gender: string | null
   absent: boolean
   is_matchmaker: boolean
   user_id: string | null
@@ -35,6 +39,7 @@ export const mapRow = (r: {
   id: r.id,
   nickname: r.nickname,
   skill: r.skill,
+  gender: (r.gender as Gender | null) ?? null,
   absent: r.absent,
   isMatchmaker: r.is_matchmaker,
   hasLogin: r.user_id !== null,
@@ -65,7 +70,7 @@ export async function loadRoster(): Promise<RosterData> {
     resolveClubId(),
     db
       .from('player_profiles')
-      .select('id, nickname, skill, absent, is_matchmaker, user_id')
+      .select('id, nickname, skill, gender, absent, is_matchmaker, user_id')
       .order('nickname'),
   ])
   return { clubId, players: (players.data ?? []).map(mapRow) }
@@ -75,7 +80,7 @@ export async function loadRoster(): Promise<RosterData> {
 export async function getPlayer(id: string): Promise<Player | null> {
   const { data } = await client()
     .from('player_profiles')
-    .select('id, nickname, skill, absent, is_matchmaker, user_id')
+    .select('id, nickname, skill, gender, absent, is_matchmaker, user_id')
     .eq('id', id)
     .maybeSingle()
   return data ? mapRow(data) : null
@@ -84,6 +89,7 @@ export async function getPlayer(id: string): Promise<Player | null> {
 export interface PlayerInput {
   nickname: string
   skill: number | null
+  gender: Gender | null
   absent: boolean
 }
 
@@ -92,6 +98,7 @@ export async function addPlayer(clubId: string, p: PlayerInput) {
     club_id: clubId,
     nickname: p.nickname.trim(),
     skill: p.skill,
+    gender: p.gender,
     absent: p.absent,
   })
   if (error) throw error
@@ -100,7 +107,12 @@ export async function addPlayer(clubId: string, p: PlayerInput) {
 export async function updatePlayer(id: string, p: PlayerInput) {
   const { error } = await client()
     .from('player_profiles')
-    .update({ nickname: p.nickname.trim(), skill: p.skill, absent: p.absent })
+    .update({
+      nickname: p.nickname.trim(),
+      skill: p.skill,
+      gender: p.gender,
+      absent: p.absent,
+    })
     .eq('id', id)
   if (error) throw error
 }
@@ -115,6 +127,7 @@ export interface MatchmakerInput {
   username: string
   password: string
   skill: number | null // 1–10
+  gender: Gender | null
 }
 
 /**

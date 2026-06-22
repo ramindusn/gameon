@@ -18,7 +18,11 @@ Role name for the draw-creator: **Matchmaker**.
 > data, not accounts. Admins are **not** players; Matchmakers **are** players.
 
 ## Key concepts
-- **Draw** = one generated set of matches for a session, created by a Matchmaker.
+- **Matches are always doubles.** No singles. The generator pairs players into 2-a-side
+  matches.
+- **Mixed doubles.** Each **player has a gender** (male / female / other). The generator can
+  produce **mixed-doubles** fixtures (one male + one female per pair) alongside regular doubles.
+- **Draw** = one generated set of (doubles) matches for a session, created by a Matchmaker.
   A draw's matches start as **scheduled**, then become **played** (with results), which feed
   the rankings.
 - **Game day (session)** — created by a Matchmaker.
@@ -53,5 +57,6 @@ Role name for the draw-creator: **Matchmaker**.
   player profile + history, profile search. Mostly read-only, RLS public-read.
 - **Players (E02):** players are added by Matchmakers/Admin (no self-service signup).
 - **Draws/Matches (E03/E04):** generator produces a draw → scheduled matches → played + results.
+  **Doubles only**; supports **mixed doubles** using each player's **gender**.
 - **Rankings (E05):** two boards — doubles and individual.
 - **Admin dashboard (E06):** the existing fund/inventory app, admin-only.
