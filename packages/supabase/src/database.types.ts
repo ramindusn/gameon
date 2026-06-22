@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '14.5'
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -104,6 +109,106 @@ export type Database = {
         }
         Relationships: []
       }
+      contributions: {
+        Row: {
+          amount: number
+          club_id: string
+          id: string
+          member_id: string
+          occurred_at: string
+        }
+        Insert: {
+          amount: number
+          club_id: string
+          id?: string
+          member_id: string
+          occurred_at?: string
+        }
+        Update: {
+          amount?: number
+          club_id?: string
+          id?: string
+          member_id?: string
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'contributions_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'contributions_member_id_fkey'
+            columns: ['member_id']
+            isOneToOne: false
+            referencedRelation: 'members'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          amount: number
+          club_id: string
+          description: string
+          id: string
+          occurred_at: string
+        }
+        Insert: {
+          amount: number
+          club_id: string
+          description: string
+          id?: string
+          occurred_at?: string
+        }
+        Update: {
+          amount?: number
+          club_id?: string
+          description?: string
+          id?: string
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'expenses_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      members: {
+        Row: {
+          club_id: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          club_id: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          club_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'members_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       player_profiles: {
         Row: {
           absent: boolean
@@ -147,6 +252,158 @@ export type Database = {
             columns: ['club_id']
             isOneToOne: false
             referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      products: {
+        Row: {
+          barrels: number
+          brand: string
+          club_id: string
+          id: string
+          loose_shuttles: number
+          model: string
+          shuttles_per_barrel: number
+        }
+        Insert: {
+          barrels?: number
+          brand: string
+          club_id: string
+          id?: string
+          loose_shuttles?: number
+          model: string
+          shuttles_per_barrel?: number
+        }
+        Update: {
+          barrels?: number
+          brand?: string
+          club_id?: string
+          id?: string
+          loose_shuttles?: number
+          model?: string
+          shuttles_per_barrel?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'products_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      purchases: {
+        Row: {
+          barrels: number
+          club_id: string
+          id: string
+          note: string | null
+          occurred_at: string
+          price_per_barrel: number
+          product_id: string
+        }
+        Insert: {
+          barrels: number
+          club_id: string
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          price_per_barrel: number
+          product_id: string
+        }
+        Update: {
+          barrels?: number
+          club_id?: string
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          price_per_barrel?: number
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'purchases_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'purchases_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      usage_entries: {
+        Row: {
+          club_id: string
+          id: string
+          occurred_at: string
+        }
+        Insert: {
+          club_id: string
+          id?: string
+          occurred_at?: string
+        }
+        Update: {
+          club_id?: string
+          id?: string
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'usage_entries_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      usage_items: {
+        Row: {
+          club_id: string
+          product_id: string
+          shuttles_used: number
+          usage_id: string
+        }
+        Insert: {
+          club_id: string
+          product_id: string
+          shuttles_used: number
+          usage_id: string
+        }
+        Update: {
+          club_id?: string
+          product_id?: string
+          shuttles_used?: number
+          usage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'usage_items_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'usage_items_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'usage_items_usage_id_fkey'
+            columns: ['usage_id']
+            isOneToOne: false
+            referencedRelation: 'usage_entries'
             referencedColumns: ['id']
           },
         ]
