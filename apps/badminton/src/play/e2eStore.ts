@@ -67,6 +67,23 @@ export function e2eGet(
   return { session, results }
 }
 
+/** A result joined to its owning session, for the public home feed. */
+export interface E2EFeedRow {
+  result: MatchResult
+  session: MatchSession
+}
+
+/** Every result joined to its session (used to build the home feed). */
+export function e2eFeed(): E2EFeedRow[] {
+  const byId = new Map(read<MatchSession>(SESSIONS_KEY).map((s) => [s.id, s]))
+  const rows: E2EFeedRow[] = []
+  for (const result of read<MatchResult>(RESULTS_KEY)) {
+    const session = byId.get(result.sessionId)
+    if (session) rows.push({ result, session })
+  }
+  return rows
+}
+
 /** Record a court's point scores + derived winner. */
 export function e2eSetScore(
   resultId: string,

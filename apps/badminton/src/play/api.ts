@@ -11,6 +11,7 @@ import {
   e2ePut,
   e2eList,
   e2eGet,
+  e2eFeed,
   e2eSetScore,
   e2eSetStatus,
   e2eSetPlayedAt,
@@ -353,6 +354,140 @@ export async function deleteSession(
       console.error('recompute-ratings failed', e)
     }
   }
+}
+
+// ---- public home feed (E08 / TASK-9.5) ------------------------------------
+
+/** A match awaiting play, surfaced on the public home's "Scheduled Matches". */
+export interface ScheduledMatch {
+  id: string
+  playedAt: string
+  mode: Mode
+  court: number
+  teamA: [string | null, string | null]
+  teamB: [string | null, string | null]
+}
+
+/** A finished match, surfaced on the public home's "Recent Results". */
+export interface RecentResult {
+  id: string
+  playedAt: string
+  mode: Mode
+  court: number
+  teamA: [string | null, string | null]
+  teamB: [string | null, string | null]
+  scoreA: number
+  scoreB: number
+  winner: Side
+}
+
+const FEED_COLS =
+  'id, round, court, team_a1, team_a2, team_b1, team_b2, score_a, score_b, winner, ' +
+  'match_sessions!inner(played_at, mode, status)'
+
+type FeedRow = {
+  id: string
+  court: number
+  team_a1: string | null
+  team_a2: string | null
+  team_b1: string | null
+  team_b2: string | null
+  score_a: number | null
+  score_b: number | null
+  winner: string | null
+  match_sessions:
+    | { played_at: string; mode: string; status: string }
+    | { played_at: string; mode: string; status: string }[]
+}
+
+/** PostgREST returns a to-one embed as an object; guard the array shape. */
+function embed(r: FeedRow) {
+  return Array.isArray(r.match_sessions) ? r.match_sessions[0] : r.match_sessions
+}
+
+/**
+ * Matches in live game days that have not been scored yet, soonest game day
+ * first. Public read (RLS). `limit` caps the cards shown on the home page.
+ */
+export async function loadScheduledMatches(limit = 6): Promise<ScheduledMatch[]> {
+  if (isE2E()) {
+    return e2eFeed()
+      .filter(({ result, session }) => session.status === 'live' && result.winner === null)
+      .sort((a, b) => a.session.playedAt.localeCompare(b.session.playedAt))
+      .slice(0, limit)
+      .map(({ result, session }) => ({
+        id: result.id,
+        playedAt: session.playedAt,
+        mode: session.mode,
+        court: result.court,
+        teamA: result.teamA,
+        teamB: result.teamB,
+      }))
+  }
+  const { data } = await client()
+    .from('match_results')
+    .select(FEED_COLS)
+    .is('winner', null)
+    .eq('match_sessions.status', 'live')
+  const rows = (data ?? []) as unknown as FeedRow[]
+  return rows
+    .map((r) => ({ r, s: embed(r) }))
+    .filter(({ s }) => Boolean(s))
+    .sort((a, b) => a.s.played_at.localeCompare(b.s.played_at))
+    .slice(0, limit)
+    .map(({ r, s }) => ({
+      id: r.id,
+      playedAt: s.played_at,
+      mode: s.mode as Mode,
+      court: r.court,
+      teamA: [r.team_a1, r.team_a2],
+      teamB: [r.team_b1, r.team_b2],
+    }))
+}
+
+/**
+ * The most recently played matches across every game day, newest first.
+ * Public read (RLS). `limit` caps the rows shown on the home page.
+ */
+export async function loadRecentResults(limit = 5): Promise<RecentResult[]> {
+  if (isE2E()) {
+    return e2eFeed()
+      .filter(({ result }) => result.winner !== null)
+      .sort((a, b) => b.session.playedAt.localeCompare(a.session.playedAt))
+      .slice(0, limit)
+      .map(({ result, session }) => ({
+        id: result.id,
+        playedAt: session.playedAt,
+        mode: session.mode,
+        court: result.court,
+        teamA: result.teamA,
+        teamB: result.teamB,
+        scoreA: result.scoreA ?? 0,
+        scoreB: result.scoreB ?? 0,
+        winner: result.winner as Side,
+      }))
+  }
+  const { data } = await client()
+    .from('match_results')
+    .select(FEED_COLS)
+    .not('winner', 'is', null)
+  const rows = (data ?? []) as unknown as FeedRow[]
+  return rows
+    .map((r) => ({ r, s: embed(r) }))
+    .filter(({ s }) => Boolean(s))
+    .sort((a, b) => b.s.played_at.localeCompare(a.s.played_at))
+    .slice(0, limit)
+    .map(({ r, s }) => ({
+      id: r.id,
+      playedAt: s.played_at,
+      mode: s.mode as Mode,
+      court: r.court,
+      teamA: [r.team_a1, r.team_a2],
+      teamB: [r.team_b1, r.team_b2],
+      scoreA: r.score_a ?? 0,
+      scoreB: r.score_b ?? 0,
+      winner: r.winner as Side,
+    }))
 }
 
 // ---- public player history (E08 / TASK-9.3) -------------------------------

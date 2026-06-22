@@ -1,32 +1,28 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useEffect, useState, type ReactNode } from 'react'
-import { Button, Card } from '@gameon/ui'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Button, Card, cx } from '@gameon/ui'
 import { useAuth } from '../auth/useAuth'
 import { roleHome } from '../auth/roleHome'
 import { AdminLogin } from '../auth/AdminLogin'
 import { MatchmakerLogin } from '../auth/MatchmakerLogin'
-import {
-  useInactivePlayers,
-  usePairBoard,
-  usePlayerBoard,
-  usePlayerNames,
-  useRecentForm,
-} from '../ranking/useRanking'
-import { BoardState, PairBoardList, PlayerBoardList } from '../ranking/Leaderboard'
+import { usePairBoard, usePlayerBoard, usePlayerNames } from '../ranking/useRanking'
+import { BoardState } from '../ranking/Leaderboard'
 import { SearchBox } from '../search/SearchBox'
-import { useSessions } from '../play/useMatchPlay'
-import type { MatchSession } from '../play/api'
+import { useRecentResults, useScheduledMatches } from '../play/useMatchPlay'
+import type { RecentResult, ScheduledMatch } from '../play/api'
 
-// Public, logged-out home (TASK-9.1 / 9.2). Top bar with the two login buttons,
-// hero, then game-day draws → results → leaderboard. When no draws exist yet the
-// game-day sections are hidden and only the leaderboard shows (TASK-9.2).
+// Public, logged-out home (TASK-9.1 / 9.2 / 9.5). Top bar with the two login
+// buttons, hero, then Scheduled Matches → Recent Results → rankings. When no
+// game days exist the match sections hide and only the leaderboard shows
+// (TASK-9.2); the layout follows the GameOn mockup (TASK-9.5).
 export function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="home">
       <PublicNav />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 sm:px-6">
         <Hero />
-        <GameDays />
+        <ScheduledMatches />
+        <RecentResults />
         <RankingPreview />
       </main>
       <Footer />
@@ -34,85 +30,240 @@ export function Home() {
   )
 }
 
-// Game-day draws + results. Per TASK-9.2: if there are no draws at all, render
-// nothing here so the page shows only the leaderboard. Once draws exist, show
-// the in-progress game days and the most recent finished ones.
-const RECENT_LIMIT = 6
+// ---- shared bits ----------------------------------------------------------
 
-function GameDays() {
-  const { data, isLoading } = useSessions()
-  const sessions = data ?? []
+const PREVIEW_LIMIT = 5
+const SCHEDULED_LIMIT = 6
+const RESULTS_LIMIT = 5
 
-  // No draws yet (and not mid-load) → leaderboard-only: render nothing.
-  if (isLoading || sessions.length === 0) return null
+/** A player name that links to their public profile (plain text when unknown). */
+function PlayerLink({ id, nameOf }: { id: string | null; nameOf: NameOf }) {
+  const name = nameOf(id)
+  if (!id) return <span>{name}</span>
+  return (
+    <Link to={`/players/${id}`} className="hover:text-accent-strong hover:underline">
+      {name}
+    </Link>
+  )
+}
 
-  const live = sessions.filter((s) => s.status === 'live')
-  const finished = sessions.filter((s) => s.status === 'finished').slice(0, RECENT_LIMIT)
-
+/** "Name A & Name B" with each name linking to its profile. */
+function PairNames({ ids, nameOf }: { ids: [string | null, string | null]; nameOf: NameOf }) {
   return (
     <>
-      {live.length > 0 && (
-        <Section title="Game Days in Progress" icon="📅">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {live.map((s) => (
-              <SessionCard key={s.id} session={s} />
-            ))}
-          </div>
-        </Section>
-      )}
-      {finished.length > 0 && (
-        <Section title="Recent Game Days" icon="🏁">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {finished.map((s) => (
-              <SessionCard key={s.id} session={s} />
-            ))}
-          </div>
-        </Section>
-      )}
+      <PlayerLink id={ids[0]} nameOf={nameOf} />
+      <span className="text-fg-subtle"> &amp; </span>
+      <PlayerLink id={ids[1]} nameOf={nameOf} />
     </>
   )
 }
 
-function SessionCard({ session }: { session: MatchSession }) {
-  const date = new Date(session.playedAt)
-  const when = Number.isNaN(date.getTime())
-    ? session.playedAt
-    : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-  const live = session.status === 'live'
+type NameOf = (id: string | null) => string
+
+const fmtRating = (n: number) => Math.round(n).toLocaleString('en-US')
+
+/** A friendly absolute label for a game day's date/time. */
+function whenLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const days = Math.round((startOf(d) - startOf(new Date())) / 86_400_000)
+  const datePart =
+    days === 0
+      ? 'Today'
+      : days === 1
+        ? 'Tomorrow'
+        : days === -1
+          ? 'Yesterday'
+          : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0
+  if (!hasTime) return datePart
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  return `${datePart}, ${time}`
+}
+
+/** A compact "x minutes ago" label, falling back to a date for older results. */
+function timeAgo(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const sec = Math.floor((Date.now() - d.getTime()) / 1000)
+  if (sec < 60) return 'just now'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min} min${min === 1 ? '' : 's'} ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr} hour${hr === 1 ? '' : 's'} ago`
+  const day = Math.floor(hr / 24)
+  if (day < 7) return `${day} day${day === 1 ? '' : 's'} ago`
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+const pairKey = (a: string, b: string) => [a, b].sort().join('|')
+
+/**
+ * Resolve a doubles side to a single rating: the partnership's own rating when
+ * the pair is on the board, otherwise the average of the two players' ratings.
+ */
+function useSideRating() {
+  const pairs = usePairBoard()
+  const players = usePlayerBoard()
+  return useMemo(() => {
+    const byPair = new Map<string, number>()
+    for (const p of pairs.data ?? []) byPair.set(pairKey(p.player1Id, p.player2Id), p.rating)
+    const byPlayer = new Map<string, number>()
+    for (const p of players.data ?? []) byPlayer.set(p.playerId, p.rating)
+    return (a: string | null, b: string | null): number | null => {
+      if (a && b) {
+        const exact = byPair.get(pairKey(a, b))
+        if (exact != null) return exact
+      }
+      const vals = [a, b]
+        .map((id) => (id ? byPlayer.get(id) : undefined))
+        .filter((x): x is number => x != null)
+      if (vals.length === 0) return null
+      return vals.reduce((s, x) => s + x, 0) / vals.length
+    }
+  }, [pairs.data, players.data])
+}
+
+// ---- Scheduled Matches ----------------------------------------------------
+
+function ScheduledMatches() {
+  const { data, isLoading } = useScheduledMatches(SCHEDULED_LIMIT)
+  const nameOf = usePlayerNames()
+  const sideRating = useSideRating()
+  const matches = data ?? []
+  if (isLoading || matches.length === 0) return null
+  return (
+    <Section title="Scheduled Matches" icon="📅">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {matches.map((m) => (
+          <MatchCard key={m.id} match={m} nameOf={nameOf} sideRating={sideRating} />
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function MatchCard({
+  match,
+  nameOf,
+  sideRating,
+}: {
+  match: ScheduledMatch
+  nameOf: NameOf
+  sideRating: (a: string | null, b: string | null) => number | null
+}) {
+  const ra = sideRating(match.teamA[0], match.teamA[1])
+  const rb = sideRating(match.teamB[0], match.teamB[1])
+  const ratingLabel = (n: number | null) => (n == null ? 'Unrated' : `Rating: ${fmtRating(n)}`)
   return (
     <div
-      className="rounded-2xl border border-line bg-surface p-4"
-      data-testid={`session-card-${session.id}`}
+      className="rounded-2xl border border-line bg-surface p-5"
+      data-testid={`scheduled-${match.id}`}
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="font-display text-sm font-bold text-fg">{when}</span>
-        <span
-          className={
-            live
-              ? 'rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-accent-strong'
-              : 'rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-fg-muted'
-          }
-        >
-          {live ? 'Live' : 'Final'}
+      <div className="mb-5 flex items-start justify-between gap-2">
+        <span className="rounded-full bg-accent/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent-strong">
+          Doubles
         </span>
+        <div className="text-right">
+          <p className="text-xs text-fg-muted">Court #{match.court}</p>
+          <p className="text-sm font-semibold text-accent-strong">{whenLabel(match.playedAt)}</p>
+        </div>
       </div>
-      <p className="text-xs text-fg-muted">
-        {session.mode === 'mixed' ? 'Mixed doubles' : 'Open doubles'} · {session.rounds}{' '}
-        {session.rounds === 1 ? 'round' : 'rounds'}
-      </p>
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-sm font-bold text-fg">
+            <PairNames ids={match.teamA} nameOf={nameOf} />
+          </p>
+          <p className="text-xs text-fg-muted">{ratingLabel(ra)}</p>
+        </div>
+        <span className="text-xs font-medium uppercase text-fg-subtle">vs</span>
+        <div className="min-w-0 flex-1 text-right">
+          <p className="truncate font-display text-sm font-bold text-fg">
+            <PairNames ids={match.teamB} nameOf={nameOf} />
+          </p>
+          <p className="text-xs text-fg-muted">{ratingLabel(rb)}</p>
+        </div>
+      </div>
     </div>
   )
 }
 
-// Top-of-board previews for the public home; "View all" opens the full
-// /leaderboard. Reuses the same board components as the leaderboard page.
-const PREVIEW_LIMIT = 5
+// ---- Recent Results -------------------------------------------------------
+
+function RecentResults() {
+  const { data, isLoading } = useRecentResults(RESULTS_LIMIT)
+  const nameOf = usePlayerNames()
+  const results = data ?? []
+  if (isLoading || results.length === 0) return null
+  return (
+    <Section title="Recent Results" icon="🏁">
+      <div className="space-y-3">
+        {results.map((r) => (
+          <ResultRow key={r.id} result={r} nameOf={nameOf} />
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf }) {
+  const aWon = result.winner === 'a'
+  const bWon = result.winner === 'b'
+  return (
+    <div
+      className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-4 sm:px-6"
+      data-testid={`result-${result.id}`}
+    >
+      <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
+        <div className="min-w-0 text-right">
+          <p
+            className={cx(
+              'truncate font-display text-sm font-bold',
+              aWon ? 'text-accent-strong' : 'text-fg',
+            )}
+          >
+            <PairNames ids={result.teamA} nameOf={nameOf} />
+          </p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+            {aWon ? 'Winner' : 'Finalist'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 font-display tabular-nums">
+          <span className={cx('text-2xl font-extrabold', aWon ? 'text-fg' : 'text-fg-subtle')}>
+            {result.scoreA}
+          </span>
+          <span className="text-fg-subtle">-</span>
+          <span className={cx('text-2xl font-extrabold', bWon ? 'text-fg' : 'text-fg-subtle')}>
+            {result.scoreB}
+          </span>
+        </div>
+        <div className="min-w-0 text-left">
+          <p
+            className={cx(
+              'truncate font-display text-sm font-bold',
+              bWon ? 'text-accent-strong' : 'text-fg',
+            )}
+          >
+            <PairNames ids={result.teamB} nameOf={nameOf} />
+          </p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+            {bWon ? 'Winner' : 'Finalist'}
+          </p>
+        </div>
+      </div>
+      <span className="hidden w-20 shrink-0 text-right text-xs text-fg-subtle sm:block">
+        {timeAgo(result.playedAt)}
+      </span>
+    </div>
+  )
+}
+
+// ---- Rankings -------------------------------------------------------------
 
 function RankingPreview() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
-  const form = useRecentForm()
-  const inactive = useInactivePlayers()
   const nameOf = usePlayerNames()
 
   return (
@@ -125,7 +276,16 @@ function RankingPreview() {
           noun="doubles leaderboard"
         />
         {(pairs.data?.length ?? 0) > 0 && (
-          <PairBoardList pairs={pairs.data!} nameOf={nameOf} limit={PREVIEW_LIMIT} />
+          <RankTable
+            head="Pair Names"
+            testid="doubles-ranking"
+            rows={pairs.data!.slice(0, PREVIEW_LIMIT).map((p, i) => ({
+              key: `${p.player1Id}|${p.player2Id}`,
+              rank: i + 1,
+              rating: p.rating,
+              name: <PairNames ids={[p.player1Id, p.player2Id]} nameOf={nameOf} />,
+            }))}
+          />
         )}
       </Card>
       <Card title="Individual Ranking" icon="🏅" action={<ViewAll />}>
@@ -136,16 +296,69 @@ function RankingPreview() {
           noun="individual leaderboard"
         />
         {(players.data?.length ?? 0) > 0 && (
-          <PlayerBoardList
-            players={players.data!}
-            nameOf={nameOf}
-            form={form.data ?? {}}
-            inactive={inactive.data}
-            limit={PREVIEW_LIMIT}
+          <RankTable
+            head="Player Name"
+            testid="individual-ranking"
+            rows={players.data!.slice(0, PREVIEW_LIMIT).map((p, i) => ({
+              key: p.playerId,
+              rank: i + 1,
+              rating: p.rating,
+              name: <PlayerLink id={p.playerId} nameOf={nameOf} />,
+            }))}
           />
         )}
       </Card>
     </div>
+  )
+}
+
+function RankBadge({ n }: { n: number }) {
+  return (
+    <span
+      className={cx(
+        'grid h-7 w-7 place-items-center rounded-full font-display text-sm',
+        n === 1
+          ? 'bg-accent/15 font-bold text-accent-strong'
+          : 'font-medium text-fg-subtle',
+      )}
+    >
+      {n}
+    </span>
+  )
+}
+
+function RankTable({
+  head,
+  testid,
+  rows,
+}: {
+  head: string
+  testid: string
+  rows: { key: string; rank: number; rating: number; name: ReactNode }[]
+}) {
+  return (
+    <table className="w-full text-sm" data-testid={testid}>
+      <thead>
+        <tr className="border-b border-line text-left text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+          <th className="w-14 py-2 font-medium">Rank</th>
+          <th className="py-2 font-medium">{head}</th>
+          <th className="py-2 text-right font-medium">Rating</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-line">
+        {rows.map((r) => (
+          <tr key={r.key}>
+            <td className="py-3">
+              <RankBadge n={r.rank} />
+            </td>
+            <td className="py-3 font-medium text-fg">{r.name}</td>
+            <td className="py-3 text-right font-display font-bold tabular-nums text-fg">
+              {fmtRating(r.rating)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 

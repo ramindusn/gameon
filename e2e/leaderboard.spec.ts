@@ -8,10 +8,10 @@ import { test, expect } from '@playwright/test'
 test('home shows the ranking previews with rows', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByTestId('home')).toBeVisible()
-  // Seeded top player e2e-1 appears with a name and rating.
-  const row = page.getByTestId('player-row-e2e-1')
-  await expect(row).toBeVisible()
-  await expect(row).toContainText('E2E Player 1')
+  // Seeded top player e2e-1 appears in the individual ranking table; the top
+  // seeded partnership (e2e-1 & e2e-2) appears in the doubles ranking table.
+  await expect(page.getByTestId('individual-ranking')).toContainText('E2E Player 1')
+  await expect(page.getByTestId('doubles-ranking')).toContainText('E2E Player 2')
 })
 
 test('View all opens the full leaderboard with both boards', async ({ page }) => {

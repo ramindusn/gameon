@@ -7,6 +7,8 @@ import {
   deleteSession,
   getSession,
   listSessions,
+  loadRecentResults,
+  loadScheduledMatches,
   setScore,
   setSessionStatus,
   updateMatchLineup,
@@ -21,6 +23,22 @@ const sessionKey = (id: string) => ['session', id] as const
 /** All sessions, newest first (ADR 0006: TanStack Query). */
 export function useSessions() {
   return useQuery({ queryKey: SESSIONS_KEY, queryFn: listSessions })
+}
+
+/** Unscored matches in live game days — the public home's "Scheduled Matches". */
+export function useScheduledMatches(limit?: number) {
+  return useQuery({
+    queryKey: ['feed', 'scheduled', limit ?? null] as const,
+    queryFn: () => loadScheduledMatches(limit),
+  })
+}
+
+/** Recently played matches across game days — the home's "Recent Results". */
+export function useRecentResults(limit?: number) {
+  return useQuery({
+    queryKey: ['feed', 'recent', limit ?? null] as const,
+    queryFn: () => loadRecentResults(limit),
+  })
 }
 
 /** One session + its results. Disabled until an id is provided. */
