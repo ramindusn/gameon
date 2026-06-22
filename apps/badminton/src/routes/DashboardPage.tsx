@@ -5,7 +5,7 @@ import {
   totalShuttlesUsed,
 } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
-import { StatCard } from '../app/StatCard'
+import { StatCard, DualStatCard } from '../app/StatCard'
 import { useFund } from '../fund/useFund'
 import { QuickAdd } from '../fund/QuickAdd'
 import { TodayUsage } from '../fund/TodayUsage'
@@ -66,12 +66,13 @@ export function DashboardPage() {
             hint="all game days"
             testId="stat-shuttles-used"
           />
-          <StatCard
+          <DualStatCard
             icon="👥"
-            label="Admins"
-            value={String(state.members.length)}
-            hint={`${playerCount} players`}
-            testId="stat-admins"
+            rows={[
+              { label: 'Admins', value: String(state.members.length) },
+              { label: 'Players', value: String(playerCount) },
+            ]}
+            testId="stat-people"
           />
         </div>
 
