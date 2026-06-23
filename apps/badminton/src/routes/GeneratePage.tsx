@@ -187,7 +187,7 @@ function Draw({
           {result.rounds.length} rounds · {result.courts} court
           {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
         </p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="text-sm">
             <span className="mb-1 block text-fg-muted">Game day date &amp; time</span>
             <input
