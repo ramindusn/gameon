@@ -76,20 +76,39 @@ or toggle the Network "Offline" box and reload. App icons are generated from
 
 ## Deploy (Cloudflare Pages)
 
-Hosting is Cloudflare Pages ([ADR 0004](adr/0004-hosting-cloudflare-pages.md)),
-served from a subdomain of `badmintonduo.club`
-([ADR 0008](adr/0008-domain-subdomain.md)).
+Hosting is Cloudflare Pages ([ADR 0004](adr/0004-hosting-cloudflare-pages.md)).
+Develop on the free `*.pages.dev` URL; the custom domain
+(`play.badmintonduo.club`) is attached later, leaving the apex untouched
+([ADR 0008](adr/0008-domain-subdomain.md)). SPA deep links are handled by
+`apps/badminton/public/_redirects` (`/* /index.html 200`), which the build copies
+into `dist/`.
 
-1. Connect the repo as a Cloudflare Pages project (or use `wrangler pages deploy`).
-2. **Build command:** `npm run build` · **Output directory:** `apps/badminton/dist`.
-3. **Environment variables:** set `VITE_SUPABASE_URL` and
-   `VITE_SUPABASE_PUBLISHABLE_KEY` for the production environment.
-4. As an SPA, route all paths to `index.html` (Pages does this for SPA builds; add
-   a `_redirects` `/* /index.html 200` if a deep link 404s).
+### Option A — direct upload (fastest first deploy)
 
-Edge Functions (privileged ops, e.g. `create-matchmaker`) deploy to Supabase, not
-Cloudflare: `supabase functions deploy <name>` with secrets set via
-`supabase secrets set`.
+```bash
+npx wrangler login            # one-time browser auth to your Cloudflare account
+npm run deploy                # builds, then wrangler pages deploy → badmintonduo.pages.dev
+```
+
+`npm run deploy` runs `wrangler pages deploy apps/badminton/dist --project-name=badmintonduo`
+(creates the project on first run). The build bakes in `apps/badminton/.env`
+(`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
+
+### Option B — Git integration (CI on every push)
+
+In the Cloudflare dashboard → Pages → Connect to Git, pick this repo and set:
+- **Build command:** `npm run build` · **Output directory:** `apps/badminton/dist`
+- **Environment variables:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+### Custom domain (later)
+
+Move nameservers Porkbun → Cloudflare (re-create existing DNS first so the live
+apex keeps working), then Pages → Custom domains → add `play.badmintonduo.club`.
+Leave the apex pointing at the current site until GameOn is ready to switch.
+
+Edge Functions (privileged ops, e.g. `create-matchmaker`, `recompute-ratings`)
+deploy to Supabase, not Cloudflare: `supabase functions deploy <name>` with
+secrets via `supabase secrets set`.
 
 ## Workspace layout
 

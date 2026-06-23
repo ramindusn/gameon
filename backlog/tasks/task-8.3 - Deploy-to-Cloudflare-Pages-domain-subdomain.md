@@ -1,9 +1,10 @@
 ---
 id: TASK-8.3
 title: Deploy to Cloudflare Pages + domain/subdomain
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-19 10:43'
+updated_date: '2026-06-23 14:32'
 labels:
   - 'size:M'
   - E07

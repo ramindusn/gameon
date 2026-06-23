@@ -16,7 +16,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "deploy": "npm run build && npx --yes wrangler@latest pages deploy apps/badminton/dist --project-name=badmintonduo"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
