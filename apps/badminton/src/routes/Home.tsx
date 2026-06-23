@@ -270,6 +270,26 @@ function RankingPreview() {
 
   return (
     <div className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <Card title="Individual Ranking" icon="🏅" action={<ViewAll />}>
+        <BoardState
+          isLoading={players.isLoading}
+          isError={players.isError}
+          count={players.data?.length ?? 0}
+          noun="individual leaderboard"
+        />
+        {(players.data?.length ?? 0) > 0 && (
+          <RankTable
+            head="Player Name"
+            testid="individual-ranking"
+            rows={players.data!.slice(0, PREVIEW_LIMIT).map((p, i) => ({
+              key: p.playerId,
+              rank: i + 1,
+              rating: p.rating,
+              name: <PlayerLink id={p.playerId} nameOf={nameOf} />,
+            }))}
+          />
+        )}
+      </Card>
       <Card title="Doubles Ranking" icon="👥" action={<ViewAll />}>
         <BoardState
           isLoading={pairs.isLoading}
@@ -304,26 +324,6 @@ function RankingPreview() {
           />
         </Card>
       )}
-      <Card title="Individual Ranking" icon="🏅" action={<ViewAll />}>
-        <BoardState
-          isLoading={players.isLoading}
-          isError={players.isError}
-          count={players.data?.length ?? 0}
-          noun="individual leaderboard"
-        />
-        {(players.data?.length ?? 0) > 0 && (
-          <RankTable
-            head="Player Name"
-            testid="individual-ranking"
-            rows={players.data!.slice(0, PREVIEW_LIMIT).map((p, i) => ({
-              key: p.playerId,
-              rank: i + 1,
-              rating: p.rating,
-              name: <PlayerLink id={p.playerId} nameOf={nameOf} />,
-            }))}
-          />
-        )}
-      </Card>
     </div>
   )
 }
