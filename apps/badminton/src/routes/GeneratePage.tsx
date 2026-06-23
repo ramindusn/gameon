@@ -4,7 +4,7 @@ import { Button, Card } from '@gameon/ui'
 import { generateRounds, type GeneratedMatches, type MatchPlayer } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { useRoster } from '../roster/useRoster'
-import { useCreateSession } from '../play/useMatchPlay'
+import { useCreateSession, useCreateTournament } from '../play/useMatchPlay'
 import { localInputToIso, nowLocalInput } from '../play/datetime'
 import type { Player } from '../roster/api'
 
@@ -28,6 +28,7 @@ export function GeneratePage() {
     [data],
   )
   const createSession = useCreateSession()
+  const createTournament = useCreateTournament()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [initialised, setInitialised] = useState(false)
@@ -65,6 +66,19 @@ export function GeneratePage() {
     setGenerated(true)
   }
 
+  // Start a fixed-pairs tournament from the SELECTED players: the play screen's
+  // line-up pickers are limited to them (passed via router state).
+  function startTournament() {
+    if (!data?.clubId || selected.size < 4) return
+    createTournament.mutate(
+      { clubId: data.clubId, playedAt: localInputToIso(playedAt) },
+      {
+        onSuccess: (sessionId) =>
+          navigate(`/play/${sessionId}`, { state: { playerIds: [...selected] } }),
+      },
+    )
+  }
+
   return (
     <AppShell title="Generate draw">
       <div data-testid="generate">
@@ -89,7 +103,15 @@ export function GeneratePage() {
               disabled={selected.size < 4}
               data-testid="generate-button"
             >
-              Generate
+              Random doubles
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={startTournament}
+              disabled={!data?.clubId || selected.size < 4 || createTournament.isPending}
+              data-testid="new-tournament"
+            >
+              {createTournament.isPending ? 'Starting…' : '🏆 New tournament'}
             </Button>
           </div>
 

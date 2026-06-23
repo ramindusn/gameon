@@ -6,6 +6,13 @@
 // about ratings + results.
 
 import { supabase, isE2E } from '@gameon/supabase'
+import {
+  computeFixedPairStandings,
+  type PairStanding,
+  type StandingsResult,
+} from '@gameon/domain'
+
+export type { PairStanding } from '@gameon/domain'
 
 /** One rated player from the individual board (strongest first). */
 export interface RatedPlayer {
@@ -151,9 +158,10 @@ export async function loadRecentForm(): Promise<FormMap> {
   const { data } = await client()
     .from('match_results')
     .select(
-      'session_id, team_a1, team_a2, team_b1, team_b2, winner, match_sessions!inner(created_at, status)',
+      'session_id, team_a1, team_a2, team_b1, team_b2, winner, match_sessions!inner(created_at, status, kind)',
     )
     .eq('match_sessions.status', 'finished')
+    .eq('match_sessions.kind', 'casual')
     .not('winner', 'is', null)
 
   type Row = {
@@ -203,6 +211,53 @@ export async function loadInactivePlayers(): Promise<string[]> {
   return (data ?? []).map((r) => r.player_id)
 }
 
+// ---- fixed-pairs tournament standings (E11) -------------------------------
+
+/**
+ * The isolated Fixed Pairs leaderboard: finished tournament sessions + their
+ * scored results, aggregated by the pure domain engine (ranked by total points
+ * scored, with an absence penalty). Public read (RLS) so anon visitors see it.
+ */
+export async function loadFixedPairStandings(): Promise<PairStanding[]> {
+  if (isE2E()) return E2E_STANDINGS
+  const db = client()
+  const { data: sessions } = await db
+    .from('match_sessions')
+    .select('id, played_at')
+    .eq('status', 'finished')
+    .eq('kind', 'tournament')
+  const sRows = (sessions ?? []) as { id: string; played_at: string }[]
+  if (sRows.length === 0) return []
+
+  const { data: results } = await db
+    .from('match_results')
+    .select('session_id, team_a1, team_a2, team_b1, team_b2, score_a, score_b')
+    .in(
+      'session_id',
+      sRows.map((s) => s.id),
+    )
+  type R = {
+    session_id: string
+    team_a1: string | null
+    team_a2: string | null
+    team_b1: string | null
+    team_b2: string | null
+    score_a: number | null
+    score_b: number | null
+  }
+  const standingsResults: StandingsResult[] = ((results ?? []) as R[]).map((r) => ({
+    sessionId: r.session_id,
+    teamA: [r.team_a1, r.team_a2],
+    teamB: [r.team_b1, r.team_b2],
+    scoreA: r.score_a,
+    scoreB: r.score_b,
+  }))
+  return computeFixedPairStandings(
+    sRows.map((s) => ({ id: s.id, playedAt: s.played_at })),
+    standingsResults,
+  )
+}
+
 // ---- E2E seed -------------------------------------------------------------
 // E2E builds run with VITE_E2E=1 and no Supabase env (the client is null), so —
 // mirroring the roster's fixed 8-player club (e2e-1…e2e-8) — the boards resolve
@@ -236,3 +291,11 @@ const E2E_FORM: FormMap = {
 
 // The two tail players skipped the latest game day — decayed + flagged inactive.
 const E2E_INACTIVE: string[] = ['e2e-7', 'e2e-8']
+
+// Fixed-pairs tournament standings seed (E11) — four fixed pairs, points-ranked.
+const E2E_STANDINGS: PairStanding[] = [
+  { player1Id: 'e2e-1', player2Id: 'e2e-2', played: 4, wins: 4, losses: 0, pointsFor: 84, missedDays: 0, points: 84 },
+  { player1Id: 'e2e-3', player2Id: 'e2e-4', played: 4, wins: 2, losses: 2, pointsFor: 72, missedDays: 0, points: 72 },
+  { player1Id: 'e2e-5', player2Id: 'e2e-6', played: 4, wins: 1, losses: 3, pointsFor: 61, missedDays: 0, points: 61 },
+  { player1Id: 'e2e-7', player2Id: 'e2e-8', played: 2, wins: 1, losses: 1, pointsFor: 38, missedDays: 1, points: 33 },
+]

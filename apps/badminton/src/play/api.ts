@@ -24,12 +24,15 @@ import {
 export type SessionStatus = 'live' | 'finished'
 export type Mode = 'open' | 'mixed'
 export type Side = 'a' | 'b'
+/** A casual game day feeds the Glicko boards; a tournament is isolated (E11). */
+export type SessionKind = 'casual' | 'tournament'
 
 export interface MatchSession {
   id: string
   clubId: string
   status: SessionStatus
   mode: Mode
+  kind: SessionKind
   rounds: number
   /** The game-day date/time the matchmaker chose (editable). */
   playedAt: string
@@ -63,6 +66,7 @@ export const mapSessionRow = (r: {
   club_id: string
   status: string
   mode: string
+  kind?: string | null
   rounds: number
   played_at: string
   created_at: string
@@ -71,6 +75,7 @@ export const mapSessionRow = (r: {
   clubId: r.club_id,
   status: r.status as SessionStatus,
   mode: r.mode as Mode,
+  kind: (r.kind as SessionKind) ?? 'casual',
   rounds: r.rounds,
   playedAt: r.played_at,
   createdAt: r.created_at,
@@ -143,7 +148,7 @@ export function planToResultRows(
 
 // ---- data access ----------------------------------------------------------
 
-const SESSION_COLS = 'id, club_id, status, mode, rounds, played_at, created_at'
+const SESSION_COLS = 'id, club_id, status, mode, kind, rounds, played_at, created_at'
 const RESULT_COLS =
   'id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, score_a, score_b, winner'
 
@@ -166,6 +171,7 @@ export async function createSessionFromPlan(
         clubId,
         status: 'live',
         mode,
+        kind: 'casual',
         rounds: plan.rounds.length,
         playedAt,
         createdAt: new Date().toISOString(),
@@ -192,6 +198,45 @@ export async function createSessionFromPlan(
     const { error: rErr } = await db.from('match_results').insert(rows)
     if (rErr) throw rErr
   }
+  return session.id
+}
+
+/**
+ * Start an empty fixed-pairs tournament game day (E11). No draw is generated —
+ * the matchmaker adds each pair-vs-pair fixture by hand (addCustomMatch) and
+ * enters scores. Tournament play is isolated from the Glicko boards; its points
+ * feed the separate Fixed Pairs standings. Returns the new session id.
+ */
+export async function createTournament(clubId: string, playedAt: string): Promise<string> {
+  if (isE2E()) {
+    const id = e2eUid('session')
+    return e2ePut(
+      {
+        id,
+        clubId,
+        status: 'live',
+        mode: 'open',
+        kind: 'tournament',
+        rounds: 1,
+        playedAt,
+        createdAt: new Date().toISOString(),
+      },
+      [],
+    )
+  }
+  const { data: session, error } = await client()
+    .from('match_sessions')
+    .insert({
+      club_id: clubId,
+      mode: 'open',
+      kind: 'tournament',
+      rounds: 1,
+      status: 'live',
+      played_at: playedAt,
+    })
+    .select('id')
+    .single()
+  if (error) throw error
   return session.id
 }
 

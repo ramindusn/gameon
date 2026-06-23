@@ -8,8 +8,8 @@ import { formatPlayedAt } from '../play/datetime'
 const RECENT_LIMIT = 20
 
 // Matchmaker landing (E10 / TASK-11.1). The first screen after a matchmaker
-// signs in: resume any live game day (with the active player count), jump into a
-// new draw or the roster, and review recent game days.
+// signs in: resume any live game day (with the active player count) and review
+// recent game days.
 export function MatchmakerHome() {
   return (
     <AppShell title="Matchmaker">
@@ -81,14 +81,23 @@ function LiveNow() {
               data-testid={`live-${s.id}`}
             >
               <span className="flex flex-col">
-                <span className="font-medium text-fg">{formatPlayedAt(s.playedAt)}</span>
+                <span className="flex items-center gap-2 font-medium text-fg">
+                  {formatPlayedAt(s.playedAt)}
+                  {s.kind === 'tournament' && <TournamentTag />}
+                </span>
                 <span className="text-xs text-fg-muted" data-testid={`live-active-${s.id}`}>
-                  {s.rounds} rounds
-                  {playerCounts?.[s.id] != null && (
+                  {s.kind === 'tournament' ? (
+                    'Fixed-pairs tournament'
+                  ) : (
                     <>
-                      {' '}
-                      · {playerCounts[s.id]} player
-                      {playerCounts[s.id] === 1 ? '' : 's'}
+                      {s.rounds} rounds
+                      {playerCounts?.[s.id] != null && (
+                        <>
+                          {' '}
+                          · {playerCounts[s.id]} player
+                          {playerCounts[s.id] === 1 ? '' : 's'}
+                        </>
+                      )}
                     </>
                   )}
                 </span>
@@ -101,6 +110,14 @@ function LiveNow() {
         </ul>
       )}
     </Card>
+  )
+}
+
+function TournamentTag() {
+  return (
+    <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-strong">
+      🏆 Tournament
+    </span>
   )
 }
 
@@ -126,9 +143,14 @@ function RecentGameDays() {
                 data-testid={`recent-${s.id}`}
               >
                 <span className="flex flex-col">
-                  <span className="font-medium text-fg">{formatPlayedAt(s.playedAt)}</span>
+                  <span className="flex items-center gap-2 font-medium text-fg">
+                    {formatPlayedAt(s.playedAt)}
+                    {s.kind === 'tournament' && <TournamentTag />}
+                  </span>
                   <span className="text-xs text-fg-muted">
-                    {s.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'} · {s.rounds} rounds
+                    {s.kind === 'tournament'
+                      ? 'Fixed-pairs tournament'
+                      : `${s.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'} · ${s.rounds} rounds`}
                   </span>
                 </span>
               </Link>

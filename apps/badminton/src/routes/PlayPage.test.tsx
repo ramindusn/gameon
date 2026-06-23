@@ -10,6 +10,7 @@ const { setScore, setStatus, updateLineup, addMatch, deleteMatch, sessionData } 
     clubId: 'c1',
     status: 'live',
     mode: 'open',
+    kind: 'casual',
     rounds: 1,
     playedAt: '2026-06-22T10:00:00Z',
     createdAt: '2026-06-22T10:00:00Z',
