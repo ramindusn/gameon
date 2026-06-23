@@ -63,6 +63,17 @@ npm run build        # tsc --noEmit + vite build -> apps/badminton/dist
 npm run preview      # serve the production build locally
 ```
 
+## PWA / offline
+
+The app is an installable PWA (`vite-plugin-pwa`): the production build emits a
+service worker that precaches the app shell, falls back to `index.html` offline,
+and serves Supabase reads network-first (fresh online, cached offline). The
+service worker only runs in the **production build** — `npm run dev` does not
+register one, so development and e2e are unaffected. Verify offline behaviour via
+`npm run build && npm run preview`, then DevTools → Application → Service Workers,
+or toggle the Network "Offline" box and reload. App icons are generated from
+`scripts/gen-pwa-icons.mjs` (`npm run gen:icons -w @gameon/badminton`).
+
 ## Deploy (Cloudflare Pages)
 
 Hosting is Cloudflare Pages ([ADR 0004](adr/0004-hosting-cloudflare-pages.md)),
