@@ -24,6 +24,13 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
 
   return (
     <div className="min-h-screen bg-bg text-fg" data-testid="app-shell">
+      {/* Keyboard users can jump past the nav straight to the page content. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-lg focus:bg-accent focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-950"
+      >
+        Skip to content
+      </a>
       {/* Top navigation bar */}
       <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
@@ -68,6 +75,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
 
       {/* Extra bottom padding on mobile so content clears the fixed tab bar. */}
       <main
+        id="main-content"
         className="mx-auto w-full max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-8"
         data-testid="app-main"
       >
