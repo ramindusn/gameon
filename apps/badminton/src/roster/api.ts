@@ -121,7 +121,10 @@ export async function addPlayer(clubId: string, p: PlayerInput) {
 }
 
 export async function updatePlayer(id: string, p: PlayerInput) {
-  const { error } = await client()
+  // `.select()` returns the changed rows: when RLS blocks the write the update
+  // matches 0 rows and returns no error, so without this a failed save would
+  // look like success. Throw instead so the UI can surface it.
+  const { data, error } = await client()
     .from('player_profiles')
     .update({
       nickname: p.nickname.trim(),
@@ -130,7 +133,11 @@ export async function updatePlayer(id: string, p: PlayerInput) {
       absent: p.absent,
     })
     .eq('id', id)
+    .select('id')
   if (error) throw error
+  if (!data || data.length === 0) {
+    throw new Error("Couldn't save — you may not have permission to edit this player.")
+  }
 }
 
 export async function removePlayer(id: string) {

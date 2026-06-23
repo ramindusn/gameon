@@ -156,10 +156,18 @@ export function PlayersPage() {
         <PlayerModal
           player={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
+          pending={m.add.isPending || m.update.isPending}
+          saveError={
+            (editing === 'new' ? m.add.error : m.update.error) instanceof Error
+              ? ((editing === 'new' ? m.add.error : m.update.error) as Error).message
+              : ''
+          }
           onSave={(input) => {
-            if (editing === 'new') m.add.mutate(input)
-            else m.update.mutate({ id: editing.id, input })
-            setEditing(null)
+            // Close only after the write actually lands, so a failed save (e.g.
+            // blocked by RLS) keeps the modal open with its error visible.
+            const onDone = { onSuccess: () => setEditing(null) }
+            if (editing === 'new') m.add.mutate(input, onDone)
+            else m.update.mutate({ id: editing.id, input }, onDone)
           }}
         />
       )}
@@ -334,7 +342,7 @@ function Badges({ player }: { player: Player }) {
       )}
       {player.absent && (
         <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">
-          Absent
+          Excluded
         </span>
       )}
     </span>
@@ -345,10 +353,14 @@ function PlayerModal({
   player,
   onClose,
   onSave,
+  pending = false,
+  saveError = '',
 }: {
   player: Player | null
   onClose: () => void
   onSave: (input: PlayerInput) => void
+  pending?: boolean
+  saveError?: string
 }) {
   const isEdit = player !== null
   const [nickname, setNickname] = useState(player?.nickname ?? '')
@@ -391,15 +403,19 @@ function PlayerModal({
             onChange={(e) => setAbsent(e.target.checked)}
             data-testid="player-absent"
           />
-          Absent (excluded from draws)
+          Excluded from draws
         </label>
-        {error && <p className="text-sm font-medium text-red-500">{error}</p>}
+        {(error || saveError) && (
+          <p className="text-sm font-medium text-red-500" data-testid="player-save-error">
+            {error || saveError}
+          </p>
+        )}
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" data-testid="player-save">
-            {isEdit ? 'Save' : 'Add player'}
+          <Button type="submit" data-testid="player-save" disabled={pending}>
+            {pending ? 'Saving…' : isEdit ? 'Save' : 'Add player'}
           </Button>
         </div>
       </form>

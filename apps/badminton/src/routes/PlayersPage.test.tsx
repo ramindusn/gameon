@@ -26,8 +26,8 @@ vi.mock('../roster/useRoster', () => ({
     isError: false,
   }),
   useRosterMutations: () => ({
-    add: { mutate: add },
-    update: { mutate: update },
+    add: { mutate: add, isPending: false, error: null },
+    update: { mutate: update, isPending: false, error: null },
     remove: { mutate: remove },
     createMatchmaker: { mutate: createMatchmaker, isPending: false, error: null },
   }),
@@ -67,12 +67,10 @@ describe('PlayersPage', () => {
     fireEvent.change(screen.getByTestId('player-name'), { target: { value: 'Bob' } })
     fireEvent.change(screen.getByTestId('player-skill'), { target: { value: '5' } })
     fireEvent.click(screen.getByTestId('player-save'))
-    expect(add).toHaveBeenCalledWith({
-      nickname: 'Bob',
-      skill: 5,
-      gender: null,
-      absent: false,
-    })
+    expect(add).toHaveBeenCalledWith(
+      { nickname: 'Bob', skill: 5, gender: null, absent: false },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    )
   })
 
   it('edits an existing player', () => {
@@ -80,10 +78,10 @@ describe('PlayersPage', () => {
     fireEvent.click(screen.getAllByText('Edit')[0])
     fireEvent.change(screen.getByTestId('player-name'), { target: { value: 'Alicia' } })
     fireEvent.click(screen.getByTestId('player-save'))
-    expect(update).toHaveBeenCalledWith({
-      id: 'p1',
-      input: { nickname: 'Alicia', skill: 3, gender: null, absent: false },
-    })
+    expect(update).toHaveBeenCalledWith(
+      { id: 'p1', input: { nickname: 'Alicia', skill: 3, gender: null, absent: false } },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    )
   })
 
   it('removes a player after confirmation', () => {
