@@ -37,7 +37,9 @@ export function GeneratePage() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [initialised, setInitialised] = useState(false)
-  const [rounds, setRounds] = useState(5)
+  // Kept as text so the field can be cleared/retyped freely; clamped on blur.
+  const [roundsText, setRoundsText] = useState('5')
+  const rounds = Math.max(1, Math.min(30, Number(roundsText) || 1))
   const mode: Mode = 'open'
   const [result, setResult] = useState<GeneratedMatches | null>(null)
   const [generated, setGenerated] = useState(false)
@@ -125,10 +127,10 @@ export function GeneratePage() {
                       type="number"
                       min={1}
                       max={30}
-                      value={rounds}
-                      onChange={(e) =>
-                        setRounds(Math.max(1, Math.min(30, Number(e.target.value) || 1)))
-                      }
+                      inputMode="numeric"
+                      value={roundsText}
+                      onChange={(e) => setRoundsText(e.target.value)}
+                      onBlur={() => setRoundsText(String(rounds))}
                       className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                       data-testid="rounds-input"
                     />
