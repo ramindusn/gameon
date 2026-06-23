@@ -81,94 +81,103 @@ export function GeneratePage() {
   return (
     <AppShell title="Generate draw">
       <div data-testid="generate">
-        <Card title="Setup" icon="🎲">
-          <div className="mb-4 space-y-3">
-            <label className="block text-sm">
-              <span className="mb-1 block text-fg-muted">Rounds (random doubles)</span>
-              <input
-                type="number"
-                min={1}
-                max={30}
-                value={rounds}
-                onChange={(e) =>
-                  setRounds(Math.max(1, Math.min(30, Number(e.target.value) || 1)))
-                }
-                className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                data-testid="rounds-input"
-              />
-            </label>
-            {/* Two create actions, same size: stacked on mobile, inline on desktop. */}
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                onClick={generate}
-                disabled={selected.size < 4}
-                data-testid="generate-button"
-                className="w-full sm:w-auto"
-              >
-                🎲 Random doubles
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setTournamentSetup(true)}
-                disabled={selected.size < 4}
-                data-testid="new-tournament"
-                className="w-full sm:w-auto"
-              >
-                🏆 New tournament
-              </Button>
-            </div>
-          </div>
-
-          {isLoading && <p className="text-sm text-fg-muted">Loading roster…</p>}
-          {!isLoading && active.length === 0 && (
-            <p className="text-sm text-fg-muted">
-              No active players — add players (or unmark them as excluded) on the
-              Players page.
-            </p>
-          )}
-
-          {active.length > 0 && (
-            <>
-              <p className="mb-2 text-sm text-fg-muted">
-                Selected: {selected.size} / {active.length}
+        {/* The setup widget (player selection + the two actions) hides once an
+            action is chosen; each result view has a Back button to return here. */}
+        {!generated && !tournamentSetup && (
+          <Card title="Setup" icon="🎲">
+            {isLoading && <p className="text-sm text-fg-muted">Loading roster…</p>}
+            {!isLoading && active.length === 0 && (
+              <p className="text-sm text-fg-muted">
+                No active players — add players (or unmark them as excluded) on the
+                Players page.
               </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {active.map((p) => (
-                  <label
-                    key={p.id}
-                    className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm"
-                  >
+            )}
+
+            {active.length > 0 && (
+              <>
+                <p className="mb-2 text-sm text-fg-muted">
+                  Selected: {selected.size} / {active.length}
+                </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {active.map((p) => (
+                    <label
+                      key={p.id}
+                      className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected.has(p.id)}
+                        onChange={() => toggle(p.id)}
+                        data-testid={`present-${p.id}`}
+                      />
+                      <span className="truncate text-fg">{p.nickname}</span>
+                      <span className="ml-auto text-xs text-fg-subtle">
+                        {p.skill ?? '—'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="mt-5 space-y-3 border-t border-line pt-4">
+                  <label className="block text-sm">
+                    <span className="mb-1 block text-fg-muted">Rounds (random doubles)</span>
                     <input
-                      type="checkbox"
-                      checked={selected.has(p.id)}
-                      onChange={() => toggle(p.id)}
-                      data-testid={`present-${p.id}`}
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={rounds}
+                      onChange={(e) =>
+                        setRounds(Math.max(1, Math.min(30, Number(e.target.value) || 1)))
+                      }
+                      className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      data-testid="rounds-input"
                     />
-                    <span className="truncate text-fg">{p.nickname}</span>
-                    <span className="ml-auto text-xs text-fg-subtle">
-                      {p.skill ?? '—'}
-                    </span>
                   </label>
-                ))}
-              </div>
-            </>
-          )}
-        </Card>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      onClick={generate}
+                      disabled={selected.size < 4}
+                      data-testid="generate-button"
+                      className="w-full sm:w-auto"
+                    >
+                      🎲 Random doubles
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setTournamentSetup(true)}
+                      disabled={selected.size < 4}
+                      data-testid="new-tournament"
+                      className="w-full sm:w-auto"
+                    >
+                      🏆 New tournament
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </Card>
+        )}
 
         {tournamentSetup && (
           <div className="mt-6">
+            <BackToSetup onBack={() => setTournamentSetup(false)} />
             <TournamentSetup
               players={selectedPlayers}
               clubId={data?.clubId ?? null}
               playedAt={localInputToIso(playedAt)}
-              onCancel={() => setTournamentSetup(false)}
               onCreated={(id) => navigate(`/play/${id}`)}
             />
           </div>
         )}
 
-        {generated && !tournamentSetup && (
+        {generated && (
           <div className="mt-6" data-testid="draw-result">
+            <BackToSetup
+              onBack={() => {
+                setGenerated(false)
+                setResult(null)
+              }}
+            />
             {!result ? (
               <Card title="Couldn't generate" icon="⚠️">
                 <p className="text-sm text-fg-muted">
@@ -312,19 +321,31 @@ function formatLocalInput(value: string): string {
   })
 }
 
+// A back link to return from a result/tournament view to the setup widget.
+function BackToSetup({ onBack }: { onBack: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-fg-muted hover:text-fg"
+      data-testid="back-to-setup"
+    >
+      ← Back to setup
+    </button>
+  )
+}
+
 // Fixed-pairs tournament setup (E11): lock partners from the selected players,
 // then generate a single round-robin and create the game day pre-filled with it.
 function TournamentSetup({
   players,
   clubId,
   playedAt,
-  onCancel,
   onCreated,
 }: {
   players: Player[]
   clubId: string | null
   playedAt: string
-  onCancel: () => void
   onCreated: (sessionId: string) => void
 }) {
   const create = useCreateTournamentWithMatches()
@@ -433,19 +454,14 @@ function TournamentSetup({
             : `${matchCount} matches will be generated.`}
           {pool.length > 0 && pairs.length >= 2 && ` ${pool.length} player(s) will sit out.`}
         </p>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={onCancel} className="w-full sm:w-auto">
-            Cancel
-          </Button>
-          <Button
-            onClick={generate}
-            disabled={!clubId || pairs.length < 2 || create.isPending}
-            data-testid="generate-matches"
-            className="w-full sm:w-auto"
-          >
-            {create.isPending ? 'Generating…' : 'Generate matches'}
-          </Button>
-        </div>
+        <Button
+          onClick={generate}
+          disabled={!clubId || pairs.length < 2 || create.isPending}
+          data-testid="generate-matches"
+          className="w-full sm:w-auto"
+        >
+          {create.isPending ? 'Generating…' : 'Generate matches'}
+        </Button>
       </div>
     </Card>
   )

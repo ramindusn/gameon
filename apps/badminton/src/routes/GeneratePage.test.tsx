@@ -69,6 +69,18 @@ describe('GeneratePage', () => {
     }
   })
 
+  it('hides the setup on an action and can go back to it', () => {
+    renderPage()
+    expect(screen.getByTestId('present-p1')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('generate-button'))
+    // Setup (player selection) is hidden; the draw + a back link show.
+    expect(screen.queryByTestId('present-p1')).toBeNull()
+    fireEvent.click(screen.getByTestId('back-to-setup'))
+    // Back on the setup widget.
+    expect(screen.getByTestId('present-p1')).toBeInTheDocument()
+    expect(screen.queryByTestId('draw-result')).toBeNull()
+  })
+
   it('locks pairs then generates round-robin tournament matches', () => {
     tournamentMutate.mockClear()
     renderPage()
