@@ -183,12 +183,12 @@ function Draw({
   return (
     <div className="space-y-4">
       <Card title="Create game day" icon="📅">
-        <p className="mb-4 text-sm text-fg-muted">
-          {result.rounds.length} rounds · {result.courts} court
-          {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
-        </p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="text-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
+          <p className="text-sm text-fg-muted sm:mb-2">
+            {result.rounds.length} rounds · {result.courts} court
+            {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
+          </p>
+          <label className="text-sm sm:ml-auto">
             <span className="mb-1 block text-fg-muted">Game day date &amp; time</span>
             <input
               type="datetime-local"
