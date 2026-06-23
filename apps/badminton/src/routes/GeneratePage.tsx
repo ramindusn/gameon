@@ -201,7 +201,7 @@ function Draw({
             value={playedAt}
             onChange={(e) => onPlayedAtChange(e.target.value)}
             aria-label="Game day date and time"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:ml-auto sm:w-auto"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:ml-auto sm:w-auto"
             data-testid="game-day-datetime"
           />
           <Button
@@ -228,17 +228,15 @@ function Draw({
               {round.matches.map((m, ci) => (
                 <div
                   key={ci}
-                  className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm"
+                  className="rounded-lg border border-line bg-surface-muted px-3 py-3 text-sm"
                 >
-                  <div className="mb-1 text-xs uppercase tracking-wide text-fg-subtle">
+                  <div className="mb-2 text-center text-xs uppercase tracking-wide text-fg-subtle">
                     Court {ci + 1}
                   </div>
-                  <div className="font-medium text-fg">
-                    {name(m[0][0])} &amp; {name(m[0][1])}
-                  </div>
-                  <div className="my-0.5 text-xs text-fg-muted">vs</div>
-                  <div className="font-medium text-fg">
-                    {name(m[1][0])} &amp; {name(m[1][1])}
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
+                    <TeamCol a={name(m[0][0])} b={name(m[0][1])} />
+                    <span className="text-xs font-medium uppercase text-fg-subtle">vs</span>
+                    <TeamCol a={name(m[1][0])} b={name(m[1][1])} />
                   </div>
                 </div>
               ))}
@@ -251,6 +249,16 @@ function Draw({
           </Card>
         ))}
       </div>
+    </div>
+  )
+}
+
+// A team's two players stacked + centred (matches the public home's pair styling).
+function TeamCol({ a, b }: { a: string; b: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="break-words font-medium leading-tight text-fg">{a}</p>
+      <p className="break-words font-medium leading-tight text-fg">{b}</p>
     </div>
   )
 }

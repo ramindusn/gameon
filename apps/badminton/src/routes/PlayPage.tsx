@@ -343,8 +343,9 @@ function CourtScore({
             : 'border-line bg-surface-muted text-fg',
         )}
       >
-        <span className="min-w-0 flex-1 truncate">
-          {nameOf(ids[0])} &amp; {nameOf(ids[1])}
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block break-words">{nameOf(ids[0])}</span>
+          <span className="block break-words">{nameOf(ids[1])}</span>
         </span>
         {won && <span aria-label="winner">✓</span>}
         <input
