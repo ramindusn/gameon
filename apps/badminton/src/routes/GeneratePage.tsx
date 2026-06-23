@@ -27,7 +27,7 @@ export function GeneratePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [initialised, setInitialised] = useState(false)
   const [rounds, setRounds] = useState(5)
-  const [mode, setMode] = useState<Mode>('open')
+  const mode: Mode = 'open'
   const [result, setResult] = useState<GeneratedMatches | null>(null)
   const [generated, setGenerated] = useState(false)
   // Game-day date/time the matchmaker confirms on "Create game day" (default now).
@@ -79,25 +79,6 @@ export function GeneratePage() {
                 data-testid="rounds-input"
               />
             </label>
-            <div className="text-sm">
-              <span className="mb-1 block text-fg-muted">Format</span>
-              <div className="flex gap-2">
-                <Button
-                  variant={mode === 'open' ? 'primary' : 'secondary'}
-                  onClick={() => setMode('open')}
-                  data-testid="mode-open"
-                >
-                  Doubles
-                </Button>
-                <Button
-                  variant={mode === 'mixed' ? 'primary' : 'secondary'}
-                  onClick={() => setMode('mixed')}
-                  data-testid="mode-mixed"
-                >
-                  Mixed doubles
-                </Button>
-              </div>
-            </div>
             <Button
               onClick={generate}
               disabled={selected.size < 4}
@@ -147,9 +128,7 @@ export function GeneratePage() {
             {!result ? (
               <Card title="Couldn't generate" icon="⚠️">
                 <p className="text-sm text-fg-muted">
-                  {mode === 'mixed'
-                    ? 'Need at least 2 male and 2 female present players for a mixed court.'
-                    : 'Need at least 4 present players.'}
+                  Need at least 4 present players.
                 </p>
               </Card>
             ) : (

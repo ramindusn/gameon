@@ -54,12 +54,4 @@ describe('GeneratePage', () => {
     // 8 players → 2 courts; player names render in the draw.
     expect(screen.getAllByText(/Court \d/).length).toBeGreaterThan(0)
   })
-
-  it('mixed mode produces male+female pairs (everyone placed here)', () => {
-    renderPage()
-    fireEvent.click(screen.getByTestId('mode-mixed'))
-    fireEvent.click(screen.getByTestId('generate-button'))
-    expect(screen.getByTestId('draw-result')).toBeInTheDocument()
-    expect(screen.getByText('Round 1')).toBeInTheDocument()
-  })
 })

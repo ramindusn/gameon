@@ -41,11 +41,3 @@ test('matchmaker generates a draw from the seeded roster', async ({ page }) => {
   await expect(page.getByText(/Court \d/).first()).toBeVisible()
   await expect(page.getByText('E2E Player 1').first()).toBeVisible()
 })
-
-test('mixed-doubles mode generates a draw', async ({ page }) => {
-  await page.goto('/generate')
-  await page.getByTestId('mode-mixed').click()
-  await page.getByTestId('generate-button').click()
-  await expect(page.getByTestId('draw-result')).toBeVisible()
-  await expect(page.getByText('Round 1')).toBeVisible()
-})
