@@ -182,31 +182,32 @@ function Draw({
   const name = (p: MatchPlayer) => (p as Named).nickname ?? p.id
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-wrap items-end gap-4">
-          <p className="text-sm text-fg-muted">
-            {result.rounds.length} rounds · {result.courts} court
-            {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
-          </p>
+      <Card title="Create game day" icon="📅">
+        <p className="mb-4 text-sm text-fg-muted">
+          {result.rounds.length} rounds · {result.courts} court
+          {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
+        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <label className="text-sm">
             <span className="mb-1 block text-fg-muted">Game day date &amp; time</span>
             <input
               type="datetime-local"
               value={playedAt}
               onChange={(e) => onPlayedAtChange(e.target.value)}
-              className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:w-auto"
               data-testid="game-day-datetime"
             />
           </label>
+          <Button
+            onClick={onStart}
+            disabled={!canStart || starting}
+            data-testid="create-game-day"
+            className="w-full sm:w-auto"
+          >
+            {starting ? 'Creating…' : 'Create game day'}
+          </Button>
         </div>
-        <Button
-          onClick={onStart}
-          disabled={!canStart || starting}
-          data-testid="create-game-day"
-        >
-          {starting ? 'Creating…' : 'Create game day'}
-        </Button>
-      </div>
+      </Card>
       {result.unplaceable.length > 0 && (
         <p className="text-sm text-warning">
           Not placed (no male/female set): {result.unplaceable.map(name).join(', ')}
