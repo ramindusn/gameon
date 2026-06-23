@@ -9,17 +9,14 @@ import { formatPlayedAt } from '../play/datetime'
 const RECENT_LIMIT = 5
 
 // Matchmaker landing (E10 / TASK-11.1). The first screen after a matchmaker
-// signs in: resume any live game day, jump into a new draw or the roster, see
-// attendance at a glance, and review recent game days.
+// signs in: resume any live game day (with the active player count), jump into a
+// new draw or the roster, and review recent game days.
 export function MatchmakerHome() {
   return (
     <AppShell title="Matchmaker">
       <div className="space-y-6" data-testid="matchmaker-home">
         <QuickActions />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <LiveNow />
-          <RosterSnapshot />
-        </div>
+        <LiveNow />
         <RecentGameDays />
       </div>
     </AppShell>
@@ -73,6 +70,8 @@ function QuickActions() {
 
 function LiveNow() {
   const { data, isLoading, isError } = useSessions()
+  const { data: roster } = useRoster()
+  const activeCount = (roster?.players ?? []).filter((p) => !p.absent).length
   const live = (data ?? []).filter((s) => s.status === 'live')
   return (
     <Card title="Live now" icon="🟢">
@@ -98,7 +97,10 @@ function LiveNow() {
             >
               <span className="flex flex-col">
                 <span className="font-medium text-fg">{formatPlayedAt(s.playedAt)}</span>
-                <span className="text-xs text-fg-muted">{s.rounds} rounds</span>
+                <span className="text-xs text-fg-muted" data-testid={`live-active-${s.id}`}>
+                  {s.rounds} rounds · {activeCount} active{' '}
+                  {activeCount === 1 ? 'player' : 'players'}
+                </span>
               </span>
               <LinkButton to={`/play/${s.id}`} data-testid={`resume-${s.id}`}>
                 Resume
@@ -108,71 +110,6 @@ function LiveNow() {
         </ul>
       )}
     </Card>
-  )
-}
-
-// ---- Roster snapshot ------------------------------------------------------
-
-function RosterSnapshot() {
-  const { data, isLoading, isError } = useRoster()
-  const players = data?.players ?? []
-  const total = players.length
-  const active = players.filter((p) => !p.absent).length
-  const excluded = total - active
-  return (
-    <Card
-      title="Roster"
-      icon="📋"
-      action={
-        <Link to="/players" className="text-sm text-accent-strong hover:underline">
-          Manage
-        </Link>
-      }
-    >
-      {isLoading && <p className="text-sm text-fg-muted">Loading roster…</p>}
-      {isError && <p className="text-sm text-negative">Could not load roster.</p>}
-      {!isLoading && !isError && total === 0 && (
-        <p className="text-sm text-fg-muted">
-          No players yet — add some on the Players page.
-        </p>
-      )}
-      {!isLoading && !isError && total > 0 && (
-        <div data-testid="roster-snapshot">
-          <div className="flex items-end gap-6">
-            <Stat label="Active" value={active} tone="accent" />
-            <Stat label="Excluded" value={excluded} />
-            <Stat label="Total" value={total} />
-          </div>
-          <p className="mt-3 text-xs text-fg-subtle">
-            Excluded players are skipped when generating a draw.
-          </p>
-        </div>
-      )}
-    </Card>
-  )
-}
-
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: number
-  tone?: 'accent'
-}) {
-  return (
-    <div>
-      <p
-        className={cx(
-          'font-display text-3xl font-bold',
-          tone === 'accent' ? 'text-accent-strong' : 'text-fg',
-        )}
-      >
-        {value}
-      </p>
-      <p className="text-xs uppercase tracking-wide text-fg-muted">{label}</p>
-    </div>
   )
 }
 
