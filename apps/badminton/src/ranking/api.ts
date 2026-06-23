@@ -6,13 +6,7 @@
 // about ratings + results.
 
 import { supabase, isE2E } from '@gameon/supabase'
-import {
-  computeFixedPairStandings,
-  type PairStanding,
-  type StandingsResult,
-} from '@gameon/domain'
-
-export type { PairStanding } from '@gameon/domain'
+import { computeRatings, type MatchRecord, type RatingPeriod } from '@gameon/domain'
 
 /** One rated player from the individual board (strongest first). */
 export interface RatedPlayer {
@@ -211,22 +205,24 @@ export async function loadInactivePlayers(): Promise<string[]> {
   return (data ?? []).map((r) => r.player_id)
 }
 
-// ---- fixed-pairs tournament standings (E11) -------------------------------
+// ---- fixed-pairs tournament board (E11) -----------------------------------
 
 /**
- * The isolated Fixed Pairs leaderboard: finished tournament sessions + their
- * scored results, aggregated by the pure domain engine (ranked by total points
- * scored, with an absence penalty). Public read (RLS) so anon visitors see it.
+ * The isolated Fixed Pairs leaderboard, ranked with the SAME Glicko-2 technique
+ * as the doubles board but computed only over finished tournament sessions (one
+ * session = one rating period, chronological). Computed on read from the public
+ * match tables; kept entirely separate from the casual boards. Public read.
  */
-export async function loadFixedPairStandings(): Promise<PairStanding[]> {
-  if (isE2E()) return E2E_STANDINGS
+export async function loadTournamentPairBoard(): Promise<RatedPair[]> {
+  if (isE2E()) return E2E_TOURNAMENT_BOARD
   const db = client()
   const { data: sessions } = await db
     .from('match_sessions')
-    .select('id, played_at')
+    .select('id, created_at')
     .eq('status', 'finished')
     .eq('kind', 'tournament')
-  const sRows = (sessions ?? []) as { id: string; played_at: string }[]
+    .order('created_at', { ascending: true })
+  const sRows = (sessions ?? []) as { id: string; created_at: string }[]
   if (sRows.length === 0) return []
 
   const { data: results } = await db
@@ -245,17 +241,26 @@ export async function loadFixedPairStandings(): Promise<PairStanding[]> {
     score_a: number | null
     score_b: number | null
   }
-  const standingsResults: StandingsResult[] = ((results ?? []) as R[]).map((r) => ({
-    sessionId: r.session_id,
-    teamA: [r.team_a1, r.team_a2],
-    teamB: [r.team_b1, r.team_b2],
-    scoreA: r.score_a,
-    scoreB: r.score_b,
-  }))
-  return computeFixedPairStandings(
-    sRows.map((s) => ({ id: s.id, playedAt: s.played_at })),
-    standingsResults,
-  )
+  const bySession = new Map<string, MatchRecord[]>()
+  for (const r of (results ?? []) as R[]) {
+    if (!r.team_a1 || !r.team_a2 || !r.team_b1 || !r.team_b2) continue
+    if (r.score_a == null || r.score_b == null) continue
+    const rec: MatchRecord = {
+      teamA: [r.team_a1, r.team_a2],
+      teamB: [r.team_b1, r.team_b2],
+      scoreA: r.score_a,
+      scoreB: r.score_b,
+    }
+    const list = bySession.get(r.session_id)
+    if (list) list.push(rec)
+    else bySession.set(r.session_id, [rec])
+  }
+  const periods: RatingPeriod[] = sRows.map((s) => ({ matches: bySession.get(s.id) ?? [] }))
+  const tables = computeRatings(periods)
+  return tables.pairs.map((p) => {
+    const [a, b] = p.players[0] < p.players[1] ? p.players : [p.players[1], p.players[0]]
+    return { player1Id: a, player2Id: b, rating: p.rating, rd: p.rd, games: p.games }
+  })
 }
 
 // ---- E2E seed -------------------------------------------------------------
@@ -292,10 +297,10 @@ const E2E_FORM: FormMap = {
 // The two tail players skipped the latest game day — decayed + flagged inactive.
 const E2E_INACTIVE: string[] = ['e2e-7', 'e2e-8']
 
-// Fixed-pairs tournament standings seed (E11) — four fixed pairs, points-ranked.
-const E2E_STANDINGS: PairStanding[] = [
-  { player1Id: 'e2e-1', player2Id: 'e2e-2', played: 4, wins: 4, losses: 0, pointsFor: 84, missedDays: 0, points: 84 },
-  { player1Id: 'e2e-3', player2Id: 'e2e-4', played: 4, wins: 2, losses: 2, pointsFor: 72, missedDays: 0, points: 72 },
-  { player1Id: 'e2e-5', player2Id: 'e2e-6', played: 4, wins: 1, losses: 3, pointsFor: 61, missedDays: 0, points: 61 },
-  { player1Id: 'e2e-7', player2Id: 'e2e-8', played: 2, wins: 1, losses: 1, pointsFor: 38, missedDays: 1, points: 33 },
+// Fixed-pairs tournament board seed (E11) — Glicko-rated, like the doubles board.
+const E2E_TOURNAMENT_BOARD: RatedPair[] = [
+  { player1Id: 'e2e-1', player2Id: 'e2e-2', rating: 1635, rd: 60, games: 6 },
+  { player1Id: 'e2e-3', player2Id: 'e2e-4', rating: 1560, rd: 75, games: 5 },
+  { player1Id: 'e2e-5', player2Id: 'e2e-6', rating: 1505, rd: 95, games: 4 },
+  { player1Id: 'e2e-7', player2Id: 'e2e-8', rating: 1470, rd: 120, games: 3 },
 ]

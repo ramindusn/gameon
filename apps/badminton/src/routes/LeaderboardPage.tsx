@@ -1,19 +1,14 @@
 import { Link } from 'react-router-dom'
 import { Card } from '@gameon/ui'
 import {
-  useFixedPairStandings,
   useInactivePlayers,
   usePairBoard,
   usePlayerBoard,
   usePlayerNames,
   useRecentForm,
+  useTournamentPairBoard,
 } from '../ranking/useRanking'
-import {
-  BoardState,
-  FixedPairStandingsList,
-  PairBoardList,
-  PlayerBoardList,
-} from '../ranking/Leaderboard'
+import { BoardState, PairBoardList, PlayerBoardList } from '../ranking/Leaderboard'
 
 // Public leaderboard (E05 / TASK-6.4) — full individual + doubles boards. Like
 // the player profile it is public (no AppShell): the boards are RLS public-read,
@@ -21,7 +16,7 @@ import {
 export function LeaderboardPage() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
-  const standings = useFixedPairStandings()
+  const tournament = useTournamentPairBoard()
   const form = useRecentForm()
   const inactive = useInactivePlayers()
   const nameOf = usePlayerNames()
@@ -73,13 +68,13 @@ export function LeaderboardPage() {
 
           <Card title="Fixed Pairs (Tournament)" icon="🏆">
             <BoardState
-              isLoading={standings.isLoading}
-              isError={standings.isError}
-              count={standings.data?.length ?? 0}
+              isLoading={tournament.isLoading}
+              isError={tournament.isError}
+              count={tournament.data?.length ?? 0}
               noun="fixed pairs leaderboard"
             />
-            {(standings.data?.length ?? 0) > 0 && (
-              <FixedPairStandingsList standings={standings.data!} nameOf={nameOf} />
+            {(tournament.data?.length ?? 0) > 0 && (
+              <PairBoardList pairs={tournament.data!} nameOf={nameOf} />
             )}
           </Card>
         </div>

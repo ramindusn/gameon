@@ -20,7 +20,7 @@ vi.mock('../ranking/useRanking', () => ({
   usePairBoard: () => ({ data: pairs, isLoading: false, isError: false }),
   useRecentForm: () => ({ data: form, isLoading: false, isError: false }),
   useInactivePlayers: () => ({ data: inactive, isLoading: false, isError: false }),
-  useFixedPairStandings: () => ({ data: [], isLoading: false, isError: false }),
+  useTournamentPairBoard: () => ({ data: [], isLoading: false, isError: false }),
   usePlayerNames: () => (id: string | null) =>
     id === 'p1' ? 'Alice' : id === 'p2' ? 'Bob' : '—',
 }))

@@ -22,6 +22,7 @@ vi.mock('../play/useMatchPlay', () => ({
 vi.mock('../ranking/useRanking', () => ({
   usePlayerBoard: () => ({ data: state.players, isLoading: false, isError: false }),
   usePairBoard: () => ({ data: state.pairs, isLoading: false, isError: false }),
+  useTournamentPairBoard: () => ({ data: [], isLoading: false, isError: false }),
   usePlayerNames: () => (id: string | null) =>
     id ? ({ p1: 'Siti', p2: 'Maya', p3: 'Alex', p4: 'Ryan' }[id] ?? id) : '—',
 }))

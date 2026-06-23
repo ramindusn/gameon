@@ -2,11 +2,11 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRoster } from '../roster/useRoster'
 import {
-  loadFixedPairStandings,
   loadInactivePlayers,
   loadPairBoard,
   loadPlayerBoard,
   loadRecentForm,
+  loadTournamentPairBoard,
 } from './api'
 
 // Leaderboard read hooks (E05 / TASK-6.4, ADR 0006: TanStack Query). The boards
@@ -36,9 +36,12 @@ export function useInactivePlayers() {
   })
 }
 
-/** The isolated Fixed Pairs tournament board, ranked by points (E11). */
-export function useFixedPairStandings() {
-  return useQuery({ queryKey: ['ratings', 'fixed-pairs'], queryFn: loadFixedPairStandings })
+/** The isolated Fixed Pairs tournament board (Glicko-rated, like doubles) (E11). */
+export function useTournamentPairBoard() {
+  return useQuery({
+    queryKey: ['ratings', 'tournament-pairs'],
+    queryFn: loadTournamentPairBoard,
+  })
 }
 
 /** Resolve a player id to their nickname via the (public) roster. */

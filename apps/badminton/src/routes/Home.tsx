@@ -5,7 +5,12 @@ import { useAuth } from '../auth/useAuth'
 import { roleHome } from '../auth/roleHome'
 import { AdminLogin } from '../auth/AdminLogin'
 import { MatchmakerLogin } from '../auth/MatchmakerLogin'
-import { usePairBoard, usePlayerBoard, usePlayerNames } from '../ranking/useRanking'
+import {
+  usePairBoard,
+  usePlayerBoard,
+  usePlayerNames,
+  useTournamentPairBoard,
+} from '../ranking/useRanking'
 import { BoardState } from '../ranking/Leaderboard'
 import { SearchBox } from '../search/SearchBox'
 import { useRecentResults, useScheduledMatches } from '../play/useMatchPlay'
@@ -259,7 +264,9 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
 function RankingPreview() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
+  const tournament = useTournamentPairBoard()
   const nameOf = usePlayerNames()
+  const hasTournament = (tournament.data?.length ?? 0) > 0
 
   return (
     <div className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -283,6 +290,20 @@ function RankingPreview() {
           />
         )}
       </Card>
+      {hasTournament && (
+        <Card title="Fixed Pairs (Tournament)" icon="🏆" action={<ViewAll />}>
+          <RankTable
+            head="Pair Names"
+            testid="tournament-ranking"
+            rows={tournament.data!.slice(0, PREVIEW_LIMIT).map((p, i) => ({
+              key: `${p.player1Id}|${p.player2Id}`,
+              rank: i + 1,
+              rating: p.rating,
+              name: <PairNames ids={[p.player1Id, p.player2Id]} nameOf={nameOf} />,
+            }))}
+          />
+        </Card>
+      )}
       <Card title="Individual Ranking" icon="🏅" action={<ViewAll />}>
         <BoardState
           isLoading={players.isLoading}
