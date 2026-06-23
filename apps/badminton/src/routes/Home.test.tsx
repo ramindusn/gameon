@@ -118,8 +118,11 @@ describe('Home (TASK-9.5)', () => {
     const row = screen.getByTestId('result-r1')
     expect(row).toHaveTextContent('21')
     expect(row).toHaveTextContent('18')
-    expect(row).toHaveTextContent('Winner')
-    expect(row).toHaveTextContent('Finalist')
+    // Both pairs' players are listed (stacked, no Winner/Finalist labels).
+    expect(row).toHaveTextContent('Siti')
+    expect(row).toHaveTextContent('Maya')
+    expect(row).toHaveTextContent('Alex')
+    expect(row).toHaveTextContent('Ryan')
   })
 
   it('renders ranking tables with rank, name and rating', () => {

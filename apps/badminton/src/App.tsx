@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Home } from './routes/Home'
-import { LoginPage } from './routes/LoginPage'
 import { DashboardPage } from './routes/DashboardPage'
 import { MatchmakerHome } from './routes/MatchmakerHome'
 import { GeneratePage } from './routes/GeneratePage'
@@ -18,7 +17,6 @@ export function App() {
     <div data-testid="app-root" data-e2e={e2e ? '1' : undefined}>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={<LoginPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/players/:id" element={<PlayerProfilePage />} />
 

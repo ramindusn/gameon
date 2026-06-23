@@ -8,6 +8,6 @@ export function roleHome(role: Role): string {
     case 'matchmaker':
       return '/matchmaker'
     default:
-      return '/login'
+      return '/'
   }
 }

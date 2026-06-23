@@ -5,13 +5,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from '../App'
 import { AuthProvider } from './useAuth'
 
-// Drives the real login forms + routing through the VITE_E2E bypass: sign-in
-// records a role in sessionStorage, the app resolves it and routes accordingly.
+// Drives the real login forms + routing through the VITE_E2E bypass. The login
+// dropdowns live on the public home (there's no separate /login page), so we
+// start there, open a dropdown, sign in and assert the role-based routing.
 function renderApp() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/login']}>
+      <MemoryRouter initialEntries={['/']}>
         <AuthProvider>
           <App />
         </AuthProvider>
@@ -29,7 +30,8 @@ describe('login + routing (E2E bypass)', () => {
 
   it('admin sign-in routes to the dashboard', async () => {
     renderApp()
-    fireEvent.change(await screen.findByTestId('admin-email'), {
+    fireEvent.click(await screen.findByTestId('nav-admin-login'))
+    fireEvent.change(screen.getByTestId('admin-email'), {
       target: { value: 'admin@badmintonduo.club' },
     })
     fireEvent.click(screen.getByTestId('admin-magic-link-submit'))
@@ -40,7 +42,7 @@ describe('login + routing (E2E bypass)', () => {
 
   it('matchmaker sign-in routes to the matchmaker home', async () => {
     renderApp()
-    fireEvent.click(await screen.findByTestId('tab-matchmaker'))
+    fireEvent.click(await screen.findByTestId('nav-matchmaker-login'))
     fireEvent.change(screen.getByTestId('mm-username'), { target: { value: 'rohan' } })
     fireEvent.change(screen.getByTestId('mm-password'), { target: { value: 'secret' } })
     fireEvent.click(screen.getByTestId('mm-login-submit'))
@@ -49,15 +51,17 @@ describe('login + routing (E2E bypass)', () => {
     expect(screen.getByTestId('auth-role')).toHaveTextContent('Role: matchmaker')
   })
 
-  it('sign out returns to the login chooser', async () => {
+  it('sign out returns to the public home', async () => {
     renderApp()
-    fireEvent.change(await screen.findByTestId('admin-email'), {
+    fireEvent.click(await screen.findByTestId('nav-admin-login'))
+    fireEvent.change(screen.getByTestId('admin-email'), {
       target: { value: 'admin@badmintonduo.club' },
     })
     fireEvent.click(screen.getByTestId('admin-magic-link-submit'))
     await screen.findByTestId('sign-out')
 
     fireEvent.click(screen.getByTestId('sign-out'))
-    expect(await screen.findByTestId('tab-admin')).toBeInTheDocument()
+    // Back on the public home with the login buttons available again.
+    expect(await screen.findByTestId('nav-admin-login')).toBeInTheDocument()
   })
 })

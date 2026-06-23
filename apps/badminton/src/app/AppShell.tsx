@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { cx, Button } from '@gameon/ui'
 import { useAuth } from '../auth/useAuth'
 
@@ -20,7 +20,13 @@ const NAV_BY_ROLE: Record<'admin' | 'matchmaker', NavItem[]> = {
 
 export function AppShell({ title, children }: { title: string; children: ReactNode }) {
   const { role, signOut } = useAuth()
+  const navigate = useNavigate()
   const nav = role ? NAV_BY_ROLE[role] : []
+
+  async function handleSignOut() {
+    await signOut()
+    navigate('/')
+  }
 
   return (
     <div className="min-h-screen bg-bg text-fg" data-testid="app-shell">
@@ -66,7 +72,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
             >
               Role: {role}
             </span>
-            <Button variant="ghost" onClick={() => void signOut()} data-testid="sign-out">
+            <Button variant="ghost" onClick={() => void handleSignOut()} data-testid="sign-out">
               Sign out
             </Button>
           </div>

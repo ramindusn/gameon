@@ -1,19 +1,32 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
 import { AuthProvider } from './auth/useAuth'
 
-describe('App', () => {
-  it('shows the login chooser when signed out', async () => {
-    render(
-      <MemoryRouter initialEntries={['/login']}>
+function renderAt(path: string) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
         <AuthProvider>
           <App />
         </AuthProvider>
-      </MemoryRouter>,
-    )
-    expect(await screen.findByTestId('tab-admin')).toBeInTheDocument()
-    expect(screen.getByTestId('tab-matchmaker')).toBeInTheDocument()
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+describe('App', () => {
+  it('shows the public home with login buttons when signed out', async () => {
+    renderAt('/')
+    expect(await screen.findByTestId('nav-admin-login')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-matchmaker-login')).toBeInTheDocument()
+  })
+
+  it('redirects a protected route to the home when signed out', async () => {
+    renderAt('/dashboard')
+    expect(await screen.findByTestId('nav-admin-login')).toBeInTheDocument()
   })
 })
