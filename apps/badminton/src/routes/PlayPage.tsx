@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, cx } from '@gameon/ui'
 import { validateLineup, validateScores } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
@@ -53,13 +53,16 @@ export function PlayPage() {
     return (pid: string | null) => (pid ? (byId.get(pid) ?? '—') : '—')
   }, [roster])
 
-  const present = useMemo<PresentPlayer[]>(
-    () =>
-      (roster?.players ?? [])
-        .filter((p) => !p.absent)
-        .map((p) => ({ id: p.id, nickname: p.nickname })),
-    [roster],
-  )
+  // When a tournament is started from the Generate page, it passes the chosen
+  // players via router state — limit the line-up pickers to exactly those.
+  const location = useLocation()
+  const allowedIds = (location.state as { playerIds?: string[] } | null)?.playerIds
+  const present = useMemo<PresentPlayer[]>(() => {
+    const allowed = allowedIds ? new Set(allowedIds) : null
+    return (roster?.players ?? [])
+      .filter((p) => !p.absent && (!allowed || allowed.has(p.id)))
+      .map((p) => ({ id: p.id, nickname: p.nickname }))
+  }, [roster, allowedIds])
 
   const rounds = useMemo(() => groupByRound(data?.results ?? []), [data])
 

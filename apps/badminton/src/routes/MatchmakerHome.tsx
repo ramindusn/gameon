@@ -1,60 +1,26 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { Button, Card, cx } from '@gameon/ui'
+import { Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
-import {
-  useCreateTournament,
-  useSessionPlayerCounts,
-  useSessions,
-} from '../play/useMatchPlay'
-import { useRoster } from '../roster/useRoster'
+import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 
 const RECENT_LIMIT = 20
 
 // Matchmaker landing (E10 / TASK-11.1). The first screen after a matchmaker
-// signs in: resume any live game day (with the active player count), start a
-// fixed-pairs tournament, and review recent game days.
+// signs in: resume any live game day (with the active player count) and review
+// recent game days.
 export function MatchmakerHome() {
   return (
     <AppShell title="Matchmaker">
-      <div className="space-y-6" data-testid="matchmaker-home">
-        <TournamentAction />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
-          <LiveNow />
-          <RecentGameDays />
-        </div>
+      <div
+        className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start"
+        data-testid="matchmaker-home"
+      >
+        <LiveNow />
+        <RecentGameDays />
       </div>
     </AppShell>
-  )
-}
-
-// Start an empty fixed-pairs tournament, then jump to its play screen to add
-// pair-vs-pair fixtures (E11). Disabled until the acting club is known.
-function TournamentAction() {
-  const navigate = useNavigate()
-  const { data: roster } = useRoster()
-  const clubId = roster?.clubId
-  const create = useCreateTournament()
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm text-fg-muted">
-        Run a fixed-pairs tournament with its own points leaderboard.
-      </p>
-      <Button
-        onClick={() =>
-          clubId &&
-          create.mutate(
-            { clubId, playedAt: new Date().toISOString() },
-            { onSuccess: (id) => navigate(`/play/${id}`) },
-          )
-        }
-        disabled={!clubId || create.isPending}
-        data-testid="new-tournament"
-      >
-        {create.isPending ? 'Starting…' : '🏆 New tournament'}
-      </Button>
-    </div>
   )
 }
 

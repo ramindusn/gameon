@@ -23,6 +23,7 @@ vi.mock('../roster/useRoster', () => ({
 }))
 vi.mock('../play/useMatchPlay', () => ({
   useCreateSession: () => ({ mutate: vi.fn(), isPending: false }),
+  useCreateTournament: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ role: 'matchmaker', signOut: vi.fn() }),
