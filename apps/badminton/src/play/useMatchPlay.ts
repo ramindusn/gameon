@@ -151,7 +151,8 @@ export function useDeleteMatch(sessionId: string | undefined) {
   })
 }
 
-/** Flip a session between live/finished; refreshes the session + list. */export function useSetSessionStatus(sessionId: string | undefined) {
+/** Flip a session between live/finished; refreshes the session + list. */
+export function useSetSessionStatus(sessionId: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (status: SessionStatus) =>
@@ -159,6 +160,8 @@ export function useDeleteMatch(sessionId: string | undefined) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SESSIONS_KEY })
       if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      // Finishing recomputes the boards — refresh the leaderboard queries too.
+      qc.invalidateQueries({ queryKey: ['ratings'] })
     },
   })
 }

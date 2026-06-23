@@ -166,7 +166,11 @@ export function PlayPage() {
                     {data.session.status === 'live' ? (
                       <Button
                         variant="secondary"
-                        onClick={() => setStatus.mutate('finished')}
+                        onClick={() =>
+                          setStatus.mutate('finished', {
+                            onSuccess: () => navigate('/leaderboard'),
+                          })
+                        }
                         disabled={setStatus.isPending || outstanding.length > 0}
                         data-testid="finish-session"
                       >

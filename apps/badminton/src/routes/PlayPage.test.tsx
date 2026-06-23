@@ -145,7 +145,10 @@ describe('PlayPage', () => {
     expect(screen.queryByTestId('outstanding-matches')).toBeNull()
     expect(screen.getByTestId('finish-session')).not.toBeDisabled()
     fireEvent.click(screen.getByTestId('finish-session'))
-    expect(setStatus).toHaveBeenCalledWith('finished')
+    expect(setStatus).toHaveBeenCalledWith(
+      'finished',
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    )
     sessionData.results[0].winner = null
   })
 
