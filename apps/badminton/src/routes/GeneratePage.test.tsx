@@ -21,9 +21,10 @@ vi.mock('../roster/useRoster', () => ({
     isError: false,
   }),
 }))
+const { tournamentMutate } = vi.hoisted(() => ({ tournamentMutate: vi.fn() }))
 vi.mock('../play/useMatchPlay', () => ({
   useCreateSession: () => ({ mutate: vi.fn(), isPending: false }),
-  useCreateTournament: () => ({ mutate: vi.fn(), isPending: false }),
+  useCreateTournamentWithMatches: () => ({ mutate: tournamentMutate, isPending: false }),
 }))
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ role: 'matchmaker', signOut: vi.fn() }),
@@ -66,5 +67,26 @@ describe('GeneratePage', () => {
     } finally {
       players[0].absent = false
     }
+  })
+
+  it('locks pairs then generates round-robin tournament matches', () => {
+    tournamentMutate.mockClear()
+    renderPage()
+    fireEvent.click(screen.getByTestId('new-tournament'))
+    // Lock two pairs by tapping players two at a time.
+    fireEvent.click(screen.getByTestId('tp-p1'))
+    fireEvent.click(screen.getByTestId('tp-p2'))
+    fireEvent.click(screen.getByTestId('tp-p3'))
+    fireEvent.click(screen.getByTestId('tp-p4'))
+    fireEvent.click(screen.getByTestId('generate-matches'))
+
+    expect(tournamentMutate).toHaveBeenCalledTimes(1)
+    const arg = tournamentMutate.mock.calls[0][0]
+    // 2 pairs → exactly one round-robin fixture.
+    expect(arg.fixtures).toHaveLength(1)
+    expect(arg.fixtures[0]).toMatchObject({
+      teamA: ['p1', 'p2'],
+      teamB: ['p3', 'p4'],
+    })
   })
 })

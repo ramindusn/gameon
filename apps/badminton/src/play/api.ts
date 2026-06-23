@@ -240,6 +240,75 @@ export async function createTournament(clubId: string, playedAt: string): Promis
   return session.id
 }
 
+/** One generated round-robin fixture: two fixed pairs on a round + court. */
+export interface TournamentFixture {
+  round: number
+  court: number
+  teamA: [string, string]
+  teamB: [string, string]
+}
+
+/**
+ * Create a fixed-pairs tournament game day pre-filled with its round-robin
+ * fixtures (E11). The matchmaker locks pairs + generates matches up front, then
+ * just enters scores on the play screen. Returns the new session id.
+ */
+export async function createTournamentWithMatches(
+  clubId: string,
+  playedAt: string,
+  fixtures: TournamentFixture[],
+): Promise<string> {
+  const rounds = Math.max(1, ...fixtures.map((f) => f.round))
+  const toRows = (sessionId: string): ResultInsert[] =>
+    fixtures.map((f) => ({
+      club_id: clubId,
+      session_id: sessionId,
+      round: f.round,
+      court: f.court,
+      team_a1: f.teamA[0],
+      team_a2: f.teamA[1],
+      team_b1: f.teamB[0],
+      team_b2: f.teamB[1],
+    }))
+
+  if (isE2E()) {
+    const id = e2eUid('session')
+    return e2ePut(
+      {
+        id,
+        clubId,
+        status: 'live',
+        mode: 'open',
+        kind: 'tournament',
+        rounds,
+        playedAt,
+        createdAt: new Date().toISOString(),
+      },
+      toRows(id),
+    )
+  }
+  const db = client()
+  const { data: session, error } = await db
+    .from('match_sessions')
+    .insert({
+      club_id: clubId,
+      mode: 'open',
+      kind: 'tournament',
+      rounds,
+      status: 'live',
+      played_at: playedAt,
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  const rows = toRows(session.id)
+  if (rows.length > 0) {
+    const { error: rErr } = await db.from('match_results').insert(rows)
+    if (rErr) throw rErr
+  }
+  return session.id
+}
+
 /** All game days for the club(s) the caller can read, newest game day first. */
 export async function listSessions(): Promise<MatchSession[]> {
   if (isE2E()) return e2eList()

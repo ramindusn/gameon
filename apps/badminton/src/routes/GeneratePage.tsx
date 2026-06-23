@@ -1,10 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card } from '@gameon/ui'
-import { generateRounds, type GeneratedMatches, type MatchPlayer } from '@gameon/domain'
+import { Button, Card, cx } from '@gameon/ui'
+import {
+  generateRounds,
+  roundRobin,
+  type GeneratedMatches,
+  type MatchPlayer,
+} from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { useRoster } from '../roster/useRoster'
-import { useCreateSession, useCreateTournament } from '../play/useMatchPlay'
+import { useCreateSession, useCreateTournamentWithMatches } from '../play/useMatchPlay'
+import type { TournamentFixture } from '../play/api'
 import { localInputToIso, nowLocalInput } from '../play/datetime'
 import type { Player } from '../roster/api'
 
@@ -28,7 +34,6 @@ export function GeneratePage() {
     [data],
   )
   const createSession = useCreateSession()
-  const createTournament = useCreateTournament()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [initialised, setInitialised] = useState(false)
@@ -36,6 +41,8 @@ export function GeneratePage() {
   const mode: Mode = 'open'
   const [result, setResult] = useState<GeneratedMatches | null>(null)
   const [generated, setGenerated] = useState(false)
+  // When true, the fixed-pairs tournament lock-pairs panel is shown instead.
+  const [tournamentSetup, setTournamentSetup] = useState(false)
   // Game-day date/time the matchmaker confirms on "Create game day" (default now).
   const [playedAt, setPlayedAt] = useState(nowLocalInput())
 
@@ -66,18 +73,10 @@ export function GeneratePage() {
     setGenerated(true)
   }
 
-  // Start a fixed-pairs tournament from the SELECTED players: the play screen's
-  // line-up pickers are limited to them (passed via router state).
-  function startTournament() {
-    if (!data?.clubId || selected.size < 4) return
-    createTournament.mutate(
-      { clubId: data.clubId, playedAt: localInputToIso(playedAt) },
-      {
-        onSuccess: (sessionId) =>
-          navigate(`/play/${sessionId}`, { state: { playerIds: [...selected] } }),
-      },
-    )
-  }
+  const selectedPlayers = useMemo(
+    () => active.filter((p) => selected.has(p.id)),
+    [active, selected],
+  )
 
   return (
     <AppShell title="Generate draw">
@@ -110,12 +109,12 @@ export function GeneratePage() {
               </Button>
               <Button
                 variant="secondary"
-                onClick={startTournament}
-                disabled={!data?.clubId || selected.size < 4 || createTournament.isPending}
+                onClick={() => setTournamentSetup(true)}
+                disabled={selected.size < 4}
                 data-testid="new-tournament"
                 className="w-full sm:w-auto"
               >
-                {createTournament.isPending ? 'Starting…' : '🏆 New tournament'}
+                🏆 New tournament
               </Button>
             </div>
           </div>
@@ -156,7 +155,19 @@ export function GeneratePage() {
           )}
         </Card>
 
-        {generated && (
+        {tournamentSetup && (
+          <div className="mt-6">
+            <TournamentSetup
+              players={selectedPlayers}
+              clubId={data?.clubId ?? null}
+              playedAt={localInputToIso(playedAt)}
+              onCancel={() => setTournamentSetup(false)}
+              onCreated={(id) => navigate(`/play/${id}`)}
+            />
+          </div>
+        )}
+
+        {generated && !tournamentSetup && (
           <div className="mt-6" data-testid="draw-result">
             {!result ? (
               <Card title="Couldn't generate" icon="⚠️">
@@ -299,6 +310,145 @@ function formatLocalInput(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+// Fixed-pairs tournament setup (E11): lock partners from the selected players,
+// then generate a single round-robin and create the game day pre-filled with it.
+function TournamentSetup({
+  players,
+  clubId,
+  playedAt,
+  onCancel,
+  onCreated,
+}: {
+  players: Player[]
+  clubId: string | null
+  playedAt: string
+  onCancel: () => void
+  onCreated: (sessionId: string) => void
+}) {
+  const create = useCreateTournamentWithMatches()
+  const [pairs, setPairs] = useState<[Player, Player][]>([])
+  const [picked, setPicked] = useState<Player | null>(null)
+
+  const pairedIds = new Set(pairs.flatMap(([a, b]) => [a.id, b.id]))
+  const pool = players.filter((p) => !pairedIds.has(p.id))
+
+  function clickPlayer(p: Player) {
+    if (picked?.id === p.id) {
+      setPicked(null)
+    } else if (picked) {
+      setPairs((ps) => [...ps, [picked, p]])
+      setPicked(null)
+    } else {
+      setPicked(p)
+    }
+  }
+
+  function generate() {
+    if (!clubId || pairs.length < 2) return
+    // Single round-robin over the locked pairs → flatten to one match per court.
+    const schedule = roundRobin(pairs.length)
+    const fixtures: TournamentFixture[] = []
+    schedule.forEach((round, ri) => {
+      round.forEach(([i, j], ci) => {
+        fixtures.push({
+          round: ri + 1,
+          court: ci + 1,
+          teamA: [pairs[i][0].id, pairs[i][1].id],
+          teamB: [pairs[j][0].id, pairs[j][1].id],
+        })
+      })
+    })
+    create.mutate({ clubId, playedAt, fixtures }, { onSuccess: onCreated })
+  }
+
+  const matchCount = (pairs.length * (pairs.length - 1)) / 2
+
+  return (
+    <Card title="New tournament · Lock pairs" icon="🏆">
+      <p className="mb-3 text-sm text-fg-muted">
+        Tap two players to lock them as a fixed pair. Locked pairs play a single
+        round-robin (everyone plays everyone once).
+      </p>
+
+      {pool.length > 0 && (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-subtle">
+            Players ({pool.length})
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {pool.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => clickPlayer(p)}
+                data-testid={`tp-${p.id}`}
+                className={cx(
+                  'rounded-full border px-3 py-1.5 text-sm transition-colors',
+                  picked?.id === p.id
+                    ? 'border-accent bg-accent/15 text-accent-strong'
+                    : 'border-line bg-surface text-fg hover:bg-surface-muted',
+                )}
+              >
+                {p.nickname}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pairs.length > 0 && (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-subtle">
+            Locked pairs ({pairs.length})
+          </p>
+          <ul className="space-y-2" data-testid="locked-pairs">
+            {pairs.map(([a, b], i) => (
+              <li
+                key={`${a.id}|${b.id}`}
+                className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm"
+              >
+                <span className="font-medium text-fg">
+                  {a.nickname} <span className="text-fg-subtle">+</span> {b.nickname}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPairs((ps) => ps.filter((_, k) => k !== i))}
+                  className="text-xs text-fg-muted hover:text-negative"
+                  aria-label={`Unlock ${a.nickname} and ${b.nickname}`}
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-fg-subtle">
+          {pairs.length < 2
+            ? 'Lock at least 2 pairs to generate matches.'
+            : `${matchCount} matches will be generated.`}
+          {pool.length > 0 && pairs.length >= 2 && ` ${pool.length} player(s) will sit out.`}
+        </p>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onCancel} className="w-full sm:w-auto">
+            Cancel
+          </Button>
+          <Button
+            onClick={generate}
+            disabled={!clubId || pairs.length < 2 || create.isPending}
+            data-testid="generate-matches"
+            className="w-full sm:w-auto"
+          >
+            {create.isPending ? 'Generating…' : 'Generate matches'}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  )
 }
 
 // A team's two players stacked + centred (matches the public home's pair styling).

@@ -4,6 +4,7 @@ import {
   addCustomMatch,
   createSessionFromPlan,
   createTournament,
+  createTournamentWithMatches,
   deleteMatch,
   deleteSession,
   getSession,
@@ -17,6 +18,7 @@ import {
   updateSessionPlayedAt,
   type Mode,
   type SessionStatus,
+  type TournamentFixture,
 } from './api'
 
 const SESSIONS_KEY = ['sessions'] as const
@@ -81,6 +83,16 @@ export function useCreateTournament() {
   return useMutation({
     mutationFn: (v: { clubId: string; playedAt: string }) =>
       createTournament(v.clubId, v.playedAt),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SESSIONS_KEY }),
+  })
+}
+
+/** Start a fixed-pairs tournament pre-filled with round-robin fixtures (E11). */
+export function useCreateTournamentWithMatches() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { clubId: string; playedAt: string; fixtures: TournamentFixture[] }) =>
+      createTournamentWithMatches(v.clubId, v.playedAt, v.fixtures),
     onSuccess: () => qc.invalidateQueries({ queryKey: SESSIONS_KEY }),
   })
 }
