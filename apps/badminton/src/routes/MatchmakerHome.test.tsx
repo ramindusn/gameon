@@ -41,12 +41,13 @@ function renderHome() {
 }
 
 describe('MatchmakerHome (TASK-11.1)', () => {
-  it('offers quick actions to start a draw and manage players', () => {
+  it('renders the matchmaker home', () => {
     state.sessions = []
     state.playerCounts = {}
     renderHome()
-    expect(screen.getByTestId('action-generate')).toHaveAttribute('href', '/generate')
-    expect(screen.getByTestId('action-players')).toHaveAttribute('href', '/players')
+    expect(screen.getByTestId('matchmaker-home')).toBeInTheDocument()
+    // The redundant quick-action buttons were removed (nav handles those).
+    expect(screen.queryByTestId('action-generate')).toBeNull()
   })
 
   it('lists live game days with a resume link, before finished ones', () => {

@@ -14,7 +14,6 @@ export function MatchmakerHome() {
   return (
     <AppShell title="Matchmaker">
       <div className="space-y-6" data-testid="matchmaker-home">
-        <QuickActions />
         <LiveNow />
         <RecentGameDays />
       </div>
@@ -47,21 +46,6 @@ function LinkButton({
     >
       {children}
     </Link>
-  )
-}
-
-// ---- Quick actions --------------------------------------------------------
-
-function QuickActions() {
-  return (
-    <div className="flex flex-wrap gap-3" data-testid="quick-actions">
-      <LinkButton to="/generate" data-testid="action-generate">
-        🎲 New draw
-      </LinkButton>
-      <LinkButton to="/players" variant="secondary" data-testid="action-players">
-        👥 Manage players
-      </LinkButton>
-    </div>
   )
 }
 
