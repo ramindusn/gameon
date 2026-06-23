@@ -183,17 +183,19 @@ function Draw({
   return (
     <div className="space-y-4">
       <Card>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
-            <span aria-hidden className="text-base">
-              📅
-            </span>
-            Create game day
-          </h2>
-          <p className="text-sm text-fg-muted">
-            {result.rounds.length} rounds · {result.courts} court
-            {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
+              <span aria-hidden className="text-base">
+                📅
+              </span>
+              Create game day
+            </h2>
+            <p className="text-sm text-fg-muted">
+              {result.rounds.length} rounds · {result.courts} court
+              {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
+            </p>
+          </div>
           <input
             type="datetime-local"
             value={playedAt}
