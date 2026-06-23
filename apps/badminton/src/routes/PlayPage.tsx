@@ -188,7 +188,7 @@ export function PlayPage() {
                                 id: data.session.id,
                                 wasFinished: data.session.status === 'finished',
                               },
-                              { onSuccess: () => navigate('/play') },
+                              { onSuccess: () => navigate('/matchmaker') },
                             )
                           }
                           disabled={deleteSession.isPending}

@@ -5,7 +5,7 @@ import { AppShell } from '../app/AppShell'
 import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 
-const RECENT_LIMIT = 5
+const RECENT_LIMIT = 20
 
 // Matchmaker landing (E10 / TASK-11.1). The first screen after a matchmaker
 // signs in: resume any live game day (with the active player count), jump into a
@@ -123,15 +123,7 @@ function RecentGameDays() {
   const { data, isLoading, isError } = useSessions()
   const recent = (data ?? []).filter((s) => s.status === 'finished').slice(0, RECENT_LIMIT)
   return (
-    <Card
-      title="Recent game days"
-      icon="🗓️"
-      action={
-        <Link to="/play" className="text-sm text-accent-strong hover:underline">
-          View all
-        </Link>
-      }
-    >
+    <Card title="Game day history" icon="🗓️">
       {isLoading && <p className="text-sm text-fg-muted">Loading game days…</p>}
       {isError && <p className="text-sm text-negative">Could not load game days.</p>}
       {!isLoading && !isError && recent.length === 0 && (
@@ -146,8 +138,12 @@ function RecentGameDays() {
                 className="flex items-center justify-between gap-3 py-3 text-sm hover:text-accent-strong"
                 data-testid={`recent-${s.id}`}
               >
-                <span className="font-medium text-fg">{formatPlayedAt(s.playedAt)}</span>
-                <span className="text-xs text-fg-subtle">{s.rounds} rounds</span>
+                <span className="flex flex-col">
+                  <span className="font-medium text-fg">{formatPlayedAt(s.playedAt)}</span>
+                  <span className="text-xs text-fg-muted">
+                    {s.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'} · {s.rounds} rounds
+                  </span>
+                </span>
               </Link>
             </li>
           ))}

@@ -14,7 +14,6 @@ const NAV_BY_ROLE: Record<'admin' | 'matchmaker', NavItem[]> = {
   matchmaker: [
     { to: '/matchmaker', label: 'Home' },
     { to: '/generate', label: 'Generate' },
-    { to: '/play', label: 'Play' },
     { to: '/players', label: 'Players' },
   ],
 }
