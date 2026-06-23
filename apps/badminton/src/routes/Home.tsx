@@ -168,14 +168,14 @@ function MatchCard({
       </div>
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-sm font-bold text-fg">
+          <p className="break-words font-display text-sm font-bold leading-tight text-fg">
             <PairNames ids={match.teamA} nameOf={nameOf} />
           </p>
           {ra != null && <p className="text-xs text-fg-muted">Rating: {fmtRating(ra)}</p>}
         </div>
         <span className="text-xs font-medium uppercase text-fg-subtle">vs</span>
         <div className="min-w-0 flex-1 text-right">
-          <p className="truncate font-display text-sm font-bold text-fg">
+          <p className="break-words font-display text-sm font-bold leading-tight text-fg">
             <PairNames ids={match.teamB} nameOf={nameOf} />
           </p>
           {rb != null && <p className="text-xs text-fg-muted">Rating: {fmtRating(rb)}</p>}
@@ -215,7 +215,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
         <div className="min-w-0 text-right">
           <p
             className={cx(
-              'truncate font-display text-sm font-bold',
+              'break-words font-display text-sm font-bold leading-tight',
               aWon ? 'text-accent-strong' : 'text-fg',
             )}
           >
@@ -237,7 +237,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
         <div className="min-w-0 text-left">
           <p
             className={cx(
-              'truncate font-display text-sm font-bold',
+              'break-words font-display text-sm font-bold leading-tight',
               bWon ? 'text-accent-strong' : 'text-fg',
             )}
           >
