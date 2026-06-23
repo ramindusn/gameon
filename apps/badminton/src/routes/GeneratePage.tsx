@@ -83,9 +83,9 @@ export function GeneratePage() {
     <AppShell title="Generate draw">
       <div data-testid="generate">
         <Card title="Setup" icon="🎲">
-          <div className="mb-4 flex flex-wrap items-end gap-4">
-            <label className="text-sm">
-              <span className="mb-1 block text-fg-muted">Rounds</span>
+          <div className="mb-4 space-y-3">
+            <label className="block text-sm">
+              <span className="mb-1 block text-fg-muted">Rounds (random doubles)</span>
               <input
                 type="number"
                 min={1}
@@ -98,21 +98,26 @@ export function GeneratePage() {
                 data-testid="rounds-input"
               />
             </label>
-            <Button
-              onClick={generate}
-              disabled={selected.size < 4}
-              data-testid="generate-button"
-            >
-              Random doubles
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={startTournament}
-              disabled={!data?.clubId || selected.size < 4 || createTournament.isPending}
-              data-testid="new-tournament"
-            >
-              {createTournament.isPending ? 'Starting…' : '🏆 New tournament'}
-            </Button>
+            {/* Two create actions, same size: stacked on mobile, inline on desktop. */}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                onClick={generate}
+                disabled={selected.size < 4}
+                data-testid="generate-button"
+                className="w-full sm:w-auto"
+              >
+                🎲 Random doubles
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={startTournament}
+                disabled={!data?.clubId || selected.size < 4 || createTournament.isPending}
+                data-testid="new-tournament"
+                className="w-full sm:w-auto"
+              >
+                {createTournament.isPending ? 'Starting…' : '🏆 New tournament'}
+              </Button>
+            </div>
           </div>
 
           {isLoading && <p className="text-sm text-fg-muted">Loading roster…</p>}
