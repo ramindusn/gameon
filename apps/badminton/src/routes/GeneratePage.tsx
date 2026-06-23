@@ -201,7 +201,7 @@ function Draw({
             value={playedAt}
             onChange={(e) => onPlayedAtChange(e.target.value)}
             aria-label="Game day date and time"
-            className="w-fit self-start rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:ml-auto sm:self-auto"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent [&::-webkit-date-and-time-value]:text-left sm:ml-auto sm:w-auto"
             data-testid="game-day-datetime"
           />
           <Button
