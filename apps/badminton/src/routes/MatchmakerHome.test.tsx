@@ -87,13 +87,13 @@ describe('MatchmakerHome (TASK-11.1)', () => {
     expect(screen.getByTestId('live-empty-generate')).toHaveAttribute('href', '/generate')
   })
 
-  it('shows a present/absent/total roster snapshot', () => {
+  it('shows an active/excluded/total roster snapshot', () => {
     state.sessions = []
     state.players = [player('p1', false), player('p2', false), player('p3', true)]
     renderHome()
     const snap = screen.getByTestId('roster-snapshot')
-    expect(snap).toHaveTextContent('2Present')
-    expect(snap).toHaveTextContent('1Absent')
+    expect(snap).toHaveTextContent('2Active')
+    expect(snap).toHaveTextContent('1Excluded')
     expect(snap).toHaveTextContent('3Total')
   })
 })

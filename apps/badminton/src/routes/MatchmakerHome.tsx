@@ -117,8 +117,8 @@ function RosterSnapshot() {
   const { data, isLoading, isError } = useRoster()
   const players = data?.players ?? []
   const total = players.length
-  const present = players.filter((p) => !p.absent).length
-  const absent = total - present
+  const active = players.filter((p) => !p.absent).length
+  const excluded = total - active
   return (
     <Card
       title="Roster"
@@ -137,10 +137,15 @@ function RosterSnapshot() {
         </p>
       )}
       {!isLoading && !isError && total > 0 && (
-        <div className="flex items-end gap-6" data-testid="roster-snapshot">
-          <Stat label="Present" value={present} tone="accent" />
-          <Stat label="Absent" value={absent} />
-          <Stat label="Total" value={total} />
+        <div data-testid="roster-snapshot">
+          <div className="flex items-end gap-6">
+            <Stat label="Active" value={active} tone="accent" />
+            <Stat label="Excluded" value={excluded} />
+            <Stat label="Total" value={total} />
+          </div>
+          <p className="mt-3 text-xs text-fg-subtle">
+            Excluded players are skipped when generating a draw.
+          </p>
         </div>
       )}
     </Card>
