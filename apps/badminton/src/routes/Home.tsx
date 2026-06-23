@@ -55,11 +55,17 @@ function PlayerLink({ id, nameOf }: { id: string | null; nameOf: NameOf }) {
 
 /** "Name A & Name B" with each name linking to its profile. */
 function PairNames({ ids, nameOf }: { ids: [string | null, string | null]; nameOf: NameOf }) {
+  // Always stack the two players on separate lines so every card is the same
+  // height regardless of name length (consistent rows, no ragged wrapping).
   return (
     <>
-      <PlayerLink id={ids[0]} nameOf={nameOf} />
-      <span className="text-fg-subtle"> &amp; </span>
-      <PlayerLink id={ids[1]} nameOf={nameOf} />
+      <span className="block">
+        <PlayerLink id={ids[0]} nameOf={nameOf} />
+        <span className="text-fg-subtle"> &amp;</span>
+      </span>
+      <span className="block">
+        <PlayerLink id={ids[1]} nameOf={nameOf} />
+      </span>
     </>
   )
 }
