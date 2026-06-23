@@ -76,6 +76,29 @@ describe('Home (TASK-9.5)', () => {
     expect(card).toHaveTextContent('Rating: 1,450')
   })
 
+  it('hides the side rating when the pair has no match history', () => {
+    state.scheduled = [
+      {
+        id: 'm1',
+        playedAt: '2026-06-22T18:30',
+        mode: 'open',
+        court: 3,
+        teamA: ['p1', 'p2'],
+        teamB: ['p3', 'p4'],
+      },
+    ]
+    // Players have individual standings, but the partnerships are not on the
+    // pair board, so no doubles rating should be shown for either side.
+    state.players = [
+      { playerId: 'p1', rating: 1500, rd: 40, games: 12 },
+      { playerId: 'p2', rating: 1400, rd: 40, games: 9 },
+    ]
+    state.pairs = []
+    renderHome()
+    const card = screen.getByTestId('scheduled-m1')
+    expect(card).not.toHaveTextContent('Rating:')
+  })
+
   it('renders recent results with the winner and score', () => {
     state.scheduled = []
     state.recent = [

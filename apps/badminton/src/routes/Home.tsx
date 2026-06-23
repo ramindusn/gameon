@@ -100,29 +100,20 @@ function timeAgo(iso: string): string {
 const pairKey = (a: string, b: string) => [a, b].sort().join('|')
 
 /**
- * Resolve a doubles side to a single rating: the partnership's own rating when
- * the pair is on the board, otherwise the average of the two players' ratings.
+ * The partnership's own doubles rating, or null when the pair has never played
+ * together (no row on the pair board) — in that case the home shows no rating
+ * rather than inventing one from the players' singles standings.
  */
 function useSideRating() {
   const pairs = usePairBoard()
-  const players = usePlayerBoard()
   return useMemo(() => {
     const byPair = new Map<string, number>()
     for (const p of pairs.data ?? []) byPair.set(pairKey(p.player1Id, p.player2Id), p.rating)
-    const byPlayer = new Map<string, number>()
-    for (const p of players.data ?? []) byPlayer.set(p.playerId, p.rating)
     return (a: string | null, b: string | null): number | null => {
-      if (a && b) {
-        const exact = byPair.get(pairKey(a, b))
-        if (exact != null) return exact
-      }
-      const vals = [a, b]
-        .map((id) => (id ? byPlayer.get(id) : undefined))
-        .filter((x): x is number => x != null)
-      if (vals.length === 0) return null
-      return vals.reduce((s, x) => s + x, 0) / vals.length
+      if (!a || !b) return null
+      return byPair.get(pairKey(a, b)) ?? null
     }
-  }, [pairs.data, players.data])
+  }, [pairs.data])
 }
 
 // ---- Scheduled Matches ----------------------------------------------------
@@ -155,7 +146,6 @@ function MatchCard({
 }) {
   const ra = sideRating(match.teamA[0], match.teamA[1])
   const rb = sideRating(match.teamB[0], match.teamB[1])
-  const ratingLabel = (n: number | null) => (n == null ? 'Unrated' : `Rating: ${fmtRating(n)}`)
   return (
     <div
       className="rounded-2xl border border-line bg-surface p-5"
@@ -175,14 +165,14 @@ function MatchCard({
           <p className="truncate font-display text-sm font-bold text-fg">
             <PairNames ids={match.teamA} nameOf={nameOf} />
           </p>
-          <p className="text-xs text-fg-muted">{ratingLabel(ra)}</p>
+          {ra != null && <p className="text-xs text-fg-muted">Rating: {fmtRating(ra)}</p>}
         </div>
         <span className="text-xs font-medium uppercase text-fg-subtle">vs</span>
         <div className="min-w-0 flex-1 text-right">
           <p className="truncate font-display text-sm font-bold text-fg">
             <PairNames ids={match.teamB} nameOf={nameOf} />
           </p>
-          <p className="text-xs text-fg-muted">{ratingLabel(rb)}</p>
+          {rb != null && <p className="text-xs text-fg-muted">Rating: {fmtRating(rb)}</p>}
         </div>
       </div>
     </div>
