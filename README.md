@@ -20,16 +20,26 @@ gameon/
 ```
 
 ## Stack (locked)
-- **Frontend:** Vite SPA (React + TypeScript)
+- **Frontend:** Vite SPA (React + TypeScript) + Tailwind (Emerald Pro tokens)
 - **Backend:** Supabase (Postgres + Auth + RLS); Supabase Edge Functions for privileged ops
 - **Data layer:** TanStack Query
 - **Hosting:** Cloudflare Pages
 - **Tenancy:** multi-tenant-ready (`club_id` + RLS), single club to start
-- **Monorepo:** npm workspaces (Turborepo/pnpm later if needed)
+- **Monorepo:** npm workspaces
 - **Tickets:** Backlog.md
 
-> Build-from-scratch project. The previous prototype (`../badminton-tracker`) is
-> reference only — ideas are carried, no code/theme/data copied. UI designed fresh in Stitch.
+## Quick start
 
-Status: **skeleton only** — scaffolding (package.json, tooling, Supabase project, backlog)
-comes next.
+```bash
+npm install
+cp apps/badminton/.env.example apps/badminton/.env   # add your Supabase URL + publishable key
+npm run dev                                           # http://localhost:5173
+npm test                                              # unit + component tests
+```
+
+Full setup, test, build and deploy steps are in the **[Runbook](docs/RUNBOOK.md)**.
+
+## Docs
+- **[Runbook](docs/RUNBOOK.md)** — setup, run, test, build, deploy
+- **[ADR index](docs/adr/README.md)** — architecture decisions
+- **[REQUIREMENTS.md](docs/REQUIREMENTS.md)** — roles + information architecture
