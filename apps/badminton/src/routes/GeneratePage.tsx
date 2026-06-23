@@ -21,7 +21,12 @@ type Mode = 'open' | 'mixed'
 export function GeneratePage() {
   const navigate = useNavigate()
   const { data, isLoading } = useRoster()
-  const roster = useMemo<Player[]>(() => data?.players ?? [], [data])
+  // Only active players (not excluded from draws) are eligible for a game day,
+  // so the picker lists exactly them.
+  const active = useMemo<Player[]>(
+    () => (data?.players ?? []).filter((p) => !p.absent),
+    [data],
+  )
   const createSession = useCreateSession()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -33,9 +38,9 @@ export function GeneratePage() {
   // Game-day date/time the matchmaker confirms on "Create game day" (default now).
   const [playedAt, setPlayedAt] = useState(nowLocalInput())
 
-  // Default selection = everyone not marked absent (once the roster loads).
-  if (!initialised && roster.length > 0) {
-    setSelected(new Set(roster.filter((p) => !p.absent).map((p) => p.id)))
+  // Default selection = all active players (once the roster loads).
+  if (!initialised && active.length > 0) {
+    setSelected(new Set(active.map((p) => p.id)))
     setInitialised(true)
   }
 
@@ -48,7 +53,7 @@ export function GeneratePage() {
     })
 
   function generate() {
-    const present: Named[] = roster
+    const present: Named[] = active
       .filter((p) => selected.has(p.id))
       .map((p) => ({
         id: p.id,
@@ -89,19 +94,20 @@ export function GeneratePage() {
           </div>
 
           {isLoading && <p className="text-sm text-fg-muted">Loading roster…</p>}
-          {!isLoading && roster.length === 0 && (
+          {!isLoading && active.length === 0 && (
             <p className="text-sm text-fg-muted">
-              No players yet — add some on the Players page.
+              No active players — add players (or unmark them as excluded) on the
+              Players page.
             </p>
           )}
 
-          {roster.length > 0 && (
+          {active.length > 0 && (
             <>
               <p className="mb-2 text-sm text-fg-muted">
-                Present: {selected.size} / {roster.length}
+                Selected: {selected.size} / {active.length}
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {roster.map((p) => (
+                {active.map((p) => (
                   <label
                     key={p.id}
                     className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm"

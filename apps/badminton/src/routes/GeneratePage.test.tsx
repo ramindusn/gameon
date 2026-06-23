@@ -39,10 +39,10 @@ function renderPage() {
 }
 
 describe('GeneratePage', () => {
-  it('lists the roster with everyone present by default', () => {
+  it('lists active players, all selected by default', () => {
     renderPage()
     expect(screen.getByTestId('generate')).toBeInTheDocument()
-    expect(screen.getByText('Present: 8 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Selected: 8 / 8')).toBeInTheDocument()
   })
 
   it('generates a draw with courts and sitting', () => {
@@ -53,5 +53,17 @@ describe('GeneratePage', () => {
     expect(screen.getByText('Round 1')).toBeInTheDocument()
     // 8 players → 2 courts; player names render in the draw.
     expect(screen.getAllByText(/Court \d/).length).toBeGreaterThan(0)
+  })
+
+  it('excludes players marked excluded from the picker', () => {
+    players[0].absent = true
+    try {
+      renderPage()
+      expect(screen.queryByTestId('present-p1')).toBeNull()
+      expect(screen.getByTestId('present-p2')).toBeInTheDocument()
+      expect(screen.getByText('Selected: 7 / 7')).toBeInTheDocument()
+    } finally {
+      players[0].absent = false
+    }
   })
 })
