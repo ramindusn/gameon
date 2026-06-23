@@ -25,3 +25,5 @@ export * from './matches/lineup'
 export * from './ranking/glicko2'
 export * from './ranking/types'
 export * from './ranking/ranking'
+// Fixed-pairs tournament standings — isolated, points-based board (E11).
+export * from './ranking/standings'

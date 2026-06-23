@@ -1,26 +1,60 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { Card, cx } from '@gameon/ui'
+import { Button, Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
-import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
+import {
+  useCreateTournament,
+  useSessionPlayerCounts,
+  useSessions,
+} from '../play/useMatchPlay'
+import { useRoster } from '../roster/useRoster'
 import { formatPlayedAt } from '../play/datetime'
 
 const RECENT_LIMIT = 20
 
 // Matchmaker landing (E10 / TASK-11.1). The first screen after a matchmaker
-// signs in: resume any live game day (with the active player count), jump into a
-// new draw or the roster, and review recent game days.
+// signs in: resume any live game day (with the active player count), start a
+// fixed-pairs tournament, and review recent game days.
 export function MatchmakerHome() {
   return (
     <AppShell title="Matchmaker">
-      <div
-        className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start"
-        data-testid="matchmaker-home"
-      >
-        <LiveNow />
-        <RecentGameDays />
+      <div className="space-y-6" data-testid="matchmaker-home">
+        <TournamentAction />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+          <LiveNow />
+          <RecentGameDays />
+        </div>
       </div>
     </AppShell>
+  )
+}
+
+// Start an empty fixed-pairs tournament, then jump to its play screen to add
+// pair-vs-pair fixtures (E11). Disabled until the acting club is known.
+function TournamentAction() {
+  const navigate = useNavigate()
+  const { data: roster } = useRoster()
+  const clubId = roster?.clubId
+  const create = useCreateTournament()
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-sm text-fg-muted">
+        Run a fixed-pairs tournament with its own points leaderboard.
+      </p>
+      <Button
+        onClick={() =>
+          clubId &&
+          create.mutate(
+            { clubId, playedAt: new Date().toISOString() },
+            { onSuccess: (id) => navigate(`/play/${id}`) },
+          )
+        }
+        disabled={!clubId || create.isPending}
+        data-testid="new-tournament"
+      >
+        {create.isPending ? 'Starting…' : '🏆 New tournament'}
+      </Button>
+    </div>
   )
 }
 
@@ -81,14 +115,23 @@ function LiveNow() {
               data-testid={`live-${s.id}`}
             >
               <span className="flex flex-col">
-                <span className="font-medium text-fg">{formatPlayedAt(s.playedAt)}</span>
+                <span className="flex items-center gap-2 font-medium text-fg">
+                  {formatPlayedAt(s.playedAt)}
+                  {s.kind === 'tournament' && <TournamentTag />}
+                </span>
                 <span className="text-xs text-fg-muted" data-testid={`live-active-${s.id}`}>
-                  {s.rounds} rounds
-                  {playerCounts?.[s.id] != null && (
+                  {s.kind === 'tournament' ? (
+                    'Fixed-pairs tournament'
+                  ) : (
                     <>
-                      {' '}
-                      · {playerCounts[s.id]} player
-                      {playerCounts[s.id] === 1 ? '' : 's'}
+                      {s.rounds} rounds
+                      {playerCounts?.[s.id] != null && (
+                        <>
+                          {' '}
+                          · {playerCounts[s.id]} player
+                          {playerCounts[s.id] === 1 ? '' : 's'}
+                        </>
+                      )}
                     </>
                   )}
                 </span>
@@ -101,6 +144,14 @@ function LiveNow() {
         </ul>
       )}
     </Card>
+  )
+}
+
+function TournamentTag() {
+  return (
+    <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-strong">
+      🏆 Tournament
+    </span>
   )
 }
 
@@ -126,9 +177,14 @@ function RecentGameDays() {
                 data-testid={`recent-${s.id}`}
               >
                 <span className="flex flex-col">
-                  <span className="font-medium text-fg">{formatPlayedAt(s.playedAt)}</span>
+                  <span className="flex items-center gap-2 font-medium text-fg">
+                    {formatPlayedAt(s.playedAt)}
+                    {s.kind === 'tournament' && <TournamentTag />}
+                  </span>
                   <span className="text-xs text-fg-muted">
-                    {s.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'} · {s.rounds} rounds
+                    {s.kind === 'tournament'
+                      ? 'Fixed-pairs tournament'
+                      : `${s.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'} · ${s.rounds} rounds`}
                   </span>
                 </span>
               </Link>

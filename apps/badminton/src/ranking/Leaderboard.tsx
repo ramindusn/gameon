@@ -3,6 +3,7 @@ import {
   PROVISIONAL_RD,
   type FormMap,
   type FormResult,
+  type PairStanding,
   type RatedPair,
   type RatedPlayer,
 } from './api'
@@ -134,6 +135,51 @@ export function PairBoardList({
             {nameOf(p.player2Id)}
           </span>
           <Rating rating={p.rating} rd={p.rd} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Fixed-pairs tournament board (E11): rank, the pair, games played, points. */
+export function FixedPairStandingsList({
+  standings,
+  nameOf,
+  limit,
+}: {
+  standings: PairStanding[]
+  nameOf: NameOf
+  limit?: number
+}) {
+  const rows = limit ? standings.slice(0, limit) : standings
+  return (
+    <ul className="divide-y divide-line" data-testid="standings-board">
+      {rows.map((p, i) => (
+        <li
+          key={`${p.player1Id}|${p.player2Id}`}
+          className="flex items-center gap-3 py-2.5"
+          data-testid={`standing-row-${p.player1Id}-${p.player2Id}`}
+        >
+          <Rank n={i + 1} />
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
+            {nameOf(p.player1Id)} <span className="text-fg-subtle">&amp;</span>{' '}
+            {nameOf(p.player2Id)}
+          </span>
+          <span className="shrink-0 text-xs text-fg-subtle tabular-nums" title="Matches played">
+            {p.played}P
+          </span>
+          {p.missedDays > 0 && (
+            <span
+              className="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning"
+              title={`−${p.pointsFor - p.points} for ${p.missedDays} missed day${p.missedDays === 1 ? '' : 's'}`}
+              data-testid="absence-tag"
+            >
+              −abs
+            </span>
+          )}
+          <span className="w-12 shrink-0 text-right font-display text-sm font-bold tabular-nums text-fg">
+            {p.points}
+          </span>
         </li>
       ))}
     </ul>

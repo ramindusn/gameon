@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRoster } from '../roster/useRoster'
 import {
+  loadFixedPairStandings,
   loadInactivePlayers,
   loadPairBoard,
   loadPlayerBoard,
@@ -33,6 +34,11 @@ export function useInactivePlayers() {
     queryFn: loadInactivePlayers,
     select: (ids) => new Set(ids),
   })
+}
+
+/** The isolated Fixed Pairs tournament board, ranked by points (E11). */
+export function useFixedPairStandings() {
+  return useQuery({ queryKey: ['ratings', 'fixed-pairs'], queryFn: loadFixedPairStandings })
 }
 
 /** Resolve a player id to their nickname via the (public) roster. */

@@ -278,6 +278,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          kind: string
           mode: string
           played_at: string
           rounds: number
@@ -289,6 +290,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          kind?: string
           mode?: string
           played_at?: string
           rounds: number
@@ -300,6 +302,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          kind?: string
           mode?: string
           played_at?: string
           rounds?: number

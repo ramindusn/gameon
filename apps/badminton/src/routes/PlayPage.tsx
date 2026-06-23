@@ -82,8 +82,12 @@ export function PlayPage() {
         {data && (
           <>
             <Card
-              title={`Game day · ${data.session.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'}`}
-              icon="🏸"
+              title={
+                data.session.kind === 'tournament'
+                  ? 'Tournament · Fixed pairs'
+                  : `Game day · ${data.session.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'}`
+              }
+              icon={data.session.kind === 'tournament' ? '🏆' : '🏸'}
               action={
                 <span
                   className={cx(

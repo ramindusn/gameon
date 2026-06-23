@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Card } from '@gameon/ui'
 import {
+  useFixedPairStandings,
   useInactivePlayers,
   usePairBoard,
   usePlayerBoard,
@@ -9,6 +10,7 @@ import {
 } from '../ranking/useRanking'
 import {
   BoardState,
+  FixedPairStandingsList,
   PairBoardList,
   PlayerBoardList,
 } from '../ranking/Leaderboard'
@@ -19,6 +21,7 @@ import {
 export function LeaderboardPage() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
+  const standings = useFixedPairStandings()
   const form = useRecentForm()
   const inactive = useInactivePlayers()
   const nameOf = usePlayerNames()
@@ -65,6 +68,18 @@ export function LeaderboardPage() {
             />
             {(pairs.data?.length ?? 0) > 0 && (
               <PairBoardList pairs={pairs.data!} nameOf={nameOf} />
+            )}
+          </Card>
+
+          <Card title="Fixed Pairs (Tournament)" icon="🏆">
+            <BoardState
+              isLoading={standings.isLoading}
+              isError={standings.isError}
+              count={standings.data?.length ?? 0}
+              noun="fixed pairs leaderboard"
+            />
+            {(standings.data?.length ?? 0) > 0 && (
+              <FixedPairStandingsList standings={standings.data!} nameOf={nameOf} />
             )}
           </Card>
         </div>
