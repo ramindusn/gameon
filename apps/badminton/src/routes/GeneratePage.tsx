@@ -196,14 +196,22 @@ function Draw({
               {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
             </p>
           </div>
-          <input
-            type="datetime-local"
-            value={playedAt}
-            onChange={(e) => onPlayedAtChange(e.target.value)}
-            aria-label="Game day date and time"
-            className="box-border w-full min-w-0 rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent [&::-webkit-date-and-time-value]:text-left [&::-webkit-datetime-edit]:text-left sm:ml-auto sm:w-auto"
-            data-testid="game-day-datetime"
-          />
+          {/* Our own left-aligned display with the native picker layered on top
+              (transparent), so width + alignment are fully under our control and
+              don't depend on the browser's native date-field rendering. */}
+          <label className="relative block w-full sm:ml-auto sm:w-64">
+            <span className="sr-only">Game day date and time</span>
+            <span className="block w-full rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm text-fg">
+              {formatLocalInput(playedAt)}
+            </span>
+            <input
+              type="datetime-local"
+              value={playedAt}
+              onChange={(e) => onPlayedAtChange(e.target.value)}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              data-testid="game-day-datetime"
+            />
+          </label>
           <Button
             onClick={onStart}
             disabled={!canStart || starting}
@@ -251,6 +259,19 @@ function Draw({
       </div>
     </div>
   )
+}
+
+// Render a `YYYY-MM-DDTHH:mm` local-input string as a readable label.
+function formatLocalInput(value: string): string {
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value || 'Pick date & time'
+  return d.toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 // A team's two players stacked + centred (matches the public home's pair styling).
