@@ -211,8 +211,8 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
       className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-4 sm:px-6"
       data-testid={`result-${result.id}`}
     >
-      <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
-        <div className="min-w-0 text-right">
+      <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-6">
+        <div className="flex min-w-0 flex-col justify-between gap-1 text-right">
           <p
             className={cx(
               'break-words font-display text-sm font-bold leading-tight',
@@ -225,7 +225,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
             {aWon ? 'Winner' : 'Finalist'}
           </p>
         </div>
-        <div className="flex items-center gap-2 font-display tabular-nums">
+        <div className="flex items-center gap-2 self-center font-display tabular-nums">
           <span className={cx('text-2xl font-extrabold', aWon ? 'text-fg' : 'text-fg-subtle')}>
             {result.scoreA}
           </span>
@@ -234,7 +234,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
             {result.scoreB}
           </span>
         </div>
-        <div className="min-w-0 text-left">
+        <div className="flex min-w-0 flex-col justify-between gap-1 text-left">
           <p
             className={cx(
               'break-words font-display text-sm font-bold leading-tight',
