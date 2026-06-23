@@ -120,7 +120,7 @@ export function GeneratePage() {
 
                 <div className="mt-5 space-y-3 border-t border-line pt-4">
                   <label className="block text-sm">
-                    <span className="mb-1 block text-fg-muted">Rounds (random doubles)</span>
+                    <span className="mb-1 block text-fg-muted">Rounds</span>
                     <input
                       type="number"
                       min={1}
@@ -165,6 +165,7 @@ export function GeneratePage() {
               players={selectedPlayers}
               clubId={data?.clubId ?? null}
               playedAt={localInputToIso(playedAt)}
+              passes={rounds}
               onCreated={(id) => navigate(`/play/${id}`)}
             />
           </div>
@@ -341,11 +342,13 @@ function TournamentSetup({
   players,
   clubId,
   playedAt,
+  passes,
   onCreated,
 }: {
   players: Player[]
   clubId: string | null
   playedAt: string
+  passes: number
   onCreated: (sessionId: string) => void
 }) {
   const create = useCreateTournamentWithMatches()
@@ -366,31 +369,37 @@ function TournamentSetup({
     }
   }
 
+  const rrPasses = Math.max(1, passes)
+
   function generate() {
     if (!clubId || pairs.length < 2) return
-    // Single round-robin over the locked pairs → flatten to one match per court.
+    // Round-robin over the locked pairs, repeated `passes` times (each pass is a
+    // full round-robin); flatten to one match per court.
     const schedule = roundRobin(pairs.length)
     const fixtures: TournamentFixture[] = []
-    schedule.forEach((round, ri) => {
-      round.forEach(([i, j], ci) => {
-        fixtures.push({
-          round: ri + 1,
-          court: ci + 1,
-          teamA: [pairs[i][0].id, pairs[i][1].id],
-          teamB: [pairs[j][0].id, pairs[j][1].id],
+    for (let pass = 0; pass < rrPasses; pass++) {
+      schedule.forEach((round, ri) => {
+        round.forEach(([i, j], ci) => {
+          fixtures.push({
+            round: pass * schedule.length + ri + 1,
+            court: ci + 1,
+            teamA: [pairs[i][0].id, pairs[i][1].id],
+            teamB: [pairs[j][0].id, pairs[j][1].id],
+          })
         })
       })
-    })
+    }
     create.mutate({ clubId, playedAt, fixtures }, { onSuccess: onCreated })
   }
 
-  const matchCount = (pairs.length * (pairs.length - 1)) / 2
+  const matchCount = ((pairs.length * (pairs.length - 1)) / 2) * rrPasses
 
   return (
     <Card title="New tournament · Lock pairs" icon="🏆">
       <p className="mb-3 text-sm text-fg-muted">
-        Tap two players to lock them as a fixed pair. Locked pairs play a single
-        round-robin (everyone plays everyone once).
+        Tap two players to lock them as a fixed pair. Locked pairs play a
+        round-robin (everyone plays everyone)
+        {rrPasses > 1 ? `, ${rrPasses} times` : ''}.
       </p>
 
       {pool.length > 0 && (

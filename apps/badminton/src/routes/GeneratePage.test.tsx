@@ -84,6 +84,8 @@ describe('GeneratePage', () => {
   it('locks pairs then generates round-robin tournament matches', () => {
     tournamentMutate.mockClear()
     renderPage()
+    // One round-robin pass for a clean assertion.
+    fireEvent.change(screen.getByTestId('rounds-input'), { target: { value: '1' } })
     fireEvent.click(screen.getByTestId('new-tournament'))
     // Lock two pairs by tapping players two at a time.
     fireEvent.click(screen.getByTestId('tp-p1'))
