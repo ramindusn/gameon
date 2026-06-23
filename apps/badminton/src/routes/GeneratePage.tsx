@@ -182,22 +182,26 @@ function Draw({
   const name = (p: MatchPlayer) => (p as Named).nickname ?? p.id
   return (
     <div className="space-y-4">
-      <Card title="Create game day" icon="📅">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
-          <p className="text-sm text-fg-muted sm:mb-2">
+      <Card>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
+            <span aria-hidden className="text-base">
+              📅
+            </span>
+            Create game day
+          </h2>
+          <p className="text-sm text-fg-muted">
             {result.rounds.length} rounds · {result.courts} court
             {result.courts === 1 ? '' : 's'} · {result.totalPlayers} players
           </p>
-          <label className="text-sm sm:ml-auto">
-            <span className="mb-1 block text-fg-muted">Game day date &amp; time</span>
-            <input
-              type="datetime-local"
-              value={playedAt}
-              onChange={(e) => onPlayedAtChange(e.target.value)}
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:w-auto"
-              data-testid="game-day-datetime"
-            />
-          </label>
+          <input
+            type="datetime-local"
+            value={playedAt}
+            onChange={(e) => onPlayedAtChange(e.target.value)}
+            aria-label="Game day date and time"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:ml-auto sm:w-auto"
+            data-testid="game-day-datetime"
+          />
           <Button
             onClick={onStart}
             disabled={!canStart || starting}
