@@ -205,6 +205,32 @@ export async function listSessions(): Promise<MatchSession[]> {
   return (data ?? []).map(mapSessionRow)
 }
 
+/**
+ * Count the distinct players actually in each session's draw, keyed by session
+ * id. This is the real headcount for a game day (vs. the whole roster), so the
+ * matchmaker home can show how many people are playing.
+ */
+export async function loadSessionPlayerCounts(
+  sessionIds: string[],
+): Promise<Record<string, number>> {
+  if (sessionIds.length === 0 || isE2E()) return {}
+  const { data } = await client()
+    .from('match_results')
+    .select('session_id, team_a1, team_a2, team_b1, team_b2')
+    .in('session_id', sessionIds)
+  const sets = new Map<string, Set<string>>()
+  for (const r of data ?? []) {
+    const set = sets.get(r.session_id) ?? new Set<string>()
+    for (const id of [r.team_a1, r.team_a2, r.team_b1, r.team_b2]) {
+      if (id) set.add(id)
+    }
+    sets.set(r.session_id, set)
+  }
+  const counts: Record<string, number> = {}
+  for (const [id, set] of sets) counts[id] = set.size
+  return counts
+}
+
 /** One session plus its result rows (ordered by round then court). */
 export async function getSession(
   id: string,

@@ -9,6 +9,7 @@ import {
   listSessions,
   loadRecentResults,
   loadScheduledMatches,
+  loadSessionPlayerCounts,
   setScore,
   setSessionStatus,
   updateMatchLineup,
@@ -23,6 +24,15 @@ const sessionKey = (id: string) => ['session', id] as const
 /** All sessions, newest first (ADR 0006: TanStack Query). */
 export function useSessions() {
   return useQuery({ queryKey: SESSIONS_KEY, queryFn: listSessions })
+}
+
+/** Distinct player counts per session, keyed by session id. */
+export function useSessionPlayerCounts(sessionIds: string[]) {
+  return useQuery({
+    queryKey: ['session-player-counts', [...sessionIds].sort()] as const,
+    queryFn: () => loadSessionPlayerCounts(sessionIds),
+    enabled: sessionIds.length > 0,
+  })
 }
 
 /** Unscored matches in live game days — the public home's "Scheduled Matches". */

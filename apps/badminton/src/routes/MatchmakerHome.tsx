@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
-import { useSessions } from '../play/useMatchPlay'
-import { useRoster } from '../roster/useRoster'
+import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 
 const RECENT_LIMIT = 5
@@ -70,9 +69,8 @@ function QuickActions() {
 
 function LiveNow() {
   const { data, isLoading, isError } = useSessions()
-  const { data: roster } = useRoster()
-  const activeCount = (roster?.players ?? []).filter((p) => !p.absent).length
   const live = (data ?? []).filter((s) => s.status === 'live')
+  const { data: playerCounts } = useSessionPlayerCounts(live.map((s) => s.id))
   return (
     <Card title="Live now" icon="🟢">
       {isLoading && <p className="text-sm text-fg-muted">Loading game days…</p>}
@@ -98,8 +96,14 @@ function LiveNow() {
               <span className="flex flex-col">
                 <span className="font-medium text-fg">{formatPlayedAt(s.playedAt)}</span>
                 <span className="text-xs text-fg-muted" data-testid={`live-active-${s.id}`}>
-                  {s.rounds} rounds · {activeCount} active{' '}
-                  {activeCount === 1 ? 'player' : 'players'}
+                  {s.rounds} rounds
+                  {playerCounts?.[s.id] != null && (
+                    <>
+                      {' '}
+                      · {playerCounts[s.id]} player
+                      {playerCounts[s.id] === 1 ? '' : 's'}
+                    </>
+                  )}
                 </span>
               </span>
               <LinkButton to={`/play/${s.id}`} data-testid={`resume-${s.id}`}>

@@ -2,24 +2,17 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { MatchSession } from '../play/api'
-import type { Player } from '../roster/api'
 
 const { state } = vi.hoisted(() => ({
   state: {
     sessions: [] as MatchSession[],
-    players: [] as Player[],
+    playerCounts: {} as Record<string, number>,
   },
 }))
 
 vi.mock('../play/useMatchPlay', () => ({
   useSessions: () => ({ data: state.sessions, isLoading: false, isError: false }),
-}))
-vi.mock('../roster/useRoster', () => ({
-  useRoster: () => ({
-    data: { clubId: 'c1', players: state.players },
-    isLoading: false,
-    isError: false,
-  }),
+  useSessionPlayerCounts: () => ({ data: state.playerCounts }),
 }))
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ role: 'matchmaker', signOut: vi.fn() }),
@@ -39,18 +32,6 @@ function session(id: string, status: 'live' | 'finished'): MatchSession {
   }
 }
 
-function player(id: string, absent: boolean): Player {
-  return {
-    id,
-    nickname: id,
-    skill: 5,
-    gender: null,
-    absent,
-    isMatchmaker: false,
-    hasLogin: false,
-  }
-}
-
 function renderHome() {
   return render(
     <MemoryRouter>
@@ -62,7 +43,7 @@ function renderHome() {
 describe('MatchmakerHome (TASK-11.1)', () => {
   it('offers quick actions to start a draw and manage players', () => {
     state.sessions = []
-    state.players = []
+    state.playerCounts = {}
     renderHome()
     expect(screen.getByTestId('action-generate')).toHaveAttribute('href', '/generate')
     expect(screen.getByTestId('action-players')).toHaveAttribute('href', '/players')
@@ -70,7 +51,7 @@ describe('MatchmakerHome (TASK-11.1)', () => {
 
   it('lists live game days with a resume link, before finished ones', () => {
     state.sessions = [session('s1', 'live'), session('s2', 'finished')]
-    state.players = []
+    state.playerCounts = {}
     renderHome()
     expect(screen.getByTestId('resume-s1')).toHaveAttribute('href', '/play/s1')
     expect(screen.queryByTestId('live-empty')).toBeNull()
@@ -81,18 +62,17 @@ describe('MatchmakerHome (TASK-11.1)', () => {
 
   it('shows an empty-state CTA when no game day is live', () => {
     state.sessions = [session('s2', 'finished')]
-    state.players = []
+    state.playerCounts = {}
     renderHome()
     expect(screen.getByTestId('live-empty')).toBeInTheDocument()
     expect(screen.getByTestId('live-empty-generate')).toHaveAttribute('href', '/generate')
   })
 
-  it('shows the active player count on a live game day', () => {
+  it("shows the live game day's own player count, not the whole roster", () => {
     state.sessions = [session('s1', 'live')]
-    state.players = [player('p1', false), player('p2', false), player('p3', true)]
+    state.playerCounts = { s1: 9 }
     renderHome()
-    // Two of three players are active (one excluded).
-    expect(screen.getByTestId('live-active-s1')).toHaveTextContent('2 active players')
+    expect(screen.getByTestId('live-active-s1')).toHaveTextContent('9 players')
     // The roster widget is gone.
     expect(screen.queryByTestId('roster-snapshot')).toBeNull()
   })
