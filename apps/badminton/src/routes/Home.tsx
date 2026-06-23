@@ -217,7 +217,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
       data-testid={`result-${result.id}`}
     >
       <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-6">
-        <div className="flex min-w-0 flex-col justify-between gap-1 text-center">
+        <div className="flex min-w-0 flex-col justify-center text-center">
           <p
             className={cx(
               'break-words font-display text-sm font-bold leading-tight',
@@ -225,9 +225,6 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
             )}
           >
             <PairNames ids={result.teamA} nameOf={nameOf} />
-          </p>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
-            {aWon ? 'Winner' : 'Finalist'}
           </p>
         </div>
         <div className="flex items-center gap-2 self-center font-display tabular-nums">
@@ -239,7 +236,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
             {result.scoreB}
           </span>
         </div>
-        <div className="flex min-w-0 flex-col justify-between gap-1 text-center">
+        <div className="flex min-w-0 flex-col justify-center text-center">
           <p
             className={cx(
               'break-words font-display text-sm font-bold leading-tight',
@@ -247,9 +244,6 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
             )}
           >
             <PairNames ids={result.teamB} nameOf={nameOf} />
-          </p>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
-            {bWon ? 'Winner' : 'Finalist'}
           </p>
         </div>
       </div>
