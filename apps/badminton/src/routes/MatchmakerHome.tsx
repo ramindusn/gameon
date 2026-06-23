@@ -13,7 +13,10 @@ const RECENT_LIMIT = 20
 export function MatchmakerHome() {
   return (
     <AppShell title="Matchmaker">
-      <div className="space-y-6" data-testid="matchmaker-home">
+      <div
+        className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start"
+        data-testid="matchmaker-home"
+      >
         <LiveNow />
         <RecentGameDays />
       </div>

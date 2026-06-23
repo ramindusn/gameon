@@ -213,34 +213,38 @@ function Draw({
           Not placed (no male/female set): {result.unplaceable.map(name).join(', ')}
         </p>
       )}
-      {result.rounds.map((round, ri) => (
-        <Card key={ri} title={`Round ${ri + 1}`} icon="🏸">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {round.matches.map((m, ci) => (
-              <div
-                key={ci}
-                className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm"
-              >
-                <div className="mb-1 text-xs uppercase tracking-wide text-fg-subtle">
-                  Court {ci + 1}
+      {/* Tile rounds across the width on desktop so the page isn't a tall
+          single column with empty space on the right. */}
+      <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+        {result.rounds.map((round, ri) => (
+          <Card key={ri} title={`Round ${ri + 1}`} icon="🏸">
+            <div className="space-y-3">
+              {round.matches.map((m, ci) => (
+                <div
+                  key={ci}
+                  className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm"
+                >
+                  <div className="mb-1 text-xs uppercase tracking-wide text-fg-subtle">
+                    Court {ci + 1}
+                  </div>
+                  <div className="font-medium text-fg">
+                    {name(m[0][0])} &amp; {name(m[0][1])}
+                  </div>
+                  <div className="my-0.5 text-xs text-fg-muted">vs</div>
+                  <div className="font-medium text-fg">
+                    {name(m[1][0])} &amp; {name(m[1][1])}
+                  </div>
                 </div>
-                <div className="font-medium text-fg">
-                  {name(m[0][0])} &amp; {name(m[0][1])}
-                </div>
-                <div className="my-0.5 text-xs text-fg-muted">vs</div>
-                <div className="font-medium text-fg">
-                  {name(m[1][0])} &amp; {name(m[1][1])}
-                </div>
-              </div>
-            ))}
-          </div>
-          {round.sitting.length > 0 && (
-            <p className="mt-3 text-xs text-fg-muted">
-              Sitting: {round.sitting.map(name).join(', ')}
-            </p>
-          )}
-        </Card>
-      ))}
+              ))}
+            </div>
+            {round.sitting.length > 0 && (
+              <p className="mt-3 text-xs text-fg-muted">
+                Sitting: {round.sitting.map(name).join(', ')}
+              </p>
+            )}
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }
