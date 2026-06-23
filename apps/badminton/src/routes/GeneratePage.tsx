@@ -103,7 +103,7 @@ export function GeneratePage() {
               disabled={selected.size < 4}
               data-testid="generate-button"
             >
-              Generate random pairs
+              Random doubles
             </Button>
             <Button
               variant="secondary"
