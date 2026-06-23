@@ -61,7 +61,6 @@ function PairNames({ ids, nameOf }: { ids: [string | null, string | null]; nameO
     <>
       <span className="block">
         <PlayerLink id={ids[0]} nameOf={nameOf} />
-        <span className="text-fg-subtle"> &amp;</span>
       </span>
       <span className="block">
         <PlayerLink id={ids[1]} nameOf={nameOf} />
@@ -173,14 +172,14 @@ function MatchCard({
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 text-center">
           <p className="break-words font-display text-sm font-bold leading-tight text-fg">
             <PairNames ids={match.teamA} nameOf={nameOf} />
           </p>
           {ra != null && <p className="text-xs text-fg-muted">Rating: {fmtRating(ra)}</p>}
         </div>
         <span className="text-xs font-medium uppercase text-fg-subtle">vs</span>
-        <div className="min-w-0 flex-1 text-right">
+        <div className="min-w-0 flex-1 text-center">
           <p className="break-words font-display text-sm font-bold leading-tight text-fg">
             <PairNames ids={match.teamB} nameOf={nameOf} />
           </p>
@@ -218,7 +217,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
       data-testid={`result-${result.id}`}
     >
       <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-6">
-        <div className="flex min-w-0 flex-col justify-between gap-1 text-right">
+        <div className="flex min-w-0 flex-col justify-between gap-1 text-center">
           <p
             className={cx(
               'break-words font-display text-sm font-bold leading-tight',
@@ -240,7 +239,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
             {result.scoreB}
           </span>
         </div>
-        <div className="flex min-w-0 flex-col justify-between gap-1 text-left">
+        <div className="flex min-w-0 flex-col justify-between gap-1 text-center">
           <p
             className={cx(
               'break-words font-display text-sm font-bold leading-tight',
