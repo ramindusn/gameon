@@ -17,7 +17,8 @@ export function AdminLogin() {
     setStatus('sending')
     setError('')
     try {
-      await signInAdmin(email, `${window.location.origin}`)
+      // Land the admin straight on their dashboard after the magic link.
+      await signInAdmin(email, `${window.location.origin}/dashboard`)
       setStatus('sent')
     } catch (err) {
       setStatus('error')
