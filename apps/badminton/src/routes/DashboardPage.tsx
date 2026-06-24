@@ -26,14 +26,11 @@ export function DashboardPage() {
   return (
     <AppShell title="Dashboard">
       <div data-testid="dashboard">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-fg-muted">Club operations overview</p>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-medium text-accent-strong">
-              ● Editing enabled
-            </span>
-            <QuickAdd />
-          </div>
+        <div className="mb-6 flex items-center justify-end gap-2">
+          <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-medium text-accent-strong">
+            ● Editing enabled
+          </span>
+          <QuickAdd />
         </div>
 
         {isLoading && <p className="text-sm text-fg-muted">Loading club data…</p>}
