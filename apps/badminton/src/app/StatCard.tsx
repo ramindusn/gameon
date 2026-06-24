@@ -44,7 +44,7 @@ export function StatCard({
             {label}
           </div>
           <div
-            className={`mt-0.5 text-2xl font-bold leading-tight ${t.value}`}
+            className={`mt-0.5 whitespace-nowrap text-2xl font-bold leading-tight ${t.value}`}
             data-testid={testId ? `${testId}-value` : undefined}
           >
             {value}
