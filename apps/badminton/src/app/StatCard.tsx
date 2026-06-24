@@ -29,7 +29,7 @@ export function StatCard({
   const t = tones[tone]
   return (
     <div
-      className="rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5"
+      className="flex h-full flex-col justify-center rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5"
       data-testid={testId}
     >
       <div className="flex items-center gap-3">
@@ -68,7 +68,7 @@ export function DualStatCard({
 }) {
   return (
     <div
-      className="rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5"
+      className="flex h-full flex-col justify-center rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5"
       data-testid={testId}
     >
       <div className="flex items-center gap-3">
