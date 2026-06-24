@@ -18,7 +18,15 @@ const NAV_BY_ROLE: Record<'admin' | 'matchmaker', NavItem[]> = {
   ],
 }
 
-export function AppShell({ title, children }: { title: string; children: ReactNode }) {
+export function AppShell({
+  title,
+  actions,
+  children,
+}: {
+  title: string
+  actions?: ReactNode
+  children: ReactNode
+}) {
   const { role, signOut } = useAuth()
   const navigate = useNavigate()
   const nav = role ? NAV_BY_ROLE[role] : []
@@ -85,7 +93,10 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
         className="mx-auto w-full max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-8"
         data-testid="app-main"
       >
-        <h1 className="mb-6 font-display text-2xl font-bold">{title}</h1>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-2xl font-bold">{title}</h1>
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
+        </div>
         {children}
       </main>
 

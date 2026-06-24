@@ -24,15 +24,18 @@ export function DashboardPage() {
   const shuttles = totalShuttlesInStock(state)
 
   return (
-    <AppShell title="Dashboard">
-      <div data-testid="dashboard">
-        <div className="mb-6 flex items-center justify-end gap-2">
+    <AppShell
+      title="Dashboard"
+      actions={
+        <>
           <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-medium text-accent-strong">
             ● Editing enabled
           </span>
           <QuickAdd />
-        </div>
-
+        </>
+      }
+    >
+      <div data-testid="dashboard">
         {isLoading && <p className="text-sm text-fg-muted">Loading club data…</p>}
         {isError && (
           <p className="text-sm text-negative">
