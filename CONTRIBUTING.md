@@ -27,17 +27,18 @@ local (dev DB)  →  optional dev-URL preview  →  PR  →  merge to main  → 
 When CI is green and the PR is approved, **merge** — that auto-deploys to **prod**
 (`badmintonduo.club`).
 
-## Tests run for you (git hooks)
+## Tests run for you
 
-`npm install` wires up hooks, so you don't have to remember:
+| When | Runs | How |
+|---|---|---|
+| each **commit** | lint + unit | git pre-commit hook (installed by `npm install`) |
+| **`npm run deploy:dev`** | lint + unit + **e2e** | before publishing to the dev URL |
+| **Pull Request** | lint + build + unit + **e2e** | CI (`.github/workflows/ci.yml`) |
 
-| When | Runs |
-|---|---|
-| each **commit** | lint + unit tests |
-| each **push** | e2e (Playwright — run `npx playwright install chromium` once) |
-| `npm run deploy:dev` | lint + unit + e2e, before publishing |
-
-Skip in a pinch with `--no-verify` (don't, on shared branches).
+So commits stay fast (lint + unit), and the full e2e suite runs before your change
+hits the dev URL or gets merged. Run it yourself anytime with `npm run verify`
+(needs `npx playwright install chromium` once). Skip the commit hook in a pinch
+with `git commit --no-verify`.
 
 ## House rules
 
