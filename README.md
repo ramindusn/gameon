@@ -6,13 +6,12 @@ monorepo.
 
 ## Run it locally
 
-**No tokens or accounts needed** — `.env.example` already points at the shared **dev**
-database, so this just works:
+**No tokens, no setup** — the dev config (`apps/badminton/.env`) is committed (the
+publishable key is public; RLS guards the data), so this just works:
 
 ```bash
 npm install
-cp apps/badminton/.env.example apps/badminton/.env   # already filled in — don't edit
-npm run dev                                           # http://localhost:5173
+npm run dev          # http://localhost:5173
 ```
 
 Your local app now talks to the same backend as **https://badmintonduo.pages.dev**.
@@ -27,7 +26,7 @@ npm run test:e2e    # end-to-end (Playwright; run `npx playwright install chromi
 
 | What you're doing | What you need |
 |---|---|
-| **Run locally / run tests** | **Nothing** — the dev key in `.env.example` is public (RLS guards the data) |
+| **Run locally / run tests** | **Nothing** — the committed dev key is public (RLS guards the data) |
 | Publish your branch to the dev URL (`npm run deploy:dev`) | Cloudflare login (`npx wrangler login`) — maintainers only |
 | DB migrations / Edge Functions | Supabase CLI link + DB password — maintainers only |
 | CI auto-deploy to prod on merge | GitHub repo secrets — set once by a maintainer |

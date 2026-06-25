@@ -10,9 +10,10 @@ build/
 .turbo/
 
 # env / secrets
-.env
+# apps/badminton/.env is COMMITTED with DEV values (publishable key only — public,
+# RLS-guarded) so the app runs with zero setup. Prod (.env.production) and any
+# *.local overrides stay out of git.
 .env.*
-!.env.example
 
 # supabase
 supabase/.branches/

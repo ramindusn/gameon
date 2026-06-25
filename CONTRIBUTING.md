@@ -2,7 +2,7 @@
 
 Thanks for helping with BadmintonDuo! 🏸 Get set up first with the
 [README → Run it locally](README.md#run-it-locally) (it's `npm install` +
-`cp .env.example .env` + `npm run dev` — **no tokens**). This page is just the flow
+`npm install` + `npm run dev` — **no tokens, no setup**). This page is just the flow
 for making a change.
 
 ## The flow
