@@ -1,0 +1,4 @@
+# Default reviewer for every change. With the `main` ruleset's "Require review
+# from Code Owners" rule (enabled once the repo is public or on GitHub Pro),
+# this makes the owner's approval required and auto-requests their review.
+* @ramindusn

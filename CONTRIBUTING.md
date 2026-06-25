@@ -22,10 +22,25 @@ local (dev DB)  →  optional dev-URL preview  →  PR  →  merge to main  → 
    *(needs a one-time `npx wrangler login`; maintainers only.)*
 4. **Commit** with a [Conventional Commit](https://www.conventionalcommits.org)
    message, e.g. `fix(fund): correct rounding in member balances`.
-5. **Push** and open a **Pull Request** to `main`.
+5. **Push** and open a **Pull Request** to `main`. The PR template guides you.
 
-When CI is green and the PR is approved, **merge** — that auto-deploys to **prod**
-(`badmintonduo.club`).
+## Branching & merging
+
+**`main` is protected — never push to it directly. Everything goes through a PR.**
+
+- Work on a short-lived **`feat/…` / `fix/…` branch** off `main`.
+- Open a **PR** → it auto-requests **@ramindusn** (see `.github/CODEOWNERS`).
+- A PR can merge only when **CI is green** (lint + build + unit + e2e) **and
+  @ramindusn approves**.
+- **Merge to `main` → auto-deploys to prod** (`badmintonduo.club`). No separate
+  release step.
+
+So the whole path is: `feat/x` → PR → green CI + review → **squash-merge** to `main` → prod.
+
+> Enforcement of "no direct pushes / required CI + review" uses a GitHub **ruleset**
+> on `main`, which needs the repo to be **public** or on **GitHub Pro** (it's locked
+> on free private repos). Until then this is an honoured convention; the CODEOWNERS
+> file still auto-requests the reviewer on every PR.
 
 ## Tests run for you
 
