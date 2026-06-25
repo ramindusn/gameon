@@ -91,26 +91,20 @@ describe('PlayersPage', () => {
     expect(remove).toHaveBeenCalledWith('p1')
   })
 
-  it('admin can create a matchmaker (username + password)', () => {
+  it('admin promotes an existing player to matchmaker', () => {
     renderPage()
     fireEvent.click(screen.getByTestId('add-matchmaker-button'))
+    // Pick the existing player (Alice, p1) and give them a login.
+    fireEvent.change(screen.getByTestId('mm-player'), { target: { value: 'p1' } })
     fireEvent.change(screen.getByTestId('mm-new-username'), {
       target: { value: 'rohan' },
     })
     fireEvent.change(screen.getByTestId('mm-new-password'), {
       target: { value: 'secret1' },
     })
-    fireEvent.change(screen.getByTestId('mm-skill'), { target: { value: '7' } })
-    fireEvent.change(screen.getByTestId('mm-gender'), { target: { value: 'female' } })
     fireEvent.click(screen.getByTestId('mm-create-submit'))
     expect(createMatchmaker).toHaveBeenCalledWith(
-      {
-        name: 'rohan',
-        username: 'rohan',
-        password: 'secret1',
-        skill: 7,
-        gender: 'female',
-      },
+      { playerId: 'p1', username: 'rohan', password: 'secret1' },
       expect.anything(),
     )
   })

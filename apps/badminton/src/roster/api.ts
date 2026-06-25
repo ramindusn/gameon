@@ -146,20 +146,25 @@ export async function removePlayer(id: string) {
 }
 
 export interface MatchmakerInput {
-  name: string
+  /** The existing roster player to promote (a matchmaker is a player). */
+  playerId: string
   username: string
   password: string
-  skill: number | null // 1–10
-  gender: Gender | null
 }
 
 /**
- * Create a Matchmaker login. Admin-only privileged op handled by the
- * `create-matchmaker` Edge Function (service role); the bootstrap trigger then
- * enrols the new user as a Matchmaker player_profile.
+ * Promote an existing player to a Matchmaker by giving them a login. Admin-only
+ * privileged op handled by the `create-matchmaker` Edge Function (service role);
+ * the bootstrap trigger links the new login to the player's existing profile.
  */
 export async function createMatchmaker(input: MatchmakerInput) {
-  const { error } = await client().functions.invoke('create-matchmaker', { body: input })
+  const { error } = await client().functions.invoke('create-matchmaker', {
+    body: {
+      player_id: input.playerId,
+      username: input.username,
+      password: input.password,
+    },
+  })
   if (error) {
     let message = error.message
     // FunctionsHttpError carries the response; surface our JSON {error} message.

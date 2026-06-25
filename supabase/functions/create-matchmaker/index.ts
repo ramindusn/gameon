@@ -1,8 +1,9 @@
-// create-matchmaker — privileged op (ADR 0003): an Admin creates a Matchmaker
-// login. Verifies the caller is an admin using their JWT, then uses the service
-// role to create an auth user with the matchmaker synthetic email + password.
-// The bootstrap trigger (handle_new_auth_user) enrols them as a Matchmaker
-// player_profile from the user metadata.
+// create-matchmaker — privileged op (ADR 0003): an Admin promotes an EXISTING
+// roster player to a Matchmaker by giving them a login (TASK-14). Verifies the
+// caller is an admin, validates the chosen player (same club, no login yet), then
+// uses the service role to create the auth user with the matchmaker synthetic
+// email + password. The bootstrap trigger links that login to the existing
+// player_profiles row (via player_id metadata) — no duplicate profile is made.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
@@ -42,37 +43,38 @@ Deno.serve(async (req) => {
   if (!admin) return json(403, { error: 'Admins only' })
 
   // 2) Validate input.
-  let body: {
-    username?: string
-    password?: string
-    name?: string
-    skill?: number | null
-    gender?: string | null
-  }
+  let body: { player_id?: string; username?: string; password?: string }
   try {
     body = await req.json()
   } catch {
     return json(400, { error: 'Invalid JSON' })
   }
+  const playerId = (body.player_id ?? '').trim()
   const username = (body.username ?? '').trim().toLowerCase()
   const password = body.password ?? ''
-  const name = (body.name ?? '').trim() || username
-  const skill = body.skill == null ? null : Number(body.skill)
-  const gender = body.gender ?? null
+  if (!playerId) return json(400, { error: 'player_id is required' })
   if (!username || !password) return json(400, { error: 'username and password are required' })
   if (password.length < 6) return json(400, { error: 'password must be at least 6 characters' })
-  if (skill !== null && (!Number.isInteger(skill) || skill < 1 || skill > 10))
-    return json(400, { error: 'skill must be an integer 1–10' })
-  if (gender !== null && !['male', 'female', 'other'].includes(gender))
-    return json(400, { error: 'gender must be male, female or other' })
 
-  // 3) Create the matchmaker auth user (service role). The trigger enrols them.
   const adminClient = createClient(url, serviceKey)
+
+  // 3) The player must exist, be in the admin's club, and not already have a login.
+  const { data: player } = await adminClient
+    .from('player_profiles')
+    .select('id, club_id, user_id, is_matchmaker')
+    .eq('id', playerId)
+    .maybeSingle()
+  if (!player || player.club_id !== admin.club_id)
+    return json(404, { error: 'Player not found in your club' })
+  if (player.user_id || player.is_matchmaker)
+    return json(400, { error: 'That player is already a matchmaker' })
+
+  // 4) Create the auth user (service role). The trigger links it to the player.
   const { error } = await adminClient.auth.admin.createUser({
     email: `${username}@${MATCHMAKER_EMAIL_DOMAIN}`,
     password,
     email_confirm: true,
-    user_metadata: { username, nickname: name, club_id: admin.club_id, skill, gender },
+    user_metadata: { username, club_id: admin.club_id, player_id: playerId },
   })
   if (error) {
     const msg = /already.*registered|exists/i.test(error.message)

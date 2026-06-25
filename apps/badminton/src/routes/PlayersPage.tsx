@@ -28,7 +28,7 @@ export function PlayersPage() {
                 onClick={() => setAddingMatchmaker(true)}
                 data-testid="add-matchmaker-button"
               >
-                + Add matchmaker
+                Make matchmaker
               </Button>
             )}
             <Button onClick={() => setEditing('new')} data-testid="add-player-button">
@@ -174,6 +174,7 @@ export function PlayersPage() {
 
       {addingMatchmaker && (
         <MatchmakerModal
+          players={players.filter((p) => !p.isMatchmaker)}
           onClose={() => setAddingMatchmaker(false)}
           onSave={(input) =>
             m.createMatchmaker.mutate(input, {
@@ -193,85 +194,105 @@ export function PlayersPage() {
 }
 
 function MatchmakerModal({
+  players,
   onClose,
   onSave,
   pending,
   error,
 }: {
+  players: Player[]
   onClose: () => void
   onSave: (input: MatchmakerInput) => void
   pending: boolean
   error: string
 }) {
-  const [name, setName] = useState('')
+  const [playerId, setPlayerId] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [skill, setSkill] = useState('')
-  const [gender, setGender] = useState('')
   const [localError, setLocalError] = useState('')
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (!playerId) {
+      setLocalError('Pick a player to promote.')
+      return
+    }
     if (!username.trim() || password.length < 6) {
       setLocalError('Username and a password (min 6 chars) are required.')
       return
     }
     setLocalError('')
-    onSave({
-      name: name.trim() || username.trim(),
-      username: username.trim(),
-      password,
-      skill: skill === '' ? null : Number(skill),
-      gender: gender === '' ? null : (gender as Gender),
-    })
+    onSave({ playerId, username: username.trim(), password })
   }
 
   return (
-    <Modal open title="Add matchmaker" onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3">
-        <Field
-          label="Display name (optional)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Rohan"
-          data-testid="mm-name"
-        />
-        <Field
-          label="Username (login)"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          autoFocus
-          placeholder="rohan"
-          autoComplete="off"
-          data-testid="mm-new-username"
-        />
-        <Field
-          label="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="new-password"
-          data-testid="mm-new-password"
-        />
-        <SkillSelect value={skill} onChange={setSkill} testId="mm-skill" />
-        <GenderSelect value={gender} onChange={setGender} testId="mm-gender" />
-        {(localError || error) && (
-          <p className="text-sm font-medium text-red-500" data-testid="mm-create-error">
-            {localError || error}
+    <Modal open title="Make a player a matchmaker" onClose={onClose}>
+      {players.length === 0 ? (
+        <div className="space-y-3">
+          <p className="text-sm text-fg-muted" data-testid="mm-no-players">
+            Every player is already a matchmaker (or there are no players yet). Add a
+            player first.
           </p>
-        )}
-        <p className="text-xs text-fg-subtle">
-          Creates a Matchmaker login (a player who can build draws and add players).
-        </p>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={pending} data-testid="mm-create-submit">
-            {pending ? 'Creating…' : 'Create matchmaker'}
-          </Button>
+          <div className="flex justify-end">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
-      </form>
+      ) : (
+        <form onSubmit={submit} className="space-y-3">
+          <label className="block text-sm">
+            <span className="mb-1 block text-fg-muted">Player to promote</span>
+            <select
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              value={playerId}
+              onChange={(e) => setPlayerId(e.target.value)}
+              autoFocus
+              data-testid="mm-player"
+            >
+              <option value="">— Pick a player —</option>
+              {players.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nickname}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Field
+            label="Username (login)"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="rohan"
+            autoComplete="off"
+            data-testid="mm-new-username"
+          />
+          <Field
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            data-testid="mm-new-password"
+          />
+          {(localError || error) && (
+            <p className="text-sm font-medium text-red-500" data-testid="mm-create-error">
+              {localError || error}
+            </p>
+          )}
+          <p className="text-xs text-fg-subtle">
+            Gives an existing player a login so they can build draws and manage
+            players. (A matchmaker is also a player.)
+          </p>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending} data-testid="mm-create-submit">
+              {pending ? 'Saving…' : 'Make matchmaker'}
+            </Button>
+          </div>
+        </form>
+      )}
     </Modal>
   )
 }
