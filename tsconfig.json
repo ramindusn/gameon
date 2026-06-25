@@ -1,0 +1,10 @@
+{
+  // Root tsconfig for files outside the app's src — the Playwright config and the
+  // e2e specs. Gives editors Node types (process.env) + Playwright types so they
+  // type-check cleanly. The app itself is built via apps/badminton/tsconfig.json.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node", "@playwright/test"]
+  },
+  "include": ["playwright.config.ts", "e2e/**/*.ts"]
+}
