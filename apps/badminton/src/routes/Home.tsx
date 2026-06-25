@@ -396,7 +396,7 @@ function PublicNav() {
   const { role, signOut } = useAuth()
   const navigate = useNavigate()
   const [login, setLogin] = useState<LoginKind>(null)
-  const links = ['Leagues', 'Matches', 'Leaderboards', 'Clubs']
+  const links = ['Leaderboards']
 
   // When a sign-in started here resolves a role, close the modal and route on.
   useEffect(() => {
