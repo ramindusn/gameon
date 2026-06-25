@@ -208,8 +208,12 @@ function MatchmakerModal({
 }) {
   const [playerId, setPlayerId] = useState('')
   const [username, setUsername] = useState('')
+  const [usernameEdited, setUsernameEdited] = useState(false)
   const [password, setPassword] = useState('')
   const [localError, setLocalError] = useState('')
+
+  // A login handle from the player's name: lowercase, alphanumeric only.
+  const suggestUsername = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '')
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -246,7 +250,15 @@ function MatchmakerModal({
             <select
               className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               value={playerId}
-              onChange={(e) => setPlayerId(e.target.value)}
+              onChange={(e) => {
+                const id = e.target.value
+                setPlayerId(id)
+                // Suggest a username from the chosen player (unless edited).
+                if (!usernameEdited) {
+                  const p = players.find((pl) => pl.id === id)
+                  setUsername(p ? suggestUsername(p.nickname) : '')
+                }
+              }}
               autoFocus
               data-testid="mm-player"
             >
@@ -261,7 +273,10 @@ function MatchmakerModal({
           <Field
             label="Username (login)"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              setUsername(e.target.value)
+              setUsernameEdited(true)
+            }}
             placeholder="rohan"
             autoComplete="off"
             data-testid="mm-new-username"
