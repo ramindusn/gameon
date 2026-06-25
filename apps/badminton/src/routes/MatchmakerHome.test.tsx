@@ -13,7 +13,6 @@ const { state } = vi.hoisted(() => ({
 vi.mock('../play/useMatchPlay', () => ({
   useSessions: () => ({ data: state.sessions, isLoading: false, isError: false }),
   useSessionPlayerCounts: () => ({ data: state.playerCounts }),
-  useCreateTournament: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 vi.mock('../roster/useRoster', () => ({
   useRoster: () => ({ data: { clubId: 'c1', players: [] }, isLoading: false, isError: false }),

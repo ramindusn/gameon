@@ -1,0 +1,6 @@
+#!/bin/sh
+# Before code leaves your machine (push / sharing on dev): run the e2e suite.
+# Needs the Playwright browser once: npx playwright install chromium
+# Skip with: git push --no-verify
+echo "▶ pre-push: e2e tests…"
+npm run test:e2e

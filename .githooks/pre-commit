@@ -1,0 +1,5 @@
+#!/bin/sh
+# Fast gate before each commit: lint + unit tests. (e2e runs on pre-push.)
+# Skip with: git commit --no-verify
+echo "▶ pre-commit: lint + unit tests…"
+npm run lint && npm test

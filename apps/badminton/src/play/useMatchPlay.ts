@@ -3,7 +3,6 @@ import type { GeneratedMatches } from '@gameon/domain'
 import {
   addCustomMatch,
   createSessionFromPlan,
-  createTournament,
   createTournamentWithMatches,
   deleteMatch,
   deleteSession,
@@ -73,16 +72,6 @@ export function useCreateSession() {
       mode: Mode
       playedAt: string
     }) => createSessionFromPlan(v.clubId, v.plan, v.mode, v.playedAt),
-    onSuccess: () => qc.invalidateQueries({ queryKey: SESSIONS_KEY }),
-  })
-}
-
-/** Start an empty fixed-pairs tournament game day (E11); refreshes the list. */
-export function useCreateTournament() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (v: { clubId: string; playedAt: string }) =>
-      createTournament(v.clubId, v.playedAt),
     onSuccess: () => qc.invalidateQueries({ queryKey: SESSIONS_KEY }),
   })
 }

@@ -201,45 +201,6 @@ export async function createSessionFromPlan(
   return session.id
 }
 
-/**
- * Start an empty fixed-pairs tournament game day (E11). No draw is generated —
- * the matchmaker adds each pair-vs-pair fixture by hand (addCustomMatch) and
- * enters scores. Tournament play is isolated from the Glicko boards; its points
- * feed the separate Fixed Pairs standings. Returns the new session id.
- */
-export async function createTournament(clubId: string, playedAt: string): Promise<string> {
-  if (isE2E()) {
-    const id = e2eUid('session')
-    return e2ePut(
-      {
-        id,
-        clubId,
-        status: 'live',
-        mode: 'open',
-        kind: 'tournament',
-        rounds: 1,
-        playedAt,
-        createdAt: new Date().toISOString(),
-      },
-      [],
-    )
-  }
-  const { data: session, error } = await client()
-    .from('match_sessions')
-    .insert({
-      club_id: clubId,
-      mode: 'open',
-      kind: 'tournament',
-      rounds: 1,
-      status: 'live',
-      played_at: playedAt,
-    })
-    .select('id')
-    .single()
-  if (error) throw error
-  return session.id
-}
-
 /** One generated round-robin fixture: two fixed pairs on a round + court. */
 export interface TournamentFixture {
   round: number

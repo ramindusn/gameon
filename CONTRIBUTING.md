@@ -9,10 +9,15 @@ the *why* behind the stack see the [ADR index](docs/adr/README.md).
 ```bash
 git clone https://github.com/ramindusn/gameon.git
 cd gameon
-npm install                                          # installs all workspaces
-cp apps/badminton/.env.example apps/badminton/.env   # add your Supabase URL + publishable key
-npm run dev                                           # http://localhost:5173
+npm install                                          # installs deps + git hooks
+cp apps/badminton/.env.example apps/badminton/.env   # already points at the DEV database
+npx playwright install chromium                      # once, for e2e
+npm run dev                                           # http://localhost:5173 (uses the DEV DB)
 ```
+
+`.env.example` is pre-filled with the **dev** Supabase project, so running locally
+behaves like **https://badmintonduo.pages.dev** — same data, no setup. **Prod**
+(`badmintonduo.club`) is a separate database you never touch while developing.
 
 This is an **npm-workspaces monorepo**:
 
@@ -43,11 +48,14 @@ backlog task view TASK-123 --plain
    git switch -c feat/your-change
    ```
 2. Make your change — keep it small and focused. Put pure logic in `packages/domain`
-   with a unit test next to it.
-3. **Run the gate** (must be green before you push):
+   with a unit test next to it. `npm run dev` runs against the **dev** DB as you go.
+3. **Try it on the shared dev URL (optional, needs Cloudflare access):**
    ```bash
-   npm run lint && npm run build && npm test && npm run test:e2e
+   npm run deploy:dev    # runs the full gate, then publishes YOUR branch to
+                         # https://badmintonduo.pages.dev — no push to main needed
    ```
+   This lets you (and others) check your change live on the dev site before it
+   goes near `main`/prod.
 4. **Commit** with a [Conventional Commit](https://www.conventionalcommits.org) message:
    ```
    feat(generate): add fixed-pairs tournament draw
@@ -55,14 +63,25 @@ backlog task view TASK-123 --plain
    ```
 5. **Push** your branch and **open a Pull Request** to `main`.
 
+### Test gate (automatic)
+
+Git hooks (installed by `npm install` via `core.hooksPath .githooks`) run for you:
+
+| When | Runs |
+|---|---|
+| **commit** (`pre-commit`) | `npm run lint && npm test` (lint + unit) |
+| **push** (`pre-push`) | `npm run test:e2e` (Playwright) |
+| **`npm run deploy:dev`** | `npm run verify` (lint + unit + e2e) before publishing |
+
+So unit tests gate every commit, and e2e runs before code leaves your machine or
+hits the dev URL. Bypass in a pinch with `--no-verify` (not for shared branches).
+
 ## What happens next
 
-- **CI** (`.github/workflows/ci.yml`) runs automatically — lint, build, unit tests,
-  and Playwright e2e. All must pass.
-- Once green and approved, **merge** to `main`. The deploy workflow ships the build
-  to **Cloudflare Pages** → https://badmintonduo.pages.dev (a one-time
-  `CLOUDFLARE_API_TOKEN` secret activates it; until then deploy manually with
-  `npm run deploy`).
+- **CI** (`.github/workflows/ci.yml`) runs on the PR — lint, build, unit + e2e.
+- Once green and approved, **merge to `main`** → `.github/workflows/deploy.yml`
+  builds with the prod env and deploys to **prod** (`badmintonduo.club`). So the
+  flow is: **local (dev DB) → optional dev-URL preview → PR → merge → prod.**
 
 ## House rules
 
