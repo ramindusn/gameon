@@ -4,8 +4,6 @@
 
 alter table members add column if not exists email text;
 
--- Link the founding members to their admin-allowlist emails (demo data).
-update members set email = 'redacted-a1@removed.invalid'          where id = '00000000-0000-0000-0000-0000000000a1' and email is null;
-update members set email = 'redacted-a2@removed.invalid' where id = '00000000-0000-0000-0000-0000000000a2' and email is null;
-update members set email = 'redacted-a3@removed.invalid'   where id = '00000000-0000-0000-0000-0000000000a3' and email is null;
-update members set email = 'ramindusn@gmail.com'             where id = '00000000-0000-0000-0000-0000000000a4' and email is null;
+-- Founding members' login emails are set out-of-band (not stored in VCS — they're
+-- personal data). Already applied to the live projects; managed in the DB directly.
+update members set email = 'ramindusn@gmail.com' where id = '00000000-0000-0000-0000-0000000000a4' and email is null;
