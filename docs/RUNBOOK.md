@@ -7,6 +7,10 @@
 For the *why* behind the stack, see the [ADR index](adr/README.md); for roles and
 product rules, see [REQUIREMENTS.md](REQUIREMENTS.md).
 
+> **Run every command below from the repo root (`gameon/`)** — `npm`, `wrangler`,
+> and `supabase` all expect it (the `supabase/` config and the workspace scripts
+> live there). Never `cd` into `apps/badminton`.
+
 ## Database migrations
 
 Tracked SQL under `supabase/migrations/` (RLS on every table). Apply to a linked

@@ -6,16 +6,24 @@ monorepo.
 
 ## Run it locally
 
+> **Run every command from the repo root (`gameon/`)** — the folder with the
+> top-level `package.json`. This is a monorepo: the root scripts delegate into
+> `apps/badminton` for you, so **don't `cd apps/badminton`**. In your IDE, open the
+> **`gameon` root** folder; in WebStorm run the `dev` script from the **root**
+> `package.json` (not a sub-package) and make sure its Node interpreter is **20+**.
+
 **No tokens, no setup** — the dev config (`apps/badminton/.env`) is committed (the
 publishable key is public; RLS guards the data), so this just works:
 
 ```bash
+git clone <repo-url> gameon
+cd gameon            # ← run everything below from here (repo root)
 npm install
 npm run dev          # http://localhost:5173
 ```
 
 Your local app now talks to the same backend as **https://badmintonduo.pages.dev**.
-Run the tests anytime (no database needed — they use a bypass):
+Run the tests anytime (same place, the repo root — no database needed, they use a bypass):
 
 ```bash
 npm test            # unit / component

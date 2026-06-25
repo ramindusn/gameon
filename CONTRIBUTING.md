@@ -2,8 +2,11 @@
 
 Thanks for helping with BadmintonDuo! 🏸 Get set up first with the
 [README → Run it locally](README.md#run-it-locally) (it's `npm install` +
-`npm install` + `npm run dev` — **no tokens, no setup**). This page is just the flow
-for making a change.
+`npm run dev` — **no tokens, no setup**). This page is just the flow for making a
+change.
+
+> **Run every `npm …` command from the repo root (`gameon/`)** — the monorepo
+> scripts delegate into `apps/badminton` for you, so never `cd` into a sub-package.
 
 ## The flow
 
