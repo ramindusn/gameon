@@ -74,41 +74,51 @@ register one, so development and e2e are unaffected. Verify offline behaviour vi
 or toggle the Network "Offline" box and reload. App icons are generated from
 `scripts/gen-pwa-icons.mjs` (`npm run gen:icons -w @gameon/badminton`).
 
+## Environments
+
+Two environments, each its own Supabase project (free tier = 2 projects):
+
+| Env | URL | Supabase project | Built with |
+|---|---|---|---|
+| **Dev** | `badmintonduo.pages.dev` + local | `xlovjvvhsemqaqbknmyi` | `apps/badminton/.env` (mode `development`) |
+| **Prod** | `badmintonduo.club` | `avkijzzrurkefguxkbji` | `apps/badminton/.env.production` |
+
+The app picks its DB from build-time `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`.
+Vite loads `.env` for dev and `.env.production` for the prod build, so the two
+deploys carry different DBs. Both `.env*` files are git-ignored; CI uses repo
+secrets instead.
+
 ## Deploy (Cloudflare Pages)
 
-Hosting is Cloudflare Pages ([ADR 0004](adr/0004-hosting-cloudflare-pages.md)).
-Develop on the free `*.pages.dev` URL; the custom domain
-(`play.badmintonduo.club`) is attached later, leaving the apex untouched
-([ADR 0008](adr/0008-domain-subdomain.md)). SPA deep links are handled by
-`apps/badminton/public/_redirects` (`/* /index.html 200`), which the build copies
-into `dist/`.
-
-### Option A — direct upload (fastest first deploy)
+Hosting is Cloudflare Pages ([ADR 0004](adr/0004-hosting-cloudflare-pages.md)). SPA
+deep links are handled by `apps/badminton/public/_redirects` (`/* /index.html 200`),
+copied into `dist/` by the build.
 
 ```bash
-npx wrangler login            # one-time browser auth to your Cloudflare account
-npm run deploy                # builds, then wrangler pages deploy → badmintonduo.pages.dev
+npx wrangler login         # one-time browser auth to your Cloudflare account
+npm run deploy:dev         # build (dev DB) → badmintonduo project → badmintonduo.pages.dev
+npm run deploy:prod        # build (prod DB) → badmintonduo-prod project → badmintonduo.club
 ```
 
-`npm run deploy` runs `wrangler pages deploy apps/badminton/dist --project-name=badmintonduo`
-(creates the project on first run). The build bakes in `apps/badminton/.env`
-(`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
+`npm run deploy` is an alias for `deploy:prod`. On every push to `main`, CI
+(`.github/workflows/deploy.yml`) builds with the prod repo secrets and deploys to
+the `badmintonduo-prod` project (dormant until `CLOUDFLARE_API_TOKEN` is set).
 
-### Option B — Git integration (CI on every push)
+### Prod custom domain (badmintonduo.club)
 
-In the Cloudflare dashboard → Pages → Connect to Git, pick this repo and set:
-- **Build command:** `npm run build` · **Output directory:** `apps/badminton/dist`
-- **Environment variables:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`
+Move nameservers Porkbun → Cloudflare (re-create existing DNS first so nothing
+breaks), then Pages → `badmintonduo-prod` → Custom domains → add
+`badmintonduo.club`.
 
-### Custom domain (later)
+### Per-project Supabase Auth config
 
-Move nameservers Porkbun → Cloudflare (re-create existing DNS first so the live
-apex keeps working), then Pages → Custom domains → add `play.badmintonduo.club`.
-Leave the apex pointing at the current site until GameOn is ready to switch.
+Each project's Auth → URL Configuration must allow its own site:
+- **Dev project:** Site URL `https://badmintonduo.pages.dev`, redirect URLs incl.
+  `https://badmintonduo.pages.dev/**` and `http://localhost:5173/**`.
+- **Prod project:** Site URL `https://badmintonduo.club`, redirect `https://badmintonduo.club/**`.
 
-Edge Functions (privileged ops, e.g. `create-matchmaker`, `recompute-ratings`)
-deploy to Supabase, not Cloudflare: `supabase functions deploy <name>` with
-secrets via `supabase secrets set`.
+Edge Functions (e.g. `create-matchmaker`, `recompute-ratings`) deploy per project:
+`supabase functions deploy <name>` with the right project linked.
 
 ## Workspace layout
 

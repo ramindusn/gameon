@@ -1,8 +1,9 @@
 name: Deploy
 
-# Push-to-deploy: every push to main builds the app and ships it to the existing
-# Cloudflare Pages project (badmintonduo → badmintonduo.pages.dev). Keeps the
-# direct-upload project + URL; no dashboard Git connection needed.
+# Push-to-deploy: every push to main builds the app (prod env vars from secrets)
+# and ships it to the PROD Cloudflare Pages project (badmintonduo-prod →
+# badmintonduo.club). Dev (badmintonduo.pages.dev) is deployed manually with
+# `npm run deploy:dev`.
 
 on:
   push:
@@ -46,4 +47,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/badminton/dist --project-name=badmintonduo --branch=main
+          command: pages deploy apps/badminton/dist --project-name=badmintonduo-prod --branch=main

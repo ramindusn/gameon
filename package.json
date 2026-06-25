@@ -17,7 +17,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "deploy": "npm run build && npx --yes wrangler@latest pages deploy apps/badminton/dist --project-name=badmintonduo"
+    "deploy:dev": "npm run build:dev -w @gameon/badminton && npx --yes wrangler@latest pages deploy apps/badminton/dist --project-name=badmintonduo --branch=main",
+    "deploy:prod": "npm run build -w @gameon/badminton && npx --yes wrangler@latest pages deploy apps/badminton/dist --project-name=badmintonduo-prod --branch=main",
+    "deploy": "npm run deploy:prod"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
