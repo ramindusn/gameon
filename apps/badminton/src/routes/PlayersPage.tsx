@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Card, Field, Modal } from '@gameon/ui'
+import { Button, Card, Field, Modal, useConfirm } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { useAuth } from '../auth/useAuth'
 import { useRoster, useRosterMutations } from '../roster/useRoster'
@@ -13,7 +13,18 @@ export function PlayersPage() {
   const { data, isLoading, isError } = useRoster()
   const players = data?.players ?? []
   const m = useRosterMutations(data?.clubId)
+  const confirm = useConfirm()
   const [editing, setEditing] = useState<Player | 'new' | null>(null)
+
+  const confirmRemove = async (p: Player) => {
+    const ok = await confirm({
+      title: 'Remove player',
+      message: `Remove ${p.nickname} from the roster? This can't be undone.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    })
+    if (ok) m.remove.mutate(p.id)
+  }
   const [addingMatchmaker, setAddingMatchmaker] = useState(false)
 
   return (
@@ -76,9 +87,7 @@ export function PlayersPage() {
                         <Button
                           variant="ghost"
                           className="px-2 py-1 text-red-500 hover:bg-red-500/10"
-                          onClick={() => {
-                            if (confirm(`Remove ${p.nickname}?`)) m.remove.mutate(p.id)
-                          }}
+                          onClick={() => void confirmRemove(p)}
                         >
                           Remove
                         </Button>
@@ -133,10 +142,7 @@ export function PlayersPage() {
                             <Button
                               variant="ghost"
                               className="px-2 py-1 text-red-500 hover:bg-red-500/10"
-                              onClick={() => {
-                                if (confirm(`Remove ${p.nickname}?`))
-                                  m.remove.mutate(p.id)
-                              }}
+                              onClick={() => void confirmRemove(p)}
                             >
                               Remove
                             </Button>

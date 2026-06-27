@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { ConfirmProvider } from '@gameon/ui'
 
 const { add, update, remove, createMatchmaker, players } = vi.hoisted(() => ({
   add: vi.fn(),
@@ -40,9 +41,11 @@ import { PlayersPage } from './PlayersPage'
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <PlayersPage />
-    </MemoryRouter>,
+    <ConfirmProvider>
+      <MemoryRouter>
+        <PlayersPage />
+      </MemoryRouter>
+    </ConfirmProvider>,
   )
 }
 
@@ -84,11 +87,22 @@ describe('PlayersPage', () => {
     )
   })
 
-  it('removes a player after confirmation', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
+  it('removes a player after confirming in the dialog', async () => {
     renderPage()
     fireEvent.click(screen.getAllByText('Remove')[0])
-    expect(remove).toHaveBeenCalledWith('p1')
+    // The themed confirm dialog opens; confirm from within it.
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('p1'))
+  })
+
+  it('does not remove when the confirm dialog is cancelled', async () => {
+    renderPage()
+    fireEvent.click(screen.getAllByText('Remove')[0])
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(remove).not.toHaveBeenCalled()
   })
 
   it('admin promotes an existing player to matchmaker', () => {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Card, Field, Modal } from '@gameon/ui'
+import { Button, Card, Field, Modal, useConfirm } from '@gameon/ui'
 import {
   euro,
   formatDateTime,
@@ -20,6 +20,17 @@ interface RowData {
 export function Inventory() {
   const { state, addProduct, updateProduct, deleteProduct } = useFund()
   const { role } = useAuth()
+  const confirm = useConfirm()
+
+  const confirmDelete = async (p: Product) => {
+    const ok = await confirm({
+      title: 'Delete product',
+      message: `Delete ${p.brand} ${p.model}? This can't be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+    if (ok) deleteProduct(p.id)
+  }
   const isAuthenticated = role === 'admin'
 
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
@@ -104,9 +115,7 @@ export function Inventory() {
                   <Button
                     variant="ghost"
                     className="flex-1 py-1.5 text-red-500 hover:bg-red-500/10"
-                    onClick={() => {
-                      if (confirm(`Delete ${p.brand} ${p.model}?`)) deleteProduct(p.id)
-                    }}
+                    onClick={() => void confirmDelete(p)}
                   >
                     Delete
                   </Button>
@@ -194,10 +203,7 @@ export function Inventory() {
                         <Button
                           variant="ghost"
                           className="px-2 py-1 text-red-500 hover:bg-red-500/10"
-                          onClick={() => {
-                            if (confirm(`Delete ${p.brand} ${p.model}?`))
-                              deleteProduct(p.id)
-                          }}
+                          onClick={() => void confirmDelete(p)}
                         >
                           Delete
                         </Button>

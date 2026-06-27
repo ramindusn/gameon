@@ -1,4 +1,4 @@
-import { Card } from '@gameon/ui'
+import { Card, useConfirm } from '@gameon/ui'
 import {
   euro,
   formatDate,
@@ -13,6 +13,7 @@ import { useFund } from './useFund'
 export function TodayUsage() {
   const { state, deleteTransaction } = useFund()
   const { role } = useAuth()
+  const confirm = useConfirm()
   const isAuthenticated = role === 'admin'
 
   const today = todayISO()
@@ -38,14 +39,14 @@ export function TodayUsage() {
         }
       : null
 
-  function handleDeleteDay(day: { id: string; date: string; totalShuttles: number }) {
-    if (
-      confirm(
-        `Are you sure you want to delete this game day?\n\n${formatDateTime(day.date)} — ${day.totalShuttles} shuttles\n\nThis returns those shuttles to inventory and undoes the members' payment.`,
-      )
-    ) {
-      deleteTransaction({ kind: 'usage', id: day.id })
-    }
+  async function handleDeleteDay(day: { id: string; date: string; totalShuttles: number }) {
+    const ok = await confirm({
+      title: 'Delete game day',
+      message: `Delete this game day (${formatDateTime(day.date)} — ${day.totalShuttles} shuttles)? This returns those shuttles to inventory and undoes the members' payment.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+    if (ok) deleteTransaction({ kind: 'usage', id: day.id })
   }
 
   return (
@@ -113,7 +114,7 @@ export function TodayUsage() {
                   <button
                     type="button"
                     aria-label="Delete game day"
-                    onClick={() => handleDeleteDay(day)}
+                    onClick={() => void handleDeleteDay(day)}
                     className="ml-2 rounded p-1 text-fg-subtle transition-colors hover:bg-red-500/10 hover:text-red-500"
                   >
                     ✕

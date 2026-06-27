@@ -1,9 +1,10 @@
 ---
 id: TASK-19
 title: Replace native confirm()/alert() with themed Modal confirmations
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-27 22:34'
+updated_date: '2026-06-27 22:49'
 labels:
   - ui-ux
 dependencies:
@@ -20,8 +21,14 @@ Six destructive actions use browser-native confirm()/alert(): PlayersPage.tsx (r
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A reusable confirm dialog (ConfirmDialog built on Modal) exists with title, message, confirm/cancel, and a danger variant
-- [ ] #2 All 6 native confirm()/alert() calls are replaced with the themed confirmation
-- [ ] #3 Destructive confirms use danger styling and clearly name the item being deleted
-- [ ] #4 Existing PlayersPage tests still pass
+- [x] #1 A reusable confirm dialog (ConfirmDialog built on Modal) exists with title, message, confirm/cancel, and a danger variant
+- [x] #2 All 6 native confirm()/alert() calls are replaced with the themed confirmation
+- [x] #3 Destructive confirms use danger styling and clearly name the item being deleted
+- [x] #4 Existing PlayersPage tests still pass
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Added ConfirmProvider/useConfirm (promise-based confirm built on the accessible Modal, danger variant). Replaced all 6 native confirm()/alert() calls (PlayersPage x2, Inventory x2, TodayUsage, TransactionLog) with themed danger confirmations naming the item. Providers moved into App so the tree is self-contained; PlayersPage tests updated to drive the dialog (confirm + cancel paths).
+<!-- SECTION:FINAL_SUMMARY:END -->
