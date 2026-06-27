@@ -20,6 +20,10 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Promote the token to job scope so the deploy step's `if` can actually see
+    # it — a step-level `env:` isn't visible when its own `if:` is evaluated.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,8 +45,6 @@ jobs:
       # pushes don't fail before deploy is wired up.
       - name: Deploy to Cloudflare Pages
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
