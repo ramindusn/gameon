@@ -302,6 +302,15 @@ function assignCourts(
   return fb
 }
 
+/**
+ * Resolve the courts to use: the player-supported `autoCourts`, optionally capped
+ * by a caller-supplied max. A max above auto is ignored; the floor is 1 court.
+ */
+function capCourts(autoCourts: number, maxCourts?: number): number {
+  if (maxCourts == null || !Number.isFinite(maxCourts)) return autoCourts
+  return Math.max(1, Math.min(Math.floor(maxCourts), autoCourts))
+}
+
 function freshState(): EngineState {
   return {
     partnerCounts: {},
@@ -316,9 +325,11 @@ function generateOpen(
   pp: MatchPlayer[],
   numRounds: number,
   rng: Rng,
+  maxCourts?: number,
 ): GeneratedMatches | null {
   if (pp.length < 4) return null
-  const courts = Math.floor(pp.length / 4)
+  const autoCourts = Math.floor(pp.length / 4)
+  const courts = capCourts(autoCourts, maxCourts)
   const sittingCount = pp.length - courts * 4
   const state = freshState()
 
@@ -429,14 +440,16 @@ function generateMixed(
   present: MatchPlayer[],
   numRounds: number,
   rng: Rng,
+  maxCourts?: number,
 ): GeneratedMatches | null {
   const males = present.filter((p) => p.gender === 'male')
   const females = present.filter((p) => p.gender === 'female')
   // Players with no usable gender can never be in a mixed pair.
   const unplaceable = present.filter((p) => p.gender !== 'male' && p.gender !== 'female')
 
-  const courts = Math.floor(Math.min(males.length, females.length) / 2)
-  if (courts < 1) return null
+  const autoCourts = Math.floor(Math.min(males.length, females.length) / 2)
+  if (autoCourts < 1) return null
+  const courts = capCourts(autoCourts, maxCourts)
 
   const state = freshState()
   const sittingCount =
@@ -491,6 +504,6 @@ export function generateRounds(
   const rng = opts.rng ?? Math.random
   const present = players.filter((p) => !p.absent)
   return opts.mode === 'mixed'
-    ? generateMixed(present, numRounds, rng)
-    : generateOpen(present, numRounds, rng)
+    ? generateMixed(present, numRounds, rng, opts.courts)
+    : generateOpen(present, numRounds, rng, opts.courts)
 }

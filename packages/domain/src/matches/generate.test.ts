@@ -74,6 +74,54 @@ describe('generateRounds — open mode', () => {
   })
 })
 
+describe('generateRounds — court cap (opts.courts)', () => {
+  const M: Gender = 'male'
+  const F: Gender = 'female'
+
+  it('open: caps 8 players (auto 2 courts) to 1, sending 4 to sit', () => {
+    const ps = players([10, 9, 8, 7, 6, 5, 4, 3])
+    const res = generateRounds(ps, 4, { courts: 1, rng: seededRng(1) })!
+    expect(res.courts).toBe(1)
+    expect(res.sittingCount).toBe(4)
+    const ids = ps.map((p) => p.id)
+    for (const round of res.rounds) {
+      expect(round.matches).toHaveLength(1)
+      assertPlayOrSit(round, ids)
+    }
+  })
+
+  it('open: omitting courts keeps the auto value (2 for 8 players)', () => {
+    const ps = players([10, 9, 8, 7, 6, 5, 4, 3])
+    expect(generateRounds(ps, 3, { rng: seededRng(1) })!.courts).toBe(2)
+  })
+
+  it('open: a cap above the auto max is ignored', () => {
+    const ps = players([10, 9, 8, 7, 6, 5, 4, 3])
+    expect(generateRounds(ps, 3, { courts: 5, rng: seededRng(1) })!.courts).toBe(2)
+  })
+
+  it('open: a cap below 1 is clamped to 1 court', () => {
+    const ps = players([10, 9, 8, 7, 6, 5, 4, 3])
+    expect(generateRounds(ps, 3, { courts: 0, rng: seededRng(1) })!.courts).toBe(1)
+  })
+
+  it('mixed: caps to 1 court while keeping male+female pairs', () => {
+    const ps = players([9, 7, 8, 6, 5, 4, 7, 3], [M, F, M, F, M, F, M, F])
+    const res = generateRounds(ps, 3, { mode: 'mixed', courts: 1, rng: seededRng(5) })!
+    expect(res.courts).toBe(1)
+    for (const round of res.rounds) {
+      expect(round.matches).toHaveLength(1)
+      for (const team of round.matches.flatMap((m) => m)) {
+        expect(team.map((p) => p.gender).sort()).toEqual(['female', 'male'])
+      }
+      assertPlayOrSit(
+        round,
+        ps.map((p) => p.id),
+      )
+    }
+  })
+})
+
 describe('generateRounds — mixed mode', () => {
   const M: Gender = 'male'
   const F: Gender = 'female'

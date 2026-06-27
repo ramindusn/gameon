@@ -36,6 +36,12 @@ export interface GeneratedMatches {
 export interface GenerateOptions {
   /** 'open' = skill-balanced doubles (default); 'mixed' = male+female pairs. */
   mode?: 'open' | 'mixed'
+  /**
+   * Cap the number of courts used per round. When omitted, the engine uses the
+   * max the player count allows (its auto value). A value above that auto max is
+   * ignored; surplus players sit out and rotate as usual. Clamped to >= 1.
+   */
+  courts?: number
   /** Injectable RNG (0..1) for deterministic tests. Defaults to Math.random. */
   rng?: () => number
 }
