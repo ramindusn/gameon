@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { signInAsMatchmaker } from './helpers'
 
 // Live sessions & scoring (E04 / TASK-5.4, E09 / TASK-10.3). The dev server runs
 // with VITE_E2E=1, so sign-in uses the auth bypass, the roster resolves to a
@@ -8,14 +9,7 @@ import { test, expect } from '@playwright/test'
 // winner is derived), finishes it, and finds it in history.
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/login')
-  await page.evaluate(() => sessionStorage.clear())
-  await page.reload()
-  await page.getByTestId('tab-matchmaker').click()
-  await page.getByTestId('mm-username').fill('rohan')
-  await page.getByTestId('mm-password').fill('secret')
-  await page.getByTestId('mm-login-submit').click()
-  await expect(page.getByTestId('auth-role')).toHaveText('Role: matchmaker')
+  await signInAsMatchmaker(page)
 })
 
 test('matchmaker starts a session, scores a match, and finds it in history', async ({
@@ -204,11 +198,11 @@ test('signed-out visitor cannot reach /play or a session', async ({ page }) => {
   await page.evaluate(() => sessionStorage.clear())
 
   await page.goto('/play')
-  // ProtectedRoute bounces to the login chooser.
-  await expect(page.getByTestId('tab-admin')).toBeVisible()
+  // ProtectedRoute bounces to the public home (which hosts the login dropdowns).
+  await expect(page.getByTestId('nav-admin-login')).toBeVisible()
   await expect(page.getByTestId('sessions')).toHaveCount(0)
 
   await page.goto('/play/some-session-id')
-  await expect(page.getByTestId('tab-admin')).toBeVisible()
+  await expect(page.getByTestId('nav-admin-login')).toBeVisible()
   await expect(page.getByTestId('play')).toHaveCount(0)
 })
