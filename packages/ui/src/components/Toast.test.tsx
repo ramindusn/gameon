@@ -1,6 +1,19 @@
+import { Component, type ReactNode } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ToastProvider, useToast } from './Toast'
+
+// Catches a render error so it's *handled* (no unhandled error leaks to the
+// test runner and gets misattributed to a concurrent test).
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null }
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+  render() {
+    return this.state.error ? <p>caught: {this.state.error.message}</p> : this.props.children
+  }
+}
 
 function Trigger() {
   const { success } = useToast()
@@ -43,10 +56,17 @@ describe('Toast', () => {
   })
 
   it('throws if used outside a provider', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     function Bare() {
       useToast()
       return null
     }
-    expect(() => render(<Bare />)).toThrow(/ToastProvider/)
+    render(
+      <ErrorBoundary>
+        <Bare />
+      </ErrorBoundary>,
+    )
+    expect(screen.getByText(/ToastProvider/)).toBeInTheDocument()
+    spy.mockRestore()
   })
 })
