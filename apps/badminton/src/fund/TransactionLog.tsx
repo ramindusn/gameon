@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button, Card, Field, Modal, useConfirm } from '@gameon/ui'
+import { Icon } from '../app/Icon'
 import { euro, formatDateTime, usageHistory, type TxRef } from '@gameon/domain'
 import { useAuth } from '../auth/useAuth'
 import { useFund } from './useFund'
@@ -102,7 +103,7 @@ export function TransactionLog() {
   }
 
   return (
-    <Card title="Transaction Log" icon="🧾">
+    <Card title="Transaction Log" icon={<Icon name="receipt" />}>
       {rows.length === 0 ? (
         <p className="py-4 text-sm text-fg-muted">No transactions yet.</p>
       ) : (

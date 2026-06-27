@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
+import { Icon } from '../app/Icon'
 import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 
@@ -59,7 +60,7 @@ function LiveNow() {
   const live = (data ?? []).filter((s) => s.status === 'live')
   const { data: playerCounts } = useSessionPlayerCounts(live.map((s) => s.id))
   return (
-    <Card title="Live now" icon="🟢">
+    <Card title="Live now" icon={<Icon name="live" className="text-positive" />}>
       {isLoading && <p className="text-sm text-fg-muted">Loading game days…</p>}
       {isError && <p className="text-sm text-negative">Could not load game days.</p>}
       {!isLoading && !isError && live.length === 0 && (
@@ -127,7 +128,7 @@ function RecentGameDays() {
   const { data, isLoading, isError } = useSessions()
   const recent = (data ?? []).filter((s) => s.status === 'finished').slice(0, RECENT_LIMIT)
   return (
-    <Card title="Game day history" icon="🗓️">
+    <Card title="Game day history" icon={<Icon name="schedule" />}>
       {isLoading && <p className="text-sm text-fg-muted">Loading game days…</p>}
       {isError && <p className="text-sm text-negative">Could not load game days.</p>}
       {!isLoading && !isError && recent.length === 0 && (

@@ -1,4 +1,5 @@
 import { Card, useConfirm } from '@gameon/ui'
+import { Icon } from '../app/Icon'
 import {
   euro,
   formatDate,
@@ -50,7 +51,7 @@ export function TodayUsage() {
   }
 
   return (
-    <Card title="Game-day Usage" icon="📅">
+    <Card title="Game-day Usage" icon={<Icon name="calendar" />}>
       {focus && (
         <div
           className={`rounded-lg p-4 ${focus.today ? 'bg-amber-500/10' : 'bg-surface-muted'}`}

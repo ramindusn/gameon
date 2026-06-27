@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Card } from '@gameon/ui'
+import { Icon } from '../app/Icon'
 import {
   useInactivePlayers,
   usePairBoard,
@@ -37,7 +38,7 @@ export function LeaderboardPage() {
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
         <h1 className="mb-6 font-display text-2xl font-bold">Leaderboards</h1>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card title="Individual Ranking" icon="🏅">
+          <Card title="Individual Ranking" icon={<Icon name="ranking" />}>
             <BoardState
               isLoading={players.isLoading}
               isError={players.isError}
@@ -54,7 +55,7 @@ export function LeaderboardPage() {
             )}
           </Card>
 
-          <Card title="Doubles Ranking" icon="👥">
+          <Card title="Doubles Ranking" icon={<Icon name="pairs" />}>
             <BoardState
               isLoading={pairs.isLoading}
               isError={pairs.isError}
@@ -66,7 +67,7 @@ export function LeaderboardPage() {
             )}
           </Card>
 
-          <Card title="Fixed Pairs (Tournament)" icon="🏆">
+          <Card title="Fixed Pairs (Tournament)" icon={<Icon name="tournament" />}>
             <BoardState
               isLoading={tournament.isLoading}
               isError={tournament.isError}

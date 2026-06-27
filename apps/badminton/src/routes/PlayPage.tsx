@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, cx, SkeletonCard } from '@gameon/ui'
 import { validateLineup, validateScores } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
+import { Icon } from '../app/Icon'
 import { useRoster } from '../roster/useRoster'
 import {
   useAddCustomMatch,
@@ -262,7 +263,7 @@ export function PlayPage() {
 
             <div className="mt-6 space-y-4">
               {rounds.map(({ round, results }) => (
-                <Card key={round} title={`Round ${round}`} icon="🎯">
+                <Card key={round} title={`Round ${round}`} icon={<Icon name="target" />}>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {results.map((r) => (
                       <CourtScore
@@ -609,7 +610,7 @@ function AddCustomMatch({
   }
 
   return (
-    <Card title="Add custom match" icon="➕">
+    <Card title="Add custom match" icon={<Icon name="add" />}>
       <div className="space-y-2" data-testid="custom-match-form">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {(['a1', 'a2', 'b1', 'b2'] as const).map((label, i) => (

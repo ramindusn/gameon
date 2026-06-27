@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react'
+
 interface StatCardProps {
   label: string
   value: string
-  icon: string
+  icon: ReactNode
   hint?: string
   tone?: 'default' | 'accent' | 'positive' | 'negative' | 'warning'
   testId?: string
@@ -34,7 +36,7 @@ export function StatCard({
     >
       <div className="flex items-center gap-3">
         <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${t.chip}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${t.chip} ${t.value}`}
           aria-hidden
         >
           {icon}
@@ -62,7 +64,7 @@ export function DualStatCard({
   rows,
   testId,
 }: {
-  icon: string
+  icon: ReactNode
   rows: { label: string; value: string }[]
   testId?: string
 }) {
@@ -73,7 +75,7 @@ export function DualStatCard({
     >
       <div className="flex items-center gap-3">
         <span
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-lg"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-accent"
           aria-hidden
         >
           {icon}

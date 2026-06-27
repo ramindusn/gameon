@@ -14,7 +14,7 @@ export function Card({ title, icon, action, children }: CardProps) {
         <header className="mb-4 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
             {icon && (
-              <span aria-hidden className="text-base">
+              <span aria-hidden className="flex text-accent">
                 {icon}
               </span>
             )}

@@ -1,4 +1,5 @@
 import { Card } from '@gameon/ui'
+import { Icon } from '../app/Icon'
 import {
   euro,
   remainingFund,
@@ -18,7 +19,7 @@ export function FundSummary() {
   const utilized = moneyIn > 0 ? Math.min(100, Math.round((spent / moneyIn) * 100)) : 0
 
   return (
-    <Card title="Fund Summary" icon="💰">
+    <Card title="Fund Summary" icon={<Icon name="money" />}>
       <div className="mb-4">
         <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-fg-muted">
           <span>Budget utilized</span>
