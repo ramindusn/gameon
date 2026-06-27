@@ -424,7 +424,7 @@ function CourtScore({
                 className="w-full"
                 variant="secondary"
                 onClick={save}
-                disabled={saving}
+                loading={saving}
                 data-testid={`save-score-${result.id}`}
               >
                 {result.winner ? 'Update score' : 'Save score'}
@@ -527,7 +527,7 @@ function LineupEditor({
           className="flex-1"
           variant="secondary"
           onClick={save}
-          disabled={saving}
+          loading={saving}
           data-testid={`save-lineup-${result.id}`}
         >
           Save line-up

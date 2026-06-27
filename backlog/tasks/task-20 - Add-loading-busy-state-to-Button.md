@@ -1,9 +1,10 @@
 ---
 id: TASK-20
 title: Add loading/busy state to Button
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-27 22:34'
+updated_date: '2026-06-27 22:50'
 labels:
   - ui-ux
 dependencies: []
@@ -19,8 +20,14 @@ Every page hand-rolls busy state with {pending ? 'Saving…' : 'Save'} + disable
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Button accepts a loading prop that shows a spinner, disables interaction, and preserves layout width
-- [ ] #2 Spinner is accessible (aria-busy / aria-hidden on the icon)
-- [ ] #3 Key call sites (save score, create game day, save player, save line-up) use the loading prop instead of manual text swaps
-- [ ] #4 Button unit test covers the loading state
+- [x] #1 Button accepts a loading prop that shows a spinner, disables interaction, and preserves layout width
+- [x] #2 Spinner is accessible (aria-busy / aria-hidden on the icon)
+- [x] #3 Key call sites (save score, create game day, save player, save line-up) use the loading prop instead of manual text swaps
+- [x] #4 Button unit test covers the loading state
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Button gains a loading prop: renders an animated spinner, sets aria-busy, and disables interaction (disabled || loading). Adopted at create-game-day, player-save, save-score and save-line-up. Added a Button loading test.
+<!-- SECTION:FINAL_SUMMARY:END -->

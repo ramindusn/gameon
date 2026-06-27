@@ -303,7 +303,8 @@ function Draw({
           </label>
           <Button
             onClick={onStart}
-            disabled={!canStart || starting}
+            disabled={!canStart}
+            loading={starting}
             data-testid="create-game-day"
             className="w-full sm:w-auto"
           >

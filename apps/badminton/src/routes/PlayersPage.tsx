@@ -456,7 +456,7 @@ function PlayerModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" data-testid="player-save" disabled={pending}>
+          <Button type="submit" data-testid="player-save" loading={pending}>
             {pending ? 'Saving…' : isEdit ? 'Save' : 'Add player'}
           </Button>
         </div>

@@ -12,4 +12,11 @@ describe('Button', () => {
     render(<Button variant="secondary">Cancel</Button>)
     expect(screen.getByRole('button', { name: 'Cancel' }).className).toContain('bg-surface-muted')
   })
+
+  it('disables and marks busy while loading', () => {
+    render(<Button loading>Save</Button>)
+    const btn = screen.getByRole('button', { name: 'Save' })
+    expect(btn).toBeDisabled()
+    expect(btn).toHaveAttribute('aria-busy', 'true')
+  })
 })
