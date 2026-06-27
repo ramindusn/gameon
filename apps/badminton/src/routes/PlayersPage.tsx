@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Card, Field, Modal } from '@gameon/ui'
+import { Button, Card, Field, Modal, SkeletonCard, useConfirm } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { useAuth } from '../auth/useAuth'
 import { useRoster, useRosterMutations } from '../roster/useRoster'
@@ -13,7 +13,18 @@ export function PlayersPage() {
   const { data, isLoading, isError } = useRoster()
   const players = data?.players ?? []
   const m = useRosterMutations(data?.clubId)
+  const confirm = useConfirm()
   const [editing, setEditing] = useState<Player | 'new' | null>(null)
+
+  const confirmRemove = async (p: Player) => {
+    const ok = await confirm({
+      title: 'Remove player',
+      message: `Remove ${p.nickname} from the roster? This can't be undone.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    })
+    if (ok) m.remove.mutate(p.id)
+  }
   const [addingMatchmaker, setAddingMatchmaker] = useState(false)
 
   return (
@@ -37,7 +48,7 @@ export function PlayersPage() {
           </div>
         </div>
 
-        {isLoading && <p className="text-sm text-fg-muted">Loading roster…</p>}
+        {isLoading && <SkeletonCard rows={6} />}
         {isError && <p className="text-sm text-negative">Could not load the roster.</p>}
 
         <Card title="Roster" icon="🏸">
@@ -76,9 +87,7 @@ export function PlayersPage() {
                         <Button
                           variant="ghost"
                           className="px-2 py-1 text-red-500 hover:bg-red-500/10"
-                          onClick={() => {
-                            if (confirm(`Remove ${p.nickname}?`)) m.remove.mutate(p.id)
-                          }}
+                          onClick={() => void confirmRemove(p)}
                         >
                           Remove
                         </Button>
@@ -133,10 +142,7 @@ export function PlayersPage() {
                             <Button
                               variant="ghost"
                               className="px-2 py-1 text-red-500 hover:bg-red-500/10"
-                              onClick={() => {
-                                if (confirm(`Remove ${p.nickname}?`))
-                                  m.remove.mutate(p.id)
-                              }}
+                              onClick={() => void confirmRemove(p)}
                             >
                               Remove
                             </Button>
@@ -450,7 +456,7 @@ function PlayerModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" data-testid="player-save" disabled={pending}>
+          <Button type="submit" data-testid="player-save" loading={pending}>
             {pending ? 'Saving…' : isEdit ? 'Save' : 'Add player'}
           </Button>
         </div>

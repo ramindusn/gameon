@@ -8,8 +8,8 @@
   --surface-muted: 244 244 245; /* #F4F4F5 zinc-100 */
   --line: 228 228 231; /* #E4E4E7 zinc-200 */
   --fg: 9 9 11; /* #09090B zinc-950 */
-  --fg-muted: 113 113 122; /* #71717A zinc-500 */
-  --fg-subtle: 161 161 170; /* #A1A1AA zinc-400 */
+  --fg-muted: 113 113 122; /* #71717A zinc-500 (AA on white) */
+  --fg-subtle: 109 109 117; /* #6D6D75 — AA on white; subtle but legible */
   --accent: 22 163 74; /* #16A34A green-600 (AA on white) */
   --accent-strong: 34 197 94; /* #22C55E green-500 */
   --positive: 22 163 74;
@@ -23,8 +23,8 @@
   --surface-muted: 38 38 38; /* #262626 neutral-800 */
   --line: 42 42 42; /* #2A2A2A */
   --fg: 250 250 250; /* #FAFAFA */
-  --fg-muted: 161 161 170; /* #A1A1AA zinc-400 */
-  --fg-subtle: 113 113 122; /* #71717A zinc-500 */
+  --fg-muted: 161 161 170; /* #A1A1AA zinc-400 (AA on dark surface) */
+  --fg-subtle: 153 153 161; /* #9999A1 — AA on dark surface; subtle but legible */
   --accent: 34 197 94; /* #22C55E green-500 */
   --accent-strong: 74 222 128; /* #4ADE80 green-400 */
   --positive: 34 197 94;

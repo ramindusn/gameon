@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from '../App'
@@ -61,7 +61,11 @@ describe('login + routing (E2E bypass)', () => {
     await screen.findByTestId('sign-out')
 
     fireEvent.click(screen.getByTestId('sign-out'))
-    // Back on the public home with the login buttons available again.
-    expect(await screen.findByTestId('nav-admin-login')).toBeInTheDocument()
+    // Back on the public home with the login buttons available again. Re-query
+    // inside waitFor so a re-render (Home's settling queries) can't leave us
+    // asserting on a detached node.
+    await waitFor(() =>
+      expect(screen.getByTestId('nav-admin-login')).toBeInTheDocument(),
+    )
   })
 })

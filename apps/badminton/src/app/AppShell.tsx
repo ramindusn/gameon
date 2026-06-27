@@ -114,7 +114,7 @@ export function AppShell({
                 end
                 className={({ isActive }) =>
                   cx(
-                    'flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors',
+                    'flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium transition-colors',
                     isActive ? 'text-accent-strong' : 'text-fg-muted',
                   )
                 }

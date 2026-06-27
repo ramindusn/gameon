@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, Card, cx } from '@gameon/ui'
+import { Button, Card, cx, SkeletonCard } from '@gameon/ui'
 import { validateLineup, validateScores } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { useRoster } from '../roster/useRoster'
@@ -61,6 +61,19 @@ export function PlayPage() {
     [roster],
   )
 
+  // The players actually in this game day (distinct across all its matches) —
+  // line-up swaps stay within the people at the venue, not the whole roster.
+  const sessionPlayers = useMemo<PresentPlayer[]>(() => {
+    const ids = new Set<string>()
+    for (const r of data?.results ?? []) {
+      for (const id of [...r.teamA, ...r.teamB]) if (id) ids.add(id)
+    }
+    const nickById = new Map((roster?.players ?? []).map((p) => [p.id, p.nickname]))
+    return [...ids]
+      .map((id) => ({ id, nickname: nickById.get(id) ?? '—' }))
+      .sort((a, b) => a.nickname.localeCompare(b.nickname))
+  }, [data, roster])
+
   const rounds = useMemo(() => groupByRound(data?.results ?? []), [data])
 
   // A game day can only be finished once every match is resolved (scored) or
@@ -73,7 +86,7 @@ export function PlayPage() {
   return (
     <AppShell title="Play">
       <div data-testid="play">
-        {isLoading && <p className="text-sm text-fg-muted">Loading session…</p>}
+        {isLoading && <SkeletonCard rows={4} />}
         {isError && <p className="text-sm text-negative">Could not load the session.</p>}
         {!isLoading && !data && (
           <p className="text-sm text-fg-muted">Session not found.</p>
@@ -256,7 +269,7 @@ export function PlayPage() {
                         key={r.id}
                         result={r}
                         nameOf={nameOf}
-                        present={present}
+                        present={sessionPlayers}
                         live={data.session.status === 'live'}
                         saving={setScore.isPending}
                         editing={updateLineup.isPending}
@@ -424,7 +437,7 @@ function CourtScore({
                 className="w-full"
                 variant="secondary"
                 onClick={save}
-                disabled={saving}
+                loading={saving}
                 data-testid={`save-score-${result.id}`}
               >
                 {result.winner ? 'Update score' : 'Save score'}
@@ -527,7 +540,7 @@ function LineupEditor({
           className="flex-1"
           variant="secondary"
           onClick={save}
-          disabled={saving}
+          loading={saving}
           data-testid={`save-lineup-${result.id}`}
         >
           Save line-up

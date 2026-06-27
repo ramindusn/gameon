@@ -63,7 +63,9 @@ vi.mock('../roster/useRoster', () => ({
   useRoster: () => ({
     data: {
       clubId: 'c1',
-      players: Array.from({ length: 8 }, (_, i) => ({
+      // 9 roster players, but only p1–p8 are in this game day's matches; p9 is
+      // on the roster but not at this game day.
+      players: Array.from({ length: 9 }, (_, i) => ({
         id: `p${i + 1}`,
         nickname: `Player ${i + 1}`,
         skill: 5,
@@ -172,6 +174,16 @@ describe('PlayPage', () => {
       teamA: ['p5', 'p2'],
       teamB: ['p3', 'p4'],
     })
+  })
+
+  it('line-up options list only this game day’s players, not the whole roster', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('edit-lineup-r1'))
+    const select = screen.getByTestId('lineup-r1-a1')
+    const options = Array.from(select.querySelectorAll('option')).map((o) => o.textContent)
+    // p1–p8 play this game day; p9 is on the roster but not here.
+    expect(options).toContain('Player 8')
+    expect(options).not.toContain('Player 9')
   })
 
   it('rejects a line-up with a duplicate player and does not save', () => {

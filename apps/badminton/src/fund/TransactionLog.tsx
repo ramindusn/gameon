@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Button, Card, Field, Modal } from '@gameon/ui'
+import { Button, Card, Field, Modal, useConfirm } from '@gameon/ui'
 import { euro, formatDateTime, usageHistory, type TxRef } from '@gameon/domain'
 import { useAuth } from '../auth/useAuth'
 import { useFund } from './useFund'
@@ -27,6 +27,7 @@ const KIND_BADGE: Record<Kind, { label: string; className: string }> = {
 
 export function TransactionLog() {
   const { state, deleteTransaction, updateBatchPrice } = useFund()
+  const confirm = useConfirm()
   const { role } = useAuth()
   const isAuthenticated = role === 'admin'
   const [editingBatch, setEditingBatch] = useState<LogRow['batch'] | null>(null)
@@ -83,17 +84,21 @@ export function TransactionLog() {
   const start = safePage * PAGE_SIZE
   const visible = rows.slice(start, start + PAGE_SIZE)
 
-  function handleDelete(row: LogRow) {
+  async function handleDelete(row: LogRow) {
     const sign = row.amount >= 0 ? '+' : '−'
-    const msg =
-      `Are you sure you want to delete this entry?\n\n` +
-      `"${row.label}"  (${sign} ${euro(Math.abs(row.amount))})\n\n` +
-      (row.kind === 'purchase'
+    const detail =
+      row.kind === 'purchase'
         ? 'This also removes those barrels from inventory.'
         : row.kind === 'usage'
           ? 'This returns those shuttles to inventory and undoes the payment.'
-          : 'This updates the fund accordingly.')
-    if (confirm(msg)) deleteTransaction(row.ref)
+          : 'This updates the fund accordingly.'
+    const ok = await confirm({
+      title: 'Delete entry',
+      message: `Delete "${row.label}" (${sign} ${euro(Math.abs(row.amount))})? ${detail}`,
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+    if (ok) deleteTransaction(row.ref)
   }
 
   return (
@@ -148,7 +153,7 @@ export function TransactionLog() {
                           <button
                             type="button"
                             aria-label="Delete entry"
-                            onClick={() => handleDelete(r)}
+                            onClick={() => void handleDelete(r)}
                             className="rounded p-1 text-fg-subtle transition-colors hover:bg-red-500/10 hover:text-red-500"
                           >
                             ✕
@@ -218,7 +223,7 @@ export function TransactionLog() {
                               <button
                                 type="button"
                                 aria-label="Delete entry"
-                                onClick={() => handleDelete(r)}
+                                onClick={() => void handleDelete(r)}
                                 className="rounded p-1 text-fg-subtle transition-colors hover:bg-red-500/10 hover:text-red-500"
                               >
                                 ✕

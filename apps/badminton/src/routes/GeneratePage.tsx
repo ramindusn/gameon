@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, cx } from '@gameon/ui'
+import { Button, Card, cx, Field } from '@gameon/ui'
 import {
   generateRounds,
   roundRobin,
@@ -132,43 +132,40 @@ export function GeneratePage() {
 
                 <div className="mt-5 space-y-3 border-t border-line pt-4">
                   <div className="flex flex-wrap gap-4">
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-fg-muted">Rounds</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={30}
-                        inputMode="numeric"
-                        value={roundsText}
-                        onChange={(e) => setRoundsText(e.target.value)}
-                        onBlur={() => setRoundsText(String(rounds))}
-                        className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                        data-testid="rounds-input"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="mb-1 block text-fg-muted">
-                        Courts{' '}
-                        <span className="text-fg-subtle">(max {maxCourts})</span>
-                      </span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={maxCourts}
-                        inputMode="numeric"
-                        value={courtsValue}
-                        onChange={(e) => {
-                          setCourtsEdited(true)
-                          setCourtsText(e.target.value)
-                        }}
-                        onBlur={() => {
-                          setCourtsEdited(true)
-                          setCourtsText(String(courts))
-                        }}
-                        className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                        data-testid="courts-input"
-                      />
-                    </label>
+                    <Field
+                      inline
+                      label="Rounds"
+                      type="number"
+                      min={1}
+                      max={30}
+                      inputMode="numeric"
+                      value={roundsText}
+                      onChange={(e) => setRoundsText(e.target.value)}
+                      onBlur={() => setRoundsText(String(rounds))}
+                      data-testid="rounds-input"
+                    />
+                    <Field
+                      inline
+                      label={
+                        <>
+                          Courts <span className="text-fg-subtle">(max {maxCourts})</span>
+                        </>
+                      }
+                      type="number"
+                      min={1}
+                      max={maxCourts}
+                      inputMode="numeric"
+                      value={courtsValue}
+                      onChange={(e) => {
+                        setCourtsEdited(true)
+                        setCourtsText(e.target.value)
+                      }}
+                      onBlur={() => {
+                        setCourtsEdited(true)
+                        setCourtsText(String(courts))
+                      }}
+                      data-testid="courts-input"
+                    />
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
@@ -303,7 +300,8 @@ function Draw({
           </label>
           <Button
             onClick={onStart}
-            disabled={!canStart || starting}
+            disabled={!canStart}
+            loading={starting}
             data-testid="create-game-day"
             className="w-full sm:w-auto"
           >
