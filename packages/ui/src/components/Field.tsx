@@ -16,7 +16,7 @@ export function Field({ label, inline = false, className, ...rest }: FieldProps)
       <input
         className={cx(
           inline ? 'w-24' : 'w-full',
-          'rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg shadow-sm placeholder:text-fg-muted/60 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
+          'rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg shadow-sm placeholder:text-fg-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
           className,
         )}
         {...rest}
