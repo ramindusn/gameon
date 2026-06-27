@@ -293,6 +293,10 @@ function Draw({
               type="datetime-local"
               value={playedAt}
               onChange={(e) => onPlayedAtChange(e.target.value)}
+              // The input is transparent, so its native calendar icon is hidden;
+              // clicking only focuses it. Open the picker explicitly so a tap
+              // anywhere on the field brings it up (no-op if unsupported).
+              onClick={(e) => e.currentTarget.showPicker?.()}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
               data-testid="game-day-datetime"
             />
