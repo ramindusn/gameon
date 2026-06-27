@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Card, Field, Modal, useConfirm } from '@gameon/ui'
+import { Button, Card, Field, Modal, SkeletonCard, useConfirm } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { useAuth } from '../auth/useAuth'
 import { useRoster, useRosterMutations } from '../roster/useRoster'
@@ -48,7 +48,7 @@ export function PlayersPage() {
           </div>
         </div>
 
-        {isLoading && <p className="text-sm text-fg-muted">Loading roster…</p>}
+        {isLoading && <SkeletonCard rows={6} />}
         {isError && <p className="text-sm text-negative">Could not load the roster.</p>}
 
         <Card title="Roster" icon="🏸">

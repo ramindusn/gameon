@@ -4,6 +4,7 @@ import {
   totalShuttlesInStock,
   totalShuttlesUsed,
 } from '@gameon/domain'
+import { SkeletonCard } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { StatCard, DualStatCard } from '../app/StatCard'
 import { useFund } from '../fund/useFund'
@@ -36,7 +37,7 @@ export function DashboardPage() {
       }
     >
       <div data-testid="dashboard">
-        {isLoading && <p className="text-sm text-fg-muted">Loading club data…</p>}
+        {isLoading && <SkeletonCard rows={4} />}
         {isError && (
           <p className="text-sm text-negative">
             Could not load club data. Sign in as an admin to manage the fund.

@@ -1,4 +1,4 @@
-import { cx } from '@gameon/ui'
+import { cx, Skeleton } from '@gameon/ui'
 import {
   PROVISIONAL_RD,
   type FormMap,
@@ -152,7 +152,14 @@ export function BoardState({
   count: number
   noun: string
 }) {
-  if (isLoading) return <p className="text-sm text-fg-muted">Loading {noun}…</p>
+  if (isLoading)
+    return (
+      <div className="space-y-2" role="status" aria-busy="true" aria-label={`Loading ${noun}`}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-9 w-full" />
+        ))}
+      </div>
+    )
   if (isError)
     return <p className="text-sm text-negative">Could not load the {noun}.</p>
   if (count === 0)

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, Card, cx } from '@gameon/ui'
+import { Button, Card, cx, SkeletonCard } from '@gameon/ui'
 import { validateLineup, validateScores } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { useRoster } from '../roster/useRoster'
@@ -73,7 +73,7 @@ export function PlayPage() {
   return (
     <AppShell title="Play">
       <div data-testid="play">
-        {isLoading && <p className="text-sm text-fg-muted">Loading session…</p>}
+        {isLoading && <SkeletonCard rows={4} />}
         {isError && <p className="text-sm text-negative">Could not load the session.</p>}
         {!isLoading && !data && (
           <p className="text-sm text-fg-muted">Session not found.</p>
