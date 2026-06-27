@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, cx } from '@gameon/ui'
+import { Icon } from '../app/Icon'
 import { getPlayer } from '../roster/api'
 import { loadPlayerHistory, type PlayerMatch } from '../play/api'
 import { usePlayerBoard, usePlayerNames, useRecentForm } from '../ranking/useRanking'
@@ -67,7 +68,7 @@ export function PlayerProfilePage() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <Card title="Performance" icon="📊">
+              <Card title="Performance" icon={<Icon name="stats" />}>
                 <dl className="space-y-3 text-sm" data-testid="profile-performance">
                   <Stat label="Rating" value={rated ? String(Math.round(rated.rating)) : '—'} />
                   <Stat label="Record" value={`${wins}W – ${losses}L`} />
@@ -82,7 +83,7 @@ export function PlayerProfilePage() {
               </Card>
 
               <div className="lg:col-span-2">
-                <Card title="Match history" icon="🏸">
+                <Card title="Match history" icon={<Icon name="matches" />}>
                   {history.length === 0 ? (
                     <p className="text-sm text-fg-muted" data-testid="profile-history-empty">
                       No matches played yet.

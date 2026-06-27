@@ -2,19 +2,20 @@ import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { cx, Button } from '@gameon/ui'
 import { useAuth } from '../auth/useAuth'
+import { Icon, type IconName } from './Icon'
 
-type NavItem = { to: string; label: string; icon: string }
+type NavItem = { to: string; label: string; icon: IconName }
 
 // Top-nav (desktop) + bottom tab bar (mobile) links per role.
 const NAV_BY_ROLE: Record<'admin' | 'matchmaker', NavItem[]> = {
   admin: [
-    { to: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { to: '/players', label: 'Players', icon: '👥' },
+    { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { to: '/players', label: 'Players', icon: 'players' },
   ],
   matchmaker: [
-    { to: '/matchmaker', label: 'Home', icon: '🏠' },
-    { to: '/generate', label: 'Generate', icon: '🎲' },
-    { to: '/players', label: 'Players', icon: '👥' },
+    { to: '/matchmaker', label: 'Home', icon: 'home' },
+    { to: '/generate', label: 'Generate', icon: 'generate' },
+    { to: '/players', label: 'Players', icon: 'players' },
   ],
 }
 
@@ -119,9 +120,7 @@ export function AppShell({
                   )
                 }
               >
-                <span aria-hidden className="text-lg leading-none">
-                  {item.icon}
-                </span>
+                <Icon name={item.icon} className="h-6 w-6" />
                 {item.label}
               </NavLink>
             ))}

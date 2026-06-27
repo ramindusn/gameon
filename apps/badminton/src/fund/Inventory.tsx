@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button, Card, Field, Modal, useConfirm } from '@gameon/ui'
+import { Icon } from '../app/Icon'
 import {
   euro,
   formatDateTime,
@@ -46,7 +47,7 @@ export function Inventory() {
   return (
     <Card
       title="Inventory Left"
-      icon="📦"
+      icon={<Icon name="inventory" />}
       action={
         isAuthenticated ? (
           <Button data-testid="add-product-button" onClick={() => setEditing('new')}>

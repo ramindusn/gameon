@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button, Card, Field, Modal } from '@gameon/ui'
+import { Icon } from '../app/Icon'
 import { euro, memberBalances, nowLocalInput } from '@gameon/domain'
 import { useAuth } from '../auth/useAuth'
 import { useFund } from './useFund'
@@ -15,7 +16,7 @@ export function MemberBalances() {
   return (
     <Card
       title="Member Balances (Cash)"
-      icon="👥"
+      icon={<Icon name="players" />}
       action={
         isAuthenticated ? (
           <Button data-testid="add-member-button" onClick={() => setAddingMember(true)}>

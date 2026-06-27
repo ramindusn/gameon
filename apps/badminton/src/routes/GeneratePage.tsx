@@ -8,6 +8,7 @@ import {
   type MatchPlayer,
 } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
+import { Icon } from '../app/Icon'
 import { useRoster } from '../roster/useRoster'
 import { useCreateSession, useCreateTournamentWithMatches } from '../play/useMatchPlay'
 import type { TournamentFixture } from '../play/api'
@@ -96,7 +97,7 @@ export function GeneratePage() {
         {/* The setup widget (player selection + the two actions) hides once an
             action is chosen; each result view has a Back button to return here. */}
         {!generated && !tournamentSetup && (
-          <Card title="Setup" icon="🎲">
+          <Card title="Setup" icon={<Icon name="generate" />}>
             {isLoading && <p className="text-sm text-fg-muted">Loading roster…</p>}
             {!isLoading && active.length === 0 && (
               <p className="text-sm text-fg-muted">
@@ -214,7 +215,7 @@ export function GeneratePage() {
               }}
             />
             {!result ? (
-              <Card title="Couldn't generate" icon="⚠️">
+              <Card title="Couldn't generate" icon={<Icon name="warning" />}>
                 <p className="text-sm text-fg-muted">
                   Need at least 4 present players.
                 </p>
@@ -318,7 +319,7 @@ function Draw({
           single column with empty space on the right. */}
       <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         {result.rounds.map((round, ri) => (
-          <Card key={ri} title={`Round ${ri + 1}`} icon="🏸">
+          <Card key={ri} title={`Round ${ri + 1}`} icon={<Icon name="shuttle" />}>
             <div className="space-y-3">
               {round.matches.map((m, ci) => (
                 <div
@@ -434,7 +435,7 @@ function TournamentSetup({
   const matchCount = ((pairs.length * (pairs.length - 1)) / 2) * rrPasses
 
   return (
-    <Card title="New tournament · Lock pairs" icon="🏆">
+    <Card title="New tournament · Lock pairs" icon={<Icon name="tournament" />}>
       <p className="mb-3 text-sm text-fg-muted">
         Tap two players to lock them as a fixed pair. Locked pairs play a
         round-robin (everyone plays everyone)

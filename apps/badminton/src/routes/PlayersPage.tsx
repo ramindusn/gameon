@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Field, Modal, SkeletonCard, useConfirm } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
+import { Icon } from '../app/Icon'
 import { useAuth } from '../auth/useAuth'
 import { useRoster, useRosterMutations } from '../roster/useRoster'
 import type { Gender, MatchmakerInput, Player, PlayerInput } from '../roster/api'
@@ -51,7 +52,7 @@ export function PlayersPage() {
         {isLoading && <SkeletonCard rows={6} />}
         {isError && <p className="text-sm text-negative">Could not load the roster.</p>}
 
-        <Card title="Roster" icon="🏸">
+        <Card title="Roster" icon={<Icon name="players" />}>
           {players.length === 0 ? (
             <p className="text-sm text-fg-muted">No players yet. Add the first one.</p>
           ) : (

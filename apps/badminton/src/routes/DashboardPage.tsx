@@ -6,6 +6,7 @@ import {
 } from '@gameon/domain'
 import { SkeletonCard } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
+import { Icon } from '../app/Icon'
 import { StatCard, DualStatCard } from '../app/StatCard'
 import { useFund } from '../fund/useFund'
 import { QuickAdd } from '../fund/QuickAdd'
@@ -46,14 +47,14 @@ export function DashboardPage() {
 
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard
-            icon="💰"
+            icon={<Icon name="money" />}
             label="Remaining Fund"
             value={euro(remaining)}
             tone={remaining >= 0 ? 'accent' : 'negative'}
             testId="stat-remaining-fund"
           />
           <StatCard
-            icon="📦"
+            icon={<Icon name="inventory" />}
             label="Total Shuttles"
             value={String(shuttles)}
             hint="in stock"
@@ -61,14 +62,14 @@ export function DashboardPage() {
             testId="stat-total-shuttles"
           />
           <StatCard
-            icon="🏸"
+            icon={<Icon name="shuttle" />}
             label="Shuttles Used"
             value={String(totalShuttlesUsed(state))}
             hint="all game days"
             testId="stat-shuttles-used"
           />
           <DualStatCard
-            icon="👥"
+            icon={<Icon name="players" />}
             rows={[
               { label: 'Admins', value: String(state.members.length) },
               { label: 'Players', value: String(playerCount) },

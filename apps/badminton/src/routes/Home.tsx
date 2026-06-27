@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Button, Card, cx } from '@gameon/ui'
+import { Icon, type IconName } from '../app/Icon'
 import { useAuth } from '../auth/useAuth'
 import { roleHome } from '../auth/roleHome'
 import { AdminLogin } from '../auth/AdminLogin'
@@ -141,7 +142,7 @@ function ScheduledMatches() {
   const matches = data ?? []
   if (isLoading || matches.length === 0) return null
   return (
-    <Section title="Scheduled Matches" icon="📅">
+    <Section title="Scheduled Matches" icon="calendar">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {matches.map((m) => (
           <MatchCard key={m.id} match={m} nameOf={nameOf} sideRating={sideRating} />
@@ -203,7 +204,7 @@ function RecentResults() {
   const results = data ?? []
   if (isLoading || results.length === 0) return null
   return (
-    <Section title="Recent Results" icon="🏁">
+    <Section title="Recent Results" icon="finish">
       <div className="space-y-3">
         {results.map((r) => (
           <ResultRow key={r.id} result={r} nameOf={nameOf} />
@@ -270,7 +271,7 @@ function RankingPreview() {
 
   return (
     <div className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <Card title="Individual Ranking" icon="🏅" action={<ViewAll />}>
+      <Card title="Individual Ranking" icon={<Icon name="ranking" />} action={<ViewAll />}>
         <BoardState
           isLoading={players.isLoading}
           isError={players.isError}
@@ -290,7 +291,7 @@ function RankingPreview() {
           />
         )}
       </Card>
-      <Card title="Doubles Ranking" icon="👥" action={<ViewAll />}>
+      <Card title="Doubles Ranking" icon={<Icon name="pairs" />} action={<ViewAll />}>
         <BoardState
           isLoading={pairs.isLoading}
           isError={pairs.isError}
@@ -311,7 +312,7 @@ function RankingPreview() {
         )}
       </Card>
       {hasTournament && (
-        <Card title="Fixed Pairs (Tournament)" icon="🏆" action={<ViewAll />}>
+        <Card title="Fixed Pairs (Tournament)" icon={<Icon name="tournament" />} action={<ViewAll />}>
           <RankTable
             head="Pair Names"
             testid="tournament-ranking"
@@ -522,7 +523,7 @@ function Section({
   children,
 }: {
   title: string
-  icon: string
+  icon: IconName
   action?: ReactNode
   children: ReactNode
 }) {
@@ -530,7 +531,7 @@ function Section({
     <section className="mb-12">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-xl font-bold">
-          <span aria-hidden>{icon}</span>
+          <Icon name={icon} className="text-accent" />
           {title}
         </h2>
         {action}
