@@ -61,6 +61,19 @@ export function PlayPage() {
     [roster],
   )
 
+  // The players actually in this game day (distinct across all its matches) —
+  // line-up swaps stay within the people at the venue, not the whole roster.
+  const sessionPlayers = useMemo<PresentPlayer[]>(() => {
+    const ids = new Set<string>()
+    for (const r of data?.results ?? []) {
+      for (const id of [...r.teamA, ...r.teamB]) if (id) ids.add(id)
+    }
+    const nickById = new Map((roster?.players ?? []).map((p) => [p.id, p.nickname]))
+    return [...ids]
+      .map((id) => ({ id, nickname: nickById.get(id) ?? '—' }))
+      .sort((a, b) => a.nickname.localeCompare(b.nickname))
+  }, [data, roster])
+
   const rounds = useMemo(() => groupByRound(data?.results ?? []), [data])
 
   // A game day can only be finished once every match is resolved (scored) or
@@ -256,7 +269,7 @@ export function PlayPage() {
                         key={r.id}
                         result={r}
                         nameOf={nameOf}
-                        present={present}
+                        present={sessionPlayers}
                         live={data.session.status === 'live'}
                         saving={setScore.isPending}
                         editing={updateLineup.isPending}
