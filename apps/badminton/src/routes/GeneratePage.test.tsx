@@ -57,6 +57,20 @@ describe('GeneratePage', () => {
     expect(screen.getAllByText(/Court \d/).length).toBeGreaterThan(0)
   })
 
+  it('defaults the Courts field to the auto max and caps the draw to it', () => {
+    renderPage()
+    const courts = screen.getByTestId('courts-input') as HTMLInputElement
+    // 8 players → auto max 2 courts.
+    expect(courts.value).toBe('2')
+    // Cap to a single court.
+    fireEvent.change(courts, { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('rounds-input'), { target: { value: '2' } })
+    fireEvent.click(screen.getByTestId('generate-button'))
+    expect(screen.getByTestId('draw-result')).toBeInTheDocument()
+    expect(screen.getAllByText('Court 1').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Court 2')).toBeNull()
+  })
+
   it('excludes players marked excluded from the picker', () => {
     players[0].absent = true
     try {

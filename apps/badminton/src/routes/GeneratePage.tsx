@@ -40,6 +40,10 @@ export function GeneratePage() {
   // Kept as text so the field can be cleared/retyped freely; clamped on blur.
   const [roundsText, setRoundsText] = useState('5')
   const rounds = Math.max(1, Math.min(30, Number(roundsText) || 1))
+  // Courts: defaults to the max the selection allows (floor(selected / 4)) and
+  // follows it until the matchmaker edits the field; then their value is clamped.
+  const [courtsText, setCourtsText] = useState('')
+  const [courtsEdited, setCourtsEdited] = useState(false)
   const mode: Mode = 'open'
   const [result, setResult] = useState<GeneratedMatches | null>(null)
   const [generated, setGenerated] = useState(false)
@@ -71,7 +75,7 @@ export function GeneratePage() {
         skill: p.skill ?? 5,
         gender: p.gender,
       }))
-    setResult(generateRounds(present, rounds, { mode }))
+    setResult(generateRounds(present, rounds, { mode, courts }))
     setGenerated(true)
   }
 
@@ -79,6 +83,12 @@ export function GeneratePage() {
     () => active.filter((p) => selected.has(p.id)),
     [active, selected],
   )
+
+  // Courts the current selection can fill, and the chosen (clamped) value. Until
+  // the matchmaker edits the field, it tracks the auto max.
+  const maxCourts = Math.max(1, Math.floor(selected.size / 4))
+  const courtsValue = courtsEdited ? courtsText : String(maxCourts)
+  const courts = Math.max(1, Math.min(maxCourts, Number(courtsValue) || maxCourts))
 
   return (
     <AppShell title="Generate draw">
@@ -121,20 +131,45 @@ export function GeneratePage() {
                 </div>
 
                 <div className="mt-5 space-y-3 border-t border-line pt-4">
-                  <label className="block text-sm">
-                    <span className="mb-1 block text-fg-muted">Rounds</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={30}
-                      inputMode="numeric"
-                      value={roundsText}
-                      onChange={(e) => setRoundsText(e.target.value)}
-                      onBlur={() => setRoundsText(String(rounds))}
-                      className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                      data-testid="rounds-input"
-                    />
-                  </label>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-fg-muted">Rounds</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        inputMode="numeric"
+                        value={roundsText}
+                        onChange={(e) => setRoundsText(e.target.value)}
+                        onBlur={() => setRoundsText(String(rounds))}
+                        className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                        data-testid="rounds-input"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <span className="mb-1 block text-fg-muted">
+                        Courts{' '}
+                        <span className="text-fg-subtle">(max {maxCourts})</span>
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxCourts}
+                        inputMode="numeric"
+                        value={courtsValue}
+                        onChange={(e) => {
+                          setCourtsEdited(true)
+                          setCourtsText(e.target.value)
+                        }}
+                        onBlur={() => {
+                          setCourtsEdited(true)
+                          setCourtsText(String(courts))
+                        }}
+                        className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                        data-testid="courts-input"
+                      />
+                    </label>
+                  </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       onClick={generate}
