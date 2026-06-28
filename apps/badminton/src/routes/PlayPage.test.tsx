@@ -214,6 +214,30 @@ describe('PlayPage', () => {
     )
   })
 
+  it('targets a new round, where every player is free again', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-custom-match'))
+    // Switch to a brand-new round (2): nobody is booked there, so p1–p4
+    // (busy in round 1) become selectable, and the court resets to 1.
+    fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
+    const opts = Array.from(
+      (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
+    ).map((o) => o.textContent)
+    expect(opts).toContain('Player 1')
+    fireEvent.change(screen.getByTestId('custom-a1'), { target: { value: 'p1' } })
+    fireEvent.change(screen.getByTestId('custom-a2'), { target: { value: 'p2' } })
+    fireEvent.change(screen.getByTestId('custom-b1'), { target: { value: 'p3' } })
+    fireEvent.change(screen.getByTestId('custom-b2'), { target: { value: 'p4' } })
+    fireEvent.click(screen.getByTestId('save-custom-match'))
+    expect(addMatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        round: 2,
+        court: 1,
+        players: ['p1', 'p2', 'p3', 'p4'],
+      }),
+    )
+  })
+
   it('excludes players already in the round from the add-match picker', () => {
     renderPage()
     fireEvent.click(screen.getByTestId('add-custom-match'))
