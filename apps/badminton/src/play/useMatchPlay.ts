@@ -140,7 +140,17 @@ export function useAddCustomMatch(sessionId: string | undefined) {
       if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
       success('Match added')
     },
-    onError: () => error('Could not add the match'),
+    onError: (err: unknown) => {
+      // 23505 = the (session, round, court) unique index — another match took
+      // that slot first. Refetching corrects the next computed court.
+      const code = (err as { code?: string } | null)?.code
+      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      error(
+        code === '23505'
+          ? 'That court was just taken — try adding the match again.'
+          : 'Could not add the match',
+      )
+    },
   })
 }
 

@@ -291,13 +291,13 @@ export function PlayPage() {
               {data.session.status === 'live' && (
                 <AddCustomMatch
                   present={present}
+                  results={data.results}
                   saving={addMatch.isPending}
-                  onAdd={(players) => {
-                    const { round, court } = nextSlot(data.results)
+                  onAdd={(round, players) => {
                     addMatch.mutate({
                       clubId: data.session.clubId,
                       round,
-                      court,
+                      court: nextCourtInRound(data.results, round),
                       players,
                     })
                   }}
@@ -559,17 +559,28 @@ function LineupEditor({
   )
 }
 
-/** Add an ad-hoc match by picking four present players. */
+/** Add an ad-hoc match: pick a round, then four players not already in it. */
 function AddCustomMatch({
   present,
+  results,
   saving,
   onAdd,
 }: {
   present: PresentPlayer[]
+  results: MatchResult[]
   saving: boolean
-  onAdd: (players: [string, string, string, string]) => void
+  onAdd: (round: number, players: [string, string, string, string]) => void
 }) {
+  const existingRounds = useMemo(
+    () => [...new Set(results.map((r) => r.round))].sort((a, b) => a - b),
+    [results],
+  )
+  const lastRound = existingRounds.at(-1) ?? 1
+  // Existing rounds, plus the option to start a brand-new round at the end.
+  const roundOptions = existingRounds.length ? [...existingRounds, lastRound + 1] : [1]
+
   const [open, setOpen] = useState(false)
+  const [round, setRound] = useState(lastRound)
   const [slots, setSlots] = useState<[string, string, string, string]>([
     '',
     '',
@@ -578,6 +589,18 @@ function AddCustomMatch({
   ])
   const [error, setError] = useState<string | null>(null)
 
+  // Players already playing the chosen round can't be double-booked onto a
+  // second court; everyone else on the active roster (incl. late arrivals) is free.
+  const bookedInRound = useMemo(() => {
+    const ids = new Set<string>()
+    for (const r of results) {
+      if (r.round !== round) continue
+      for (const id of [...r.teamA, ...r.teamB]) if (id) ids.add(id)
+    }
+    return ids
+  }, [results, round])
+  const eligible = present.filter((p) => !bookedInRound.has(p.id))
+
   const setSlot = (i: number, value: string) =>
     setSlots((prev) => {
       const next = [...prev] as [string, string, string, string]
@@ -585,15 +608,30 @@ function AddCustomMatch({
       return next
     })
 
+  // Switching rounds may strand picked players (booked in the new round), so
+  // clear the slots.
+  const changeRound = (value: number) => {
+    setRound(value)
+    setSlots(['', '', '', ''])
+    setError(null)
+  }
+
   const add = () => {
     const v = validateLineup(slots)
     if (!v.ok) {
       setError(v.error ?? 'Invalid line-up')
       return
     }
+    // Defence-in-depth: the dropdowns already exclude booked players, but guard
+    // the save too in case the round filled in while the form was open.
+    if (slots.some((id) => bookedInRound.has(id))) {
+      setError('That player is already playing this round.')
+      return
+    }
     setError(null)
-    onAdd(slots)
+    onAdd(round, slots)
     setSlots(['', '', '', ''])
+    setRound(lastRound)
     setOpen(false)
   }
 
@@ -612,11 +650,26 @@ function AddCustomMatch({
   return (
     <Card title="Add custom match" icon={<Icon name="add" />}>
       <div className="space-y-2" data-testid="custom-match-form">
+        <label className="block text-sm">
+          <span className="mb-1 block text-fg-muted">Round</span>
+          <select
+            value={round}
+            onChange={(e) => changeRound(Number(e.target.value))}
+            data-testid="custom-round"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-fg"
+          >
+            {roundOptions.map((r) => (
+              <option key={r} value={r}>
+                {existingRounds.includes(r) ? `Round ${r}` : `New round ${r}`}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {(['a1', 'a2', 'b1', 'b2'] as const).map((label, i) => (
             <PlayerSelect
               key={label}
-              present={present}
+              present={eligible}
               value={slots[i]}
               onChange={(v) => setSlot(i, v)}
               testid={`custom-${label}`}
@@ -701,16 +754,12 @@ function groupByRound(results: MatchResult[]): RoundGroup[] {
   return groups
 }
 
-/**
- * Where a new custom match goes: the last round, on the next free court (or
- * round 1 / court 1 when the game day has no matches yet).
- */
-function nextSlot(results: MatchResult[]): { round: number; court: number } {
-  if (results.length === 0) return { round: 1, court: 1 }
-  const round = Math.max(...results.map((r) => r.round))
-  const court =
-    Math.max(...results.filter((r) => r.round === round).map((r) => r.court)) + 1
-  return { round, court }
+/** The next free court in a given round (court 1 if the round is empty). */
+function nextCourtInRound(results: MatchResult[], round: number): number {
+  const inRound = results.filter((r) => r.round === round)
+  return inRound.length === 0
+    ? 1
+    : Math.max(...inRound.map((r) => r.court)) + 1
 }
 
 const recordedCount = (results: MatchResult[]) =>

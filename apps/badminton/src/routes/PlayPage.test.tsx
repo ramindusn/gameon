@@ -63,9 +63,9 @@ vi.mock('../roster/useRoster', () => ({
   useRoster: () => ({
     data: {
       clubId: 'c1',
-      // 9 roster players, but only p1–p8 are in this game day's matches; p9 is
-      // on the roster but not at this game day.
-      players: Array.from({ length: 9 }, (_, i) => ({
+      // 12 roster players, but only p1–p8 are in this game day's round 1 matches.
+      // p9–p12 are on the roster but not yet playing (e.g. late arrivals).
+      players: Array.from({ length: 12 }, (_, i) => ({
         id: `p${i + 1}`,
         nickname: `Player ${i + 1}`,
         skill: 5,
@@ -196,9 +196,34 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('lineup-error-r1')).toBeInTheDocument()
   })
 
-  it('adds a custom match from four present players', () => {
+  it('adds a custom match from players not already in the round', () => {
     renderPage()
     fireEvent.click(screen.getByTestId('add-custom-match'))
+    // p1–p8 play round 1; the next custom match lands in round 1, so only the
+    // unbooked players (p9–p12) are selectable.
+    fireEvent.change(screen.getByTestId('custom-a1'), { target: { value: 'p9' } })
+    fireEvent.change(screen.getByTestId('custom-a2'), { target: { value: 'p10' } })
+    fireEvent.change(screen.getByTestId('custom-b1'), { target: { value: 'p11' } })
+    fireEvent.change(screen.getByTestId('custom-b2'), { target: { value: 'p12' } })
+    fireEvent.click(screen.getByTestId('save-custom-match'))
+    expect(addMatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clubId: 'c1',
+        players: ['p9', 'p10', 'p11', 'p12'],
+      }),
+    )
+  })
+
+  it('targets a new round, where every player is free again', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-custom-match'))
+    // Switch to a brand-new round (2): nobody is booked there, so p1–p4
+    // (busy in round 1) become selectable, and the court resets to 1.
+    fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
+    const opts = Array.from(
+      (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
+    ).map((o) => o.textContent)
+    expect(opts).toContain('Player 1')
     fireEvent.change(screen.getByTestId('custom-a1'), { target: { value: 'p1' } })
     fireEvent.change(screen.getByTestId('custom-a2'), { target: { value: 'p2' } })
     fireEvent.change(screen.getByTestId('custom-b1'), { target: { value: 'p3' } })
@@ -206,10 +231,22 @@ describe('PlayPage', () => {
     fireEvent.click(screen.getByTestId('save-custom-match'))
     expect(addMatch).toHaveBeenCalledWith(
       expect.objectContaining({
-        clubId: 'c1',
+        round: 2,
+        court: 1,
         players: ['p1', 'p2', 'p3', 'p4'],
       }),
     )
+  })
+
+  it('excludes players already in the round from the add-match picker', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-custom-match'))
+    const opts = Array.from(
+      (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
+    ).map((o) => o.textContent)
+    // Player 1 is already playing round 1 → not selectable; Player 9 is free.
+    expect(opts).not.toContain('Player 1')
+    expect(opts).toContain('Player 9')
   })
 
   it('deletes a match via a two-step confirm', () => {
