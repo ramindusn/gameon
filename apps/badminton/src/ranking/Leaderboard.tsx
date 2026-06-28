@@ -46,19 +46,22 @@ function Rank({ n }: { n: number }) {
 }
 
 function Rating({ rating, rd }: { rating: number; rd: number }) {
+  // Fixed-width, right-aligned column: the rating number always sits on the
+  // same right edge across rows, and the PROV badge hangs to its left in the
+  // reserved space — so present/absent badges never shift the column.
   return (
-    <span className="flex items-center gap-1.5">
-      <span className="font-display text-sm font-bold tabular-nums text-fg">
-        {Math.round(rating)}
-      </span>
+    <span className="flex w-[5.5rem] shrink-0 items-center justify-end gap-1.5">
       {rd > PROVISIONAL_RD && (
         <span
-          className="rounded bg-warning/15 px-1 py-0.5 text-[10px] font-medium text-warning"
+          className="rounded bg-warning/15 px-1 py-0.5 text-[10px] font-medium leading-none text-warning"
           title="Provisional — few games played"
         >
           PROV
         </span>
       )}
+      <span className="font-display text-sm font-bold tabular-nums text-fg">
+        {Math.round(rating)}
+      </span>
     </span>
   )
 }
