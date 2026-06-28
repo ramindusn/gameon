@@ -75,6 +75,19 @@ export function PlayPage() {
       .sort((a, b) => a.nickname.localeCompare(b.nickname))
   }, [data, roster])
 
+  // Players already booked into the round a new custom match would join, so the
+  // add-match picker can't double-book someone onto two courts in one round.
+  const bookedInNextRound = useMemo(() => {
+    const results = data?.results ?? []
+    const { round } = nextSlot(results)
+    const ids = new Set<string>()
+    for (const r of results) {
+      if (r.round !== round) continue
+      for (const id of [...r.teamA, ...r.teamB]) if (id) ids.add(id)
+    }
+    return ids
+  }, [data])
+
   const rounds = useMemo(() => groupByRound(data?.results ?? []), [data])
 
   // A game day can only be finished once every match is resolved (scored) or
@@ -291,6 +304,7 @@ export function PlayPage() {
               {data.session.status === 'live' && (
                 <AddCustomMatch
                   present={present}
+                  bookedInRound={bookedInNextRound}
                   saving={addMatch.isPending}
                   onAdd={(players) => {
                     const { round, court } = nextSlot(data.results)
@@ -559,16 +573,21 @@ function LineupEditor({
   )
 }
 
-/** Add an ad-hoc match by picking four present players. */
+/** Add an ad-hoc match by picking four players not already in the target round. */
 function AddCustomMatch({
   present,
+  bookedInRound,
   saving,
   onAdd,
 }: {
   present: PresentPlayer[]
+  bookedInRound: Set<string>
   saving: boolean
   onAdd: (players: [string, string, string, string]) => void
 }) {
+  // Full active roster minus anyone already playing the round (no double-booking),
+  // so late arrivals not yet in the game day are still selectable.
+  const eligible = present.filter((p) => !bookedInRound.has(p.id))
   const [open, setOpen] = useState(false)
   const [slots, setSlots] = useState<[string, string, string, string]>([
     '',
@@ -589,6 +608,12 @@ function AddCustomMatch({
     const v = validateLineup(slots)
     if (!v.ok) {
       setError(v.error ?? 'Invalid line-up')
+      return
+    }
+    // Defence-in-depth: the dropdowns already exclude booked players, but guard
+    // the save too in case the round filled in while the form was open.
+    if (slots.some((id) => bookedInRound.has(id))) {
+      setError('That player is already playing this round.')
       return
     }
     setError(null)
@@ -616,7 +641,7 @@ function AddCustomMatch({
           {(['a1', 'a2', 'b1', 'b2'] as const).map((label, i) => (
             <PlayerSelect
               key={label}
-              present={present}
+              present={eligible}
               value={slots[i]}
               onChange={(v) => setSlot(i, v)}
               testid={`custom-${label}`}
