@@ -14,7 +14,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  # Lint + unit tests + build run in one fast job; the e2e job runs in parallel
+  # (Playwright dominates CI wall-clock, so keeping it off this critical path
+  # roughly halves the run).
+  lint-unit-build:
+    name: Lint · Unit · Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,12 +34,28 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Build
-        run: npm run build
-
       - name: Unit tests
         run: npm test
 
+      - name: Build
+        run: npm run build
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Pixel 7 (mobile-chrome project) is Chromium-based, so the single
+      # chromium browser download covers both Playwright projects.
       - name: Install Playwright (chromium)
         run: npx playwright install --with-deps chromium
 

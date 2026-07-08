@@ -231,6 +231,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
             )}
           >
             <PairNames ids={result.teamA} nameOf={nameOf} />
+            {aWon && <span className="sr-only"> — Winner</span>}
           </p>
         </div>
         <div className="flex items-center gap-2 self-center font-display tabular-nums">
@@ -250,6 +251,7 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
             )}
           >
             <PairNames ids={result.teamB} nameOf={nameOf} />
+            {bWon && <span className="sr-only"> — Winner</span>}
           </p>
         </div>
       </div>

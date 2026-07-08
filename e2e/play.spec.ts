@@ -12,8 +12,7 @@ test.beforeEach(async ({ page }) => {
   await signInAsMatchmaker(page)
 })
 
-// TASK-16: needs seeded session/results data under VITE_E2E.
-test.fixme('matchmaker starts a session, scores a match, and finds it in history', async ({
+test('matchmaker starts a session, scores a match, and finds it in history', async ({
   page,
 }) => {
   // Generate a one-round draw from the seeded roster (8 players → 2 courts).
@@ -48,27 +47,26 @@ test.fixme('matchmaker starts a session, scores a match, and finds it in history
   await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
   await expect(page.getByTestId('outstanding-matches')).toHaveCount(0)
 
-  // Finish the session.
+  // Finishing succeeds and routes to the leaderboard (the recompute landing).
   await expect(page.getByTestId('finish-session')).toBeEnabled()
   await page.getByTestId('finish-session').click()
-  await expect(page.getByTestId('session-status')).toHaveText('Finished')
+  await expect(page).toHaveURL(/\/leaderboard$/)
 
-  // The session persists (sessionStorage) and shows in history as Finished.
-  await page.goto('/play')
-  await expect(page.getByTestId('sessions')).toBeVisible()
+  // The finished game day persists (sessionStorage) and shows in the
+  // matchmaker's game-day history.
+  await page.goto('/matchmaker')
   const sessionId = sessionUrl.split('/play/')[1]
-  const link = page.getByTestId(`session-${sessionId}`)
+  const link = page.getByTestId(`recent-${sessionId}`)
   await expect(link).toBeVisible()
-  await expect(link).toContainText('Finished')
 
-  // Reopening the session from history shows the recorded score.
+  // Reopening the session from history shows the recorded score + Finished.
   await link.click()
   await expect(page).toHaveURL(new RegExp(`/play/${sessionId}$`))
+  await expect(page.getByTestId('session-status')).toHaveText('Finished')
   await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
 })
 
-// TASK-16: needs seeded session/results data under VITE_E2E.
-test.fixme('matchmaker sets a game-day date, edits it, then deletes the game day', async ({
+test('matchmaker sets a game-day date, edits it, then deletes the game day', async ({
   page,
 }) => {
   await page.goto('/generate')
@@ -82,6 +80,7 @@ test.fixme('matchmaker sets a game-day date, edits it, then deletes the game day
   await dt.fill('2026-05-01T19:30')
   await page.getByTestId('create-game-day').click()
   await expect(page).toHaveURL(/\/play\/[^/]+$/)
+  const sessionId = page.url().split('/play/')[1]
 
   // The chosen date shows on the play view; edit it to a new value.
   await expect(page.getByTestId('game-day-date')).toContainText('2026')
@@ -90,15 +89,15 @@ test.fixme('matchmaker sets a game-day date, edits it, then deletes the game day
   await page.getByTestId('save-datetime').click()
   await expect(page.getByTestId('game-day-date')).toBeVisible()
 
-  // Delete the game day (two-step confirm) → back to the (empty) history.
+  // Delete the game day (two-step confirm) → back to the matchmaker hub, with
+  // the (never-finished) game day gone from the Live now list.
   await page.getByTestId('delete-game-day').click()
   await page.getByTestId('confirm-delete-game-day').click()
-  await expect(page).toHaveURL(/\/play$/)
-  await expect(page.getByTestId('sessions')).toBeVisible()
+  await expect(page).toHaveURL(/\/matchmaker$/)
+  await expect(page.getByTestId(`live-${sessionId}`)).toHaveCount(0)
 })
 
-// TASK-16: needs seeded session/results data under VITE_E2E.
-test.fixme('matchmaker edits a line-up, adds a custom match, scores all, and finishes', async ({
+test('matchmaker edits a line-up, adds a custom match, scores all, and finishes', async ({
   page,
 }) => {
   await page.goto('/generate')
@@ -155,14 +154,14 @@ test.fixme('matchmaker edits a line-up, adds a custom match, scores all, and fin
   await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
   await expect(page.getByTestId('outstanding-matches')).toHaveCount(0)
 
-  // Now finishing succeeds (which, in production, triggers the ranking recompute).
+  // Now finishing succeeds (which, in production, triggers the ranking
+  // recompute) and routes to the leaderboard.
   await expect(page.getByTestId('finish-session')).toBeEnabled()
   await page.getByTestId('finish-session').click()
-  await expect(page.getByTestId('session-status')).toHaveText('Finished')
+  await expect(page).toHaveURL(/\/leaderboard$/)
 })
 
-// TASK-16: needs seeded session/results data under VITE_E2E.
-test.fixme('public home surfaces scheduled matches and recent results', async ({ page }) => {
+test('public home surfaces scheduled matches and recent results', async ({ page }) => {
   // Create a live game day (1 round, 8 players → 2 courts) with a future date.
   await page.goto('/generate')
   await page.getByTestId('rounds-input').fill('1')
