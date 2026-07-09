@@ -75,7 +75,12 @@ export function LeaderboardPage() {
               noun="fixed pairs leaderboard"
             />
             {(tournament.data?.length ?? 0) > 0 && (
-              <PairBoardList pairs={tournament.data!} nameOf={nameOf} />
+              <PairBoardList
+                pairs={tournament.data!}
+                nameOf={nameOf}
+                testid="tournament-pair-board"
+                rowPrefix="tournament-pair-row"
+              />
             )}
           </Card>
         </div>

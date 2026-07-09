@@ -117,19 +117,25 @@ export function PairBoardList({
   pairs,
   nameOf,
   limit,
+  testid = 'pair-board',
+  rowPrefix = 'pair-row',
 }: {
   pairs: RatedPair[]
   nameOf: NameOf
   limit?: number
+  /** Board-level testid; distinct per board so the same pair can appear twice. */
+  testid?: string
+  /** Row testid prefix; pairs with `testid` to keep each board's rows unique. */
+  rowPrefix?: string
 }) {
   const rows = limit ? pairs.slice(0, limit) : pairs
   return (
-    <ul className="divide-y divide-line" data-testid="pair-board">
+    <ul className="divide-y divide-line" data-testid={testid}>
       {rows.map((p, i) => (
         <li
           key={`${p.player1Id}|${p.player2Id}`}
           className="flex items-center gap-3 py-2.5"
-          data-testid={`pair-row-${p.player1Id}-${p.player2Id}`}
+          data-testid={`${rowPrefix}-${p.player1Id}-${p.player2Id}`}
         >
           <Rank n={i + 1} />
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
