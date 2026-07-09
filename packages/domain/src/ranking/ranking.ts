@@ -30,6 +30,13 @@ import {
 /** Rating points an absent player loses per missed game day (ADR 0011). */
 export const ABSENCE_DECAY = 20
 /**
+ * Grace period before decay starts. We play two game days a week, so a player
+ * may miss up to this many CONSECUTIVE game days (~2.5 weeks — a holiday or a
+ * short injury) with no rating penalty. Decay only begins on the next
+ * consecutive miss, and playing any scored match resets the streak (ADR 0011).
+ */
+export const ABSENCE_GRACE_PERIOD = 5
+/**
  * Absence never drags a player below the starting rating: it pulls established
  * (>1500) players back toward baseline, no further, and never touches players
  * already at/below it.
@@ -67,6 +74,9 @@ export function computeRatings(periods: RatingPeriod[]): RatingTables {
   const playerGames = new Map<string, number>()
   const pairGames = new Map<string, number>()
   const pairMembers = new Map<string, [string, string]>()
+  // Consecutive missed game days per player, carried across periods for the
+  // absence grace period (reset when a player next plays).
+  const absenceStreak = new Map<string, number>()
 
   for (const period of periods) {
     // Opponents are read from the pre-period snapshot (defaults if unseen), so
@@ -104,7 +114,12 @@ export function computeRatings(periods: RatingPeriod[]): RatingTables {
 
     applyPeriod(players, playerPeriodGames, playerGames)
     applyPeriod(pairs, pairPeriodGames, pairGames)
-    applyAbsenceDecay(players, period.absentees)
+    applyAbsenceDecay(
+      players,
+      period.absentees,
+      new Set(playerPeriodGames.keys()),
+      absenceStreak,
+    )
   }
 
   const playerBoard: PlayerRating[] = [...players.entries()].map(([id, g]) => ({
@@ -141,18 +156,27 @@ function applyPeriod(
 }
 
 /**
- * Absence decay (ADR 0011): each player who was on the roster but skipped this
- * game day loses ABSENCE_DECAY rating points, floored at ABSENCE_FLOOR. Only
- * already-rated players are touched (you can't decay someone who never played),
- * and players already at/below the floor are left alone — so absence pulls
- * established players back toward baseline but never below new players.
+ * Absence decay (ADR 0011). Tracks each player's run of CONSECUTIVE missed game
+ * days: playing (any scored match) resets the streak, the first
+ * ABSENCE_GRACE_PERIOD misses are free, and from the next consecutive miss on
+ * each missed game day docks ABSENCE_DECAY points, floored at ABSENCE_FLOOR.
+ * Only already-rated players above the floor are touched (you can't decay
+ * someone who never played), so absence pulls established players back toward
+ * baseline but never below new players.
  */
 function applyAbsenceDecay(
   ratings: Map<string, Glicko2>,
   absentees: string[] | undefined,
+  played: Set<string>,
+  streak: Map<string, number>,
 ): void {
+  // Anyone who played this game day starts their absence streak over.
+  for (const id of played) streak.set(id, 0)
   if (!absentees) return
   for (const id of absentees) {
+    const missed = (streak.get(id) ?? 0) + 1
+    streak.set(id, missed)
+    if (missed <= ABSENCE_GRACE_PERIOD) continue // still within the grace period
     const current = ratings.get(id)
     if (!current || current.rating <= ABSENCE_FLOOR) continue
     const rating = Math.max(ABSENCE_FLOOR, current.rating - ABSENCE_DECAY)
