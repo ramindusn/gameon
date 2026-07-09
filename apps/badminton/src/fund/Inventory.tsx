@@ -82,7 +82,10 @@ export function Inventory() {
                 )}
               </div>
               <dl className="divide-y divide-line px-3 text-sm">
-                <DetailRow label="Barrels" value={batch ? String(batch.barrels) : '—'} />
+                <DetailRow
+                  label="Batch barrels"
+                  value={batch ? String(batch.barrels) : '—'}
+                />
                 <DetailRow
                   label="€ / barrel"
                   value={batch ? euro(batch.pricePerBarrel) : '—'}
@@ -95,6 +98,7 @@ export function Inventory() {
                 />
                 {firstOfProduct && (
                   <>
+                    <DetailRow label="Barrels remaining" value={String(p.barrels)} />
                     <DetailRow label="Loose shuttles" value={String(p.looseShuttles)} />
                     <DetailRow
                       label="Total shuttles"
@@ -140,6 +144,7 @@ export function Inventory() {
               <th className="py-2 pr-3 font-medium">€/barrel</th>
               <th className="py-2 pr-3 font-medium">€/shuttle</th>
               <th className="py-2 pr-3 font-medium">Added</th>
+              <th className="py-2 pr-3 font-medium">Barrels left</th>
               <th className="py-2 pr-3 font-medium">Loose</th>
               <th className="py-2 pr-3 font-medium">Total shuttles</th>
               {isAuthenticated && <th className="py-2 font-medium">Actions</th>}
@@ -175,12 +180,26 @@ export function Inventory() {
                     {batch ? formatDateTime(batch.date) : '—'}
                   </td>
                   <td className="py-2 pr-3 text-fg-muted">
-                    {firstOfProduct ? p.looseShuttles : ''}
+                    {firstOfProduct ? (
+                      <span data-testid={`barrels-left-${p.id}`}>{p.barrels}</span>
+                    ) : (
+                      ''
+                    )}
+                  </td>
+                  <td className="py-2 pr-3 text-fg-muted">
+                    {firstOfProduct ? (
+                      <span data-testid={`loose-left-${p.id}`}>{p.looseShuttles}</span>
+                    ) : (
+                      ''
+                    )}
                   </td>
                   <td className="py-2 pr-3">
                     {firstOfProduct && (
                       <>
-                        <span className="font-semibold text-fg">
+                        <span
+                          className="font-semibold text-fg"
+                          data-testid={`total-shuttles-${p.id}`}
+                        >
                           {productShuttleCount(p)}
                         </span>
                         {low && (
@@ -216,7 +235,7 @@ export function Inventory() {
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-3 text-fg-muted">
+                <td colSpan={9} className="py-3 text-fg-muted">
                   No products yet.
                 </td>
               </tr>
