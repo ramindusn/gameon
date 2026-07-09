@@ -1,0 +1,34 @@
+---
+id: TASK-33
+title: Per-game-day leaderboard shown on dashboard until the next game day
+status: To Do
+assignee: []
+created_date: '2026-07-09 07:06'
+labels:
+  - feature
+  - ranking
+  - dashboard
+  - needs-refinement
+dependencies: []
+priority: medium
+ordinal: 87000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+Create a leaderboard scoped to a single game day (standings computed from just that game day's results), and surface it on the dashboard. It should remain displayed until the next game day is created/played, at which point it rolls over to the new game day. This is an initial capture — the user will refine scope (exact ranking metric, which dashboard/audience, tie-breaks, styling) once work starts. IMPORTANT: before implementing, ask the user for the refinements (see AC). Grounding: existing ranking lives in packages/domain/src/ranking + apps/badminton/src/ranking; game-day results come from the play/session model; dashboards exist at MatchmakerHome and the admin dashboard.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 A game-day-scoped leaderboard is computed from a single game day's results
+- [ ] #2 It appears on the dashboard and persists until the next game day supersedes it
+- [ ] #3 BLOCKER: confirm with the user before building — ranking metric (wins? points? per-day Glicko delta?), which dashboard/audience (matchmaker vs admin vs public home), tie-breaks, and empty state
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+User explicitly said this task will be refined further once we start: 'I will refine this task more when we started working. Just ask me for more when get this to work.' Do not implement without checking in first.
+<!-- SECTION:NOTES:END -->
