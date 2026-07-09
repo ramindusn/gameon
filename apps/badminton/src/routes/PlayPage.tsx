@@ -54,16 +54,9 @@ export function PlayPage() {
     return (pid: string | null) => (pid ? (byId.get(pid) ?? '—') : '—')
   }, [roster])
 
-  const present = useMemo<PresentPlayer[]>(
-    () =>
-      (roster?.players ?? [])
-        .filter((p) => !p.absent)
-        .map((p) => ({ id: p.id, nickname: p.nickname })),
-    [roster],
-  )
-
   // The players actually in this game day (distinct across all its matches) —
-  // line-up swaps stay within the people at the venue, not the whole roster.
+  // line-up swaps and custom matches stay within the people at the venue, not
+  // the whole roster.
   const sessionPlayers = useMemo<PresentPlayer[]>(() => {
     const ids = new Set<string>()
     for (const r of data?.results ?? []) {
@@ -173,7 +166,10 @@ export function PlayPage() {
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm text-fg-muted">
-                    {rounds.length} rounds · {recordedCount(data.results)} /{' '}
+                    <span data-testid="game-day-player-count">
+                      {sessionPlayers.length} players
+                    </span>{' '}
+                    · {rounds.length} rounds · {recordedCount(data.results)} /{' '}
                     {data.results.length} recorded
                   </p>
                   <div className="flex items-center gap-2">
@@ -290,7 +286,7 @@ export function PlayPage() {
 
               {data.session.status === 'live' && (
                 <AddCustomMatch
-                  present={present}
+                  present={sessionPlayers}
                   results={data.results}
                   saving={addMatch.isPending}
                   onAdd={(round, players) => {
@@ -590,7 +586,9 @@ function AddCustomMatch({
   const [error, setError] = useState<string | null>(null)
 
   // Players already playing the chosen round can't be double-booked onto a
-  // second court; everyone else on the active roster (incl. late arrivals) is free.
+  // second court; everyone else in this game day (`present`) is free. The picker
+  // stays within the people at the venue, so a full round offers nobody until a
+  // new round is chosen.
   const bookedInRound = useMemo(() => {
     const ids = new Set<string>()
     for (const r of results) {

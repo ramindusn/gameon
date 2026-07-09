@@ -123,8 +123,11 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
   await editor.locator('[data-testid^="save-lineup-"]').click()
   await expect(page.locator('[data-testid^="lineup-editor-"]')).toHaveCount(0)
 
-  // Add a custom match → a third court appears (2 → 3 matches).
+  // Add a custom match → a third court appears (2 → 3 matches). The add-match
+  // picker is scoped to this game day's players (TASK-32), and round 1 is full,
+  // so target a new round where those players are free again.
   await page.getByTestId('add-custom-match').click()
+  await page.getByTestId('custom-round').selectOption('2')
   await page.getByTestId('custom-a1').selectOption({ index: 1 })
   await page.getByTestId('custom-a2').selectOption({ index: 2 })
   await page.getByTestId('custom-b1').selectOption({ index: 3 })

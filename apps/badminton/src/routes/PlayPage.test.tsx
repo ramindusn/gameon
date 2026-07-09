@@ -111,6 +111,8 @@ describe('PlayPage', () => {
     expect(screen.getAllByText(/Player 1 & Player 2/).length).toBeGreaterThan(0)
     // Court 2 already has team A as winner.
     expect(screen.getByTestId('session-status')).toHaveTextContent('Live')
+    // Only this game day's players (p1–p8) are counted, not the 12-strong roster.
+    expect(screen.getByTestId('game-day-player-count')).toHaveTextContent('8 players')
   })
 
   it('records point scores (winner derived) when a match is saved', () => {
@@ -196,22 +198,34 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('lineup-error-r1')).toBeInTheDocument()
   })
 
-  it('adds a custom match from players not already in the round', () => {
+  it('scopes the add-match picker to this game day’s players, not the whole roster (TASK-32)', () => {
     renderPage()
     fireEvent.click(screen.getByTestId('add-custom-match'))
-    // p1–p8 play round 1; the next custom match lands in round 1, so only the
-    // unbooked players (p9–p12) are selectable.
-    fireEvent.change(screen.getByTestId('custom-a1'), { target: { value: 'p9' } })
-    fireEvent.change(screen.getByTestId('custom-a2'), { target: { value: 'p10' } })
-    fireEvent.change(screen.getByTestId('custom-b1'), { target: { value: 'p11' } })
-    fireEvent.change(screen.getByTestId('custom-b2'), { target: { value: 'p12' } })
-    fireEvent.click(screen.getByTestId('save-custom-match'))
-    expect(addMatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        clubId: 'c1',
-        players: ['p9', 'p10', 'p11', 'p12'],
-      }),
-    )
+    // Move to a fresh round so the game day's players aren't booked. Only p1–p8
+    // (this game day) are offered; p9–p12 are on the roster but not at the venue.
+    fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
+    const opts = Array.from(
+      (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
+    ).map((o) => o.textContent)
+    expect(opts).toContain('Player 8')
+    expect(opts).not.toContain('Player 9')
+  })
+
+  it('derives the add-match player set from the (edited) line-ups (TASK-32 AC#3)', () => {
+    // Court 2's line-up was edited to bring in p9 & p10 in place of p7 & p8, so
+    // this game day's players are now p1–p6, p9, p10. The picker follows the
+    // live line-ups: p9 becomes selectable and p7 drops out.
+    const original = sessionData.results[1]
+    sessionData.results[1] = { ...original, teamB: ['p9', 'p10'] }
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-custom-match'))
+    fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
+    const opts = Array.from(
+      (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
+    ).map((o) => o.textContent)
+    expect(opts).toContain('Player 9')
+    expect(opts).not.toContain('Player 7')
+    sessionData.results[1] = original
   })
 
   it('targets a new round, where every player is free again', () => {
@@ -244,9 +258,10 @@ describe('PlayPage', () => {
     const opts = Array.from(
       (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
     ).map((o) => o.textContent)
-    // Player 1 is already playing round 1 → not selectable; Player 9 is free.
+    // Round 1 (the default) is full: p1–p8 are all booked → none selectable.
+    // Player 9 is on the roster but not in this game day, so it's excluded too.
     expect(opts).not.toContain('Player 1')
-    expect(opts).toContain('Player 9')
+    expect(opts).not.toContain('Player 9')
   })
 
   it('deletes a match via a two-step confirm', () => {
