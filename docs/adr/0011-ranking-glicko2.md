@@ -79,7 +79,7 @@ documented, pragmatic extension of canonical Glicko-2 (which assumes
 `s ∈ {0, 0.5, 1}`); the math is well-defined for any `s ∈ [0,1]` and suits a
 points-based sport better than pure win/loss.
 
-### Absence decay: active play is required to hold position (TASK-6.5)
+### Absence decay: active play is required to hold position (TASK-6.5; grace period TASK-36)
 Glicko-2's built-in idle handling only **inflates RD** (rising uncertainty), which
 leaves an inactive player's *rating* — and therefore their board position —
 untouched. The product owner requires the opposite: a player who stops attending
@@ -96,12 +96,18 @@ Rules:
   match is scored or deleted (TASK-10.5), so unplayed/deleted matches never make
   their players present. Rows are insert-if-missing, so attendance is **frozen** —
   players added later are never retroactively penalized for past days.
-- **−20 rating points per missed game day**, applied to each **already-rated**
-  absentee on the **individual board only** (pairs don't attend), *after* the
-  period's normal Glicko-2 update. Floor at the **1500 baseline**: decay pulls
-  established (>1500) players back toward baseline but never below it, and never
-  touches players already at or under 1500. Constants live in the pure engine
-  (`ABSENCE_DECAY=20`, `ABSENCE_FLOOR=DEFAULT_RATING`) and are unit-tested.
+- **A 5-game-day grace period before any decay.** The club plays two game days a
+  week, so a normal holiday or short injury shouldn't cost points. We track each
+  player's run of **consecutive** missed game days: playing any scored match
+  **resets** it, the first `ABSENCE_GRACE_PERIOD = 5` misses are **free**, and
+  decay only begins on the **6th consecutive miss** (~3 weeks away).
+- **−20 rating points per missed game day, once past the grace period**, applied
+  to each **already-rated** absentee on the **individual board only** (pairs don't
+  attend), *after* the period's normal Glicko-2 update. Floor at the **1500
+  baseline**: decay pulls established (>1500) players back toward baseline but
+  never below it, and never touches players already at or under 1500. Constants
+  live in the pure engine (`ABSENCE_DECAY=20`, `ABSENCE_GRACE_PERIOD=5`,
+  `ABSENCE_FLOOR=DEFAULT_RATING`) and are unit-tested.
 - **Surfaced in the UI** as the lower rating itself plus an **"inactive" tag** on
   players absent from the **latest finished game day** (`loadInactivePlayers` reads
   `session_attendance.present = false` for that day). The tag explains the drop.

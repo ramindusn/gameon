@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { ABSENCE_DECAY, ABSENCE_FLOOR, computeRatings, scoreShare } from './ranking'
+import {
+  ABSENCE_DECAY,
+  ABSENCE_FLOOR,
+  ABSENCE_GRACE_PERIOD,
+  computeRatings,
+  scoreShare,
+} from './ranking'
 import { DEFAULT_RATING, DEFAULT_RD } from './glicko2'
 import { pairKey, type MatchRecord, type RatingPeriod } from './types'
 
@@ -79,43 +85,74 @@ describe('computeRatings — individual board', () => {
   })
 })
 
-describe('computeRatings — absence decay', () => {
-  // 'a' wins a match (rating climbs above the floor), then skips the next day.
-  const winThenAbsent = (absentLater: boolean) =>
+describe('computeRatings — absence decay (grace period)', () => {
+  const skip = (): RatingPeriod => ({ matches: [], absentees: ['a'] })
+  // 'a' wins (rating climbs above the floor), then skips `misses` game days.
+  const winThenSkip = (misses: number) =>
     computeRatings([
       period(match(['a', 'b'], ['c', 'd'], 21, 5)),
-      {
-        matches: [match(['e', 'f'], ['g', 'h'], 21, 10)],
-        absentees: absentLater ? ['a'] : [],
-      },
+      ...Array.from({ length: misses }, skip),
     ])
 
-  it('docks an absent established player ABSENCE_DECAY points', () => {
-    const present = winThenAbsent(false)
-    const absent = winThenAbsent(true)
-    expect(playerById(absent, 'a').rating).toBeCloseTo(
-      playerById(present, 'a').rating - ABSENCE_DECAY,
+  it('does not decay within the grace period (first 5 missed game days)', () => {
+    const baseline = playerById(winThenSkip(0), 'a').rating
+    for (let m = 1; m <= ABSENCE_GRACE_PERIOD; m++) {
+      // Idle periods hold the rating (RD inflates, rating does not move).
+      expect(playerById(winThenSkip(m), 'a').rating).toBeCloseTo(baseline, 6)
+    }
+  })
+
+  it('decays ABSENCE_DECAY per game day only from the 6th consecutive miss', () => {
+    const baseline = playerById(winThenSkip(0), 'a').rating
+    // 6th miss = first decay; 7th = second.
+    expect(playerById(winThenSkip(ABSENCE_GRACE_PERIOD + 1), 'a').rating).toBeCloseTo(
+      baseline - ABSENCE_DECAY,
+      6,
+    )
+    expect(playerById(winThenSkip(ABSENCE_GRACE_PERIOD + 2), 'a').rating).toBeCloseTo(
+      baseline - 2 * ABSENCE_DECAY,
+      6,
+    )
+  })
+
+  it('resets the streak when the player returns and plays', () => {
+    // Miss 5 (grace), return and play, then miss 5 more. The trailing misses are
+    // all within a fresh grace window, so they must cost nothing — proving the
+    // streak reset. (Without the reset, misses 6–10 would decay.)
+    const win = () => period(match(['a', 'b'], ['c', 'd'], 21, 5))
+    const withTrailing = computeRatings([
+      win(),
+      ...Array.from({ length: 5 }, skip),
+      win(), // 'a' returns
+      ...Array.from({ length: 5 }, skip),
+    ])
+    const withoutTrailing = computeRatings([
+      win(),
+      ...Array.from({ length: 5 }, skip),
+      win(),
+    ])
+    expect(playerById(withTrailing, 'a').rating).toBeCloseTo(
+      playerById(withoutTrailing, 'a').rating,
       6,
     )
   })
 
   it('never decays below the floor', () => {
-    // 'a' is only just above the floor; repeated absence clamps to the floor.
+    // Small win -> just above 1500; enough post-grace misses to clamp to the floor.
     const tables = computeRatings([
-      period(match(['a', 'b'], ['c', 'd'], 21, 20)), // small win -> just above 1500
-      { matches: [], absentees: ['a'] },
-      { matches: [], absentees: ['a'] },
-      { matches: [], absentees: ['a'] },
+      period(match(['a', 'b'], ['c', 'd'], 21, 20)),
+      ...Array.from({ length: ABSENCE_GRACE_PERIOD + 3 }, skip),
     ])
     expect(playerById(tables, 'a').rating).toBe(ABSENCE_FLOOR)
   })
 
-  it('leaves players already at/below the floor untouched', () => {
-    // 'c' lost badly (rating below the floor); absence must not move it.
+  it('leaves players already at/below the floor untouched (even past grace)', () => {
+    // 'c' lost badly (rating below the floor); absence must never move it.
+    const skipC = (): RatingPeriod => ({ matches: [], absentees: ['c'] })
     const baseline = computeRatings([period(match(['a', 'b'], ['c', 'd'], 21, 2))])
     const withAbsence = computeRatings([
       period(match(['a', 'b'], ['c', 'd'], 21, 2)),
-      { matches: [], absentees: ['c'] },
+      ...Array.from({ length: ABSENCE_GRACE_PERIOD + 3 }, skipC),
     ])
     const cBase = playerById(baseline, 'c')
     const cAbsent = playerById(withAbsence, 'c')

@@ -294,7 +294,8 @@ const E2E_FORM: FormMap = {
   'e2e-8': ['L', 'W', 'L', 'L', 'L'],
 }
 
-// The two tail players skipped the latest game day — decayed + flagged inactive.
+// The two tail players skipped the latest game day — flagged inactive (a single
+// skip is within the grace period, so no rating decay yet; see ADR 0011 / TASK-36).
 const E2E_INACTIVE: string[] = ['e2e-7', 'e2e-8']
 
 // Fixed-pairs tournament board seed (E11) — Glicko-rated, like the doubles board.

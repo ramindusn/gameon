@@ -17,9 +17,10 @@ export interface MatchRecord {
 export interface RatingPeriod {
   matches: MatchRecord[]
   /**
-   * Player ids who were on the roster but did NOT play this game day. They take
-   * an absence decay on the individual board (ADR 0011) — you must keep playing
-   * to hold your ranking. Optional; omit/empty for no decay.
+   * Player ids who were on the roster but did NOT play this game day. After a
+   * grace period of consecutive misses they take an absence decay on the
+   * individual board (ADR 0011) — you must keep playing to hold your ranking.
+   * Optional; omit/empty for no absentees.
    */
   absentees?: string[]
 }
