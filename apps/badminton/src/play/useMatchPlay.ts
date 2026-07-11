@@ -13,6 +13,7 @@ import {
   loadScheduledMatches,
   loadSessionPlayerCounts,
   setScore,
+  setSessionHidden,
   setSessionStatus,
   updateMatchLineup,
   updateSessionPlayedAt,
@@ -199,6 +200,21 @@ export function useUpdateSessionPlayedAt(sessionId: string | undefined) {
       success('Date updated')
     },
     onError: () => error('Could not update the date'),
+  })
+}
+
+/** Show/hide a game day on the public home; refreshes the game day + boards. */
+export function useSetSessionHidden(sessionId: string | undefined) {
+  const qc = useQueryClient()
+  const { error } = useToast()
+  return useMutation({
+    mutationFn: (hidden: boolean) => setSessionHidden(sessionId as string, hidden),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SESSIONS_KEY })
+      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      qc.invalidateQueries({ queryKey: ['ratings', 'game-days'] })
+    },
+    onError: () => error('Could not update home visibility'),
   })
 }
 

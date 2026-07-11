@@ -277,6 +277,7 @@ export type Database = {
           club_id: string
           created_at: string
           created_by: string | null
+          hidden: boolean
           id: string
           kind: string
           mode: string
@@ -289,6 +290,7 @@ export type Database = {
           club_id: string
           created_at?: string
           created_by?: string | null
+          hidden?: boolean
           id?: string
           kind?: string
           mode?: string
@@ -301,6 +303,7 @@ export type Database = {
           club_id?: string
           created_at?: string
           created_by?: string | null
+          hidden?: boolean
           id?: string
           kind?: string
           mode?: string

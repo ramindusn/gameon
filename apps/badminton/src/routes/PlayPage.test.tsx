@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { MatchResult, MatchSession } from '../play/api'
 
-const { setScore, setStatus, updateLineup, addMatch, deleteMatch, sessionData } =
+const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData } =
   vi.hoisted(() => {
   const session: MatchSession = {
     id: 's1',
@@ -12,6 +12,7 @@ const { setScore, setStatus, updateLineup, addMatch, deleteMatch, sessionData } 
     mode: 'open',
     kind: 'casual',
     rounds: 1,
+    hidden: false,
     playedAt: '2026-06-22T10:00:00Z',
     createdAt: '2026-06-22T10:00:00Z',
   }
@@ -42,6 +43,7 @@ const { setScore, setStatus, updateLineup, addMatch, deleteMatch, sessionData } 
   return {
     setScore: vi.fn(),
     setStatus: vi.fn(),
+    setHidden: vi.fn(),
     updateLineup: vi.fn(),
     addMatch: vi.fn(),
     deleteMatch: vi.fn(),
@@ -53,6 +55,7 @@ vi.mock('../play/useMatchPlay', () => ({
   useSession: () => ({ data: sessionData, isLoading: false, isError: false }),
   useSetScore: () => ({ mutate: setScore, isPending: false }),
   useSetSessionStatus: () => ({ mutate: setStatus, isPending: false }),
+  useSetSessionHidden: () => ({ mutate: setHidden, isPending: false }),
   useUpdateSessionPlayedAt: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteSession: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateMatchLineup: () => ({ mutate: updateLineup, isPending: false }),
@@ -98,6 +101,7 @@ describe('PlayPage', () => {
   beforeEach(() => {
     setScore.mockClear()
     setStatus.mockClear()
+    setHidden.mockClear()
     updateLineup.mockClear()
     addMatch.mockClear()
     deleteMatch.mockClear()
@@ -154,6 +158,15 @@ describe('PlayPage', () => {
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
     sessionData.results[0].winner = null
+  })
+
+  it('toggles the game day’s home visibility from the checkbox (TASK-38)', () => {
+    renderPage()
+    const box = screen.getByTestId('hide-from-home') as HTMLInputElement
+    // Session is visible by default, so the "don't show" box starts unchecked.
+    expect(box.checked).toBe(false)
+    fireEvent.click(box)
+    expect(setHidden).toHaveBeenCalledWith(true)
   })
 
   it('shows the game-day date and a two-step delete confirm', () => {

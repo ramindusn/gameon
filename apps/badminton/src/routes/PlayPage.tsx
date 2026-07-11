@@ -11,6 +11,7 @@ import {
   useDeleteSession,
   useSession,
   useSetScore,
+  useSetSessionHidden,
   useSetSessionStatus,
   useUpdateMatchLineup,
   useUpdateSessionPlayedAt,
@@ -39,6 +40,7 @@ export function PlayPage() {
   const { data: roster } = useRoster()
   const setScore = useSetScore(id)
   const setStatus = useSetSessionStatus(id)
+  const setHidden = useSetSessionHidden(id)
   const updatePlayedAt = useUpdateSessionPlayedAt(id)
   const deleteSession = useDeleteSession()
   const updateLineup = useUpdateMatchLineup(id)
@@ -172,7 +174,23 @@ export function PlayPage() {
                     · {rounds.length} rounds · {recordedCount(data.results)} /{' '}
                     {data.results.length} recorded
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    {data.session.status === 'live' && (
+                      <label
+                        className="flex cursor-pointer items-center gap-2 text-sm text-fg-muted"
+                        data-testid="hide-from-home-label"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={data.session.hidden}
+                          onChange={(e) => setHidden.mutate(e.target.checked)}
+                          disabled={setHidden.isPending}
+                          data-testid="hide-from-home"
+                          className="h-4 w-4 rounded border-line bg-surface text-accent focus:ring-1 focus:ring-accent"
+                        />
+                        Don&apos;t show on home page
+                      </label>
+                    )}
                     {data.session.status === 'live' ? (
                       <Button
                         variant="secondary"

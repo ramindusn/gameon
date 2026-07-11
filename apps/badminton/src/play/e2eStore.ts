@@ -159,6 +159,16 @@ export function e2eDeleteMatch(resultId: string): void {
   }
 }
 
+/** Show/hide a game day on the public home (TASK-38). */
+export function e2eSetHidden(id: string, hidden: boolean): void {
+  const sessions = read<MatchSession>(SESSIONS_KEY)
+  const i = sessions.findIndex((s) => s.id === id)
+  if (i >= 0) {
+    sessions[i] = { ...sessions[i], hidden }
+    write(SESSIONS_KEY, sessions)
+  }
+}
+
 /** Update a game day's date/time. */
 export function e2eSetPlayedAt(id: string, playedAt: string): void {
   const sessions = read<MatchSession>(SESSIONS_KEY)

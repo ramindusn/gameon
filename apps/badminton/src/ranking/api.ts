@@ -250,9 +250,10 @@ export async function loadGameDayBoards(): Promise<GameDayBoard[]> {
   const { data } = await client()
     .from('match_results')
     .select(
-      'session_id, team_a1, team_a2, team_b1, team_b2, score_a, score_b, winner, match_sessions!inner(played_at, kind)',
+      'session_id, team_a1, team_a2, team_b1, team_b2, score_a, score_b, winner, match_sessions!inner(played_at, kind, hidden)',
     )
     .eq('match_sessions.kind', 'casual')
+    .eq('match_sessions.hidden', false)
     .not('winner', 'is', null)
 
   type Row = {

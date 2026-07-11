@@ -35,6 +35,7 @@ const session: MatchSession = {
   mode: 'open',
   kind: 'casual',
   rounds: 1,
+  hidden: false,
   playedAt: '2026-07-08T18:31:00Z',
   createdAt: '2026-07-08T18:31:00Z',
 }
