@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import type { RatedPair, RatedPlayer } from '../ranking/api'
+import type { GameDayBoard, RatedPair, RatedPlayer } from '../ranking/api'
 import type { RecentResult, ScheduledMatch } from '../play/api'
 
 const { state } = vi.hoisted(() => ({
@@ -10,6 +10,7 @@ const { state } = vi.hoisted(() => ({
     recent: [] as RecentResult[],
     players: [] as RatedPlayer[],
     pairs: [] as RatedPair[],
+    gameDay: null as GameDayBoard | null,
   },
 }))
 
@@ -23,6 +24,7 @@ vi.mock('../ranking/useRanking', () => ({
   usePlayerBoard: () => ({ data: state.players, isLoading: false, isError: false }),
   usePairBoard: () => ({ data: state.pairs, isLoading: false, isError: false }),
   useTournamentPairBoard: () => ({ data: [], isLoading: false, isError: false }),
+  useGameDayBoard: () => ({ data: state.gameDay, isLoading: false, isError: false }),
   usePlayerNames: () => (id: string | null) =>
     id ? ({ p1: 'Siti', p2: 'Maya', p3: 'Alex', p4: 'Ryan' }[id] ?? id) : '—',
 }))
@@ -49,10 +51,47 @@ describe('Home (TASK-9.5)', () => {
     state.recent = []
     state.players = []
     state.pairs = []
+    state.gameDay = null
     renderHome()
     expect(screen.getAllByTestId('view-all-leaderboard').length).toBeGreaterThan(0)
     expect(screen.queryByText('Scheduled Matches')).toBeNull()
     expect(screen.queryByText('Recent Results')).toBeNull()
+    expect(screen.queryByText('Latest Game Day')).toBeNull()
+    expect(screen.queryByTestId('game-day-board')).toBeNull()
+  })
+
+  it('shows the latest game-day board ranked by point differential (TASK-33)', () => {
+    state.scheduled = []
+    state.recent = []
+    state.players = []
+    state.pairs = []
+    state.gameDay = {
+      sessionId: 's1',
+      playedAt: '2026-07-10T18:00:00Z',
+      standings: [
+        // Deliberately out of order + a tie (p3/p4 both +5) to prove the UI
+        // re-sorts by diff then nickname (Alex before Ryan).
+        { playerId: 'p4', played: 3, wins: 1, diff: 5 },
+        { playerId: 'p1', played: 3, wins: 3, diff: 22 },
+        { playerId: 'p3', played: 3, wins: 1, diff: 5 },
+        { playerId: 'p2', played: 3, wins: 0, diff: -18 },
+      ],
+    }
+    renderHome()
+    expect(screen.getByText('Latest Game Day')).toBeInTheDocument()
+    const board = screen.getByTestId('game-day-board')
+    expect(board).toHaveTextContent('+22')
+    expect(board).toHaveTextContent('-18')
+    // Row order: Siti (+22), Alex (+5), Ryan (+5, name tie-break), Maya (-18).
+    const order = Array.from(board.querySelectorAll('tbody tr')).map(
+      (tr) => tr.getAttribute('data-testid'),
+    )
+    expect(order).toEqual([
+      'game-day-row-p1',
+      'game-day-row-p3',
+      'game-day-row-p4',
+      'game-day-row-p2',
+    ])
   })
 
   it('renders scheduled match cards with the side ratings', () => {

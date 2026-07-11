@@ -7,6 +7,7 @@ import { roleHome } from '../auth/roleHome'
 import { AdminLogin } from '../auth/AdminLogin'
 import { MatchmakerLogin } from '../auth/MatchmakerLogin'
 import {
+  useGameDayBoard,
   usePairBoard,
   usePlayerBoard,
   usePlayerNames,
@@ -35,6 +36,7 @@ export function Home() {
         <Hero />
         <ScheduledMatches />
         <RecentResults />
+        <LatestGameDay />
         <RankingPreview />
       </main>
       <Footer />
@@ -259,6 +261,68 @@ function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf })
         {timeAgo(result.playedAt)}
       </span>
     </div>
+  )
+}
+
+// ---- Latest Game Day ------------------------------------------------------
+
+/** "+38" / "-12" / "0" — a signed net point differential. */
+const fmtDiff = (n: number) => (n > 0 ? `+${n}` : String(n))
+
+/**
+ * Standings scoped to the most recent casual game day, ranked by net point
+ * differential. Persists until a newer game day produces results, then rolls
+ * over (TASK-33). Hidden until the first game day has been scored.
+ */
+function LatestGameDay() {
+  const { data, isLoading } = useGameDayBoard()
+  const nameOf = usePlayerNames()
+  const rows = useMemo(() => {
+    return (data?.standings ?? [])
+      .map((s) => ({ ...s, name: nameOf(s.playerId) }))
+      .sort((a, b) => b.diff - a.diff || a.name.localeCompare(b.name))
+  }, [data, nameOf])
+
+  if (isLoading || !data || rows.length === 0) return null
+
+  return (
+    <Section
+      title="Latest Game Day"
+      icon="trophy"
+      action={<span className="text-sm font-medium text-fg-muted">{whenLabel(data.playedAt)}</span>}
+    >
+      <Card icon={<Icon name="ranking" />} title="Points differential">
+        <table className="w-full text-sm" data-testid="game-day-board">
+          <thead>
+            <tr className="border-b border-line text-left text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+              <th className="w-14 py-2 font-medium">Rank</th>
+              <th className="py-2 font-medium">Player Name</th>
+              <th className="py-2 text-right font-medium">+/-</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {rows.map((r, i) => (
+              <tr key={r.playerId} data-testid={`game-day-row-${r.playerId}`}>
+                <td className="py-3">
+                  <RankBadge n={i + 1} />
+                </td>
+                <td className="py-3 font-medium text-fg">
+                  <PlayerLink id={r.playerId} nameOf={nameOf} />
+                </td>
+                <td
+                  className={cx(
+                    'py-3 text-right font-display font-bold tabular-nums',
+                    r.diff > 0 ? 'text-accent-strong' : r.diff < 0 ? 'text-fg-subtle' : 'text-fg',
+                  )}
+                >
+                  {fmtDiff(r.diff)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </Section>
   )
 }
 

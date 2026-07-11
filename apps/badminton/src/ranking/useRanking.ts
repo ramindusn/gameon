@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useRoster } from '../roster/useRoster'
 import {
   loadInactivePlayers,
+  loadLatestGameDayBoard,
   loadPairBoard,
   loadPlayerBoard,
   loadRecentForm,
@@ -34,6 +35,11 @@ export function useInactivePlayers() {
     queryFn: loadInactivePlayers,
     select: (ids) => new Set(ids),
   })
+}
+
+/** The latest game day's standings (net point differential), or null (TASK-33). */
+export function useGameDayBoard() {
+  return useQuery({ queryKey: ['ratings', 'game-day'], queryFn: loadLatestGameDayBoard })
 }
 
 /** The isolated Fixed Pairs tournament board (Glicko-rated, like doubles) (E11). */

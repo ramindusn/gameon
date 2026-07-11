@@ -121,6 +121,64 @@ export function buildFormMap(rows: FormResultRow[], limit = FORM_LIMIT): FormMap
   return form
 }
 
+// ---- per-game-day board (TASK-33) -----------------------------------------
+
+/** One scored court from a single game day, for the day-scoped board. */
+export interface GameDayResultRow {
+  teamA: [string | null, string | null]
+  teamB: [string | null, string | null]
+  scoreA: number
+  scoreB: number
+  winner: 'a' | 'b'
+}
+
+/** A player's standing within one game day, ranked by net point differential. */
+export interface GameDayStanding {
+  playerId: string
+  played: number
+  wins: number
+  /** Net point differential: points scored minus conceded across the day. */
+  diff: number
+}
+
+/** The latest game day's standings, surfaced on the public home (TASK-33). */
+export interface GameDayBoard {
+  sessionId: string
+  playedAt: string
+  standings: GameDayStanding[]
+}
+
+/**
+ * Aggregate one game day's scored courts into per-player standings ranked by
+ * net point differential (points scored minus conceded across the day). Ties in
+ * differential are ordered by playerId here for a deterministic result; the UI
+ * applies the nickname tie-break once names are resolved (TASK-33).
+ */
+export function buildGameDayBoard(rows: GameDayResultRow[]): GameDayStanding[] {
+  const byPlayer = new Map<string, GameDayStanding>()
+  const bump = (
+    pid: string | null,
+    scoreFor: number,
+    scoreAgainst: number,
+    won: boolean,
+  ) => {
+    if (!pid) return
+    const s = byPlayer.get(pid) ?? { playerId: pid, played: 0, wins: 0, diff: 0 }
+    s.played += 1
+    s.wins += won ? 1 : 0
+    s.diff += scoreFor - scoreAgainst
+    byPlayer.set(pid, s)
+  }
+  for (const r of rows) {
+    const aWon = r.winner === 'a'
+    for (const pid of r.teamA) bump(pid, r.scoreA, r.scoreB, aWon)
+    for (const pid of r.teamB) bump(pid, r.scoreB, r.scoreA, !aWon)
+  }
+  return [...byPlayer.values()].sort(
+    (a, b) => b.diff - a.diff || a.playerId.localeCompare(b.playerId),
+  )
+}
+
 // ---- data access ----------------------------------------------------------
 
 const PLAYER_COLS = 'player_id, rating, rd, games'
@@ -179,6 +237,69 @@ export async function loadRecentForm(): Promise<FormMap> {
     }
   })
   return buildFormMap(rows)
+}
+
+/**
+ * The most recent casual game day that has at least one scored match, with its
+ * per-player standings (net point differential). It stays on the home page until
+ * a newer game day produces results, then rolls over. Null when no game day has
+ * been scored yet — the section is then omitted (TASK-33).
+ */
+export async function loadLatestGameDayBoard(): Promise<GameDayBoard | null> {
+  if (isE2E()) return E2E_GAME_DAY_BOARD
+  const { data } = await client()
+    .from('match_results')
+    .select(
+      'session_id, team_a1, team_a2, team_b1, team_b2, score_a, score_b, winner, match_sessions!inner(played_at, kind)',
+    )
+    .eq('match_sessions.kind', 'casual')
+    .not('winner', 'is', null)
+
+  type Row = {
+    session_id: string
+    team_a1: string | null
+    team_a2: string | null
+    team_b1: string | null
+    team_b2: string | null
+    score_a: number | null
+    score_b: number | null
+    winner: string | null
+    match_sessions: { played_at: string } | { played_at: string }[]
+  }
+  const rows = (data ?? []) as Row[]
+  if (rows.length === 0) return null
+
+  const playedAtOf = (r: Row): string => {
+    // PostgREST returns the to-one embed as an object; guard the array shape.
+    const s = Array.isArray(r.match_sessions) ? r.match_sessions[0] : r.match_sessions
+    return s?.played_at ?? ''
+  }
+
+  // Pick the game day with the latest played_at among those that produced scores.
+  let latestId = rows[0].session_id
+  let latestAt = playedAtOf(rows[0])
+  for (const r of rows) {
+    const at = playedAtOf(r)
+    if (at.localeCompare(latestAt) > 0) {
+      latestAt = at
+      latestId = r.session_id
+    }
+  }
+
+  const dayRows: GameDayResultRow[] = rows
+    .filter((r) => r.session_id === latestId)
+    .map((r) => ({
+      teamA: [r.team_a1, r.team_a2],
+      teamB: [r.team_b1, r.team_b2],
+      scoreA: r.score_a ?? 0,
+      scoreB: r.score_b ?? 0,
+      winner: r.winner === 'b' ? 'b' : 'a',
+    }))
+  return {
+    sessionId: latestId,
+    playedAt: latestAt,
+    standings: buildGameDayBoard(dayRows),
+  }
 }
 
 /**
@@ -297,6 +418,21 @@ const E2E_FORM: FormMap = {
 // The two tail players skipped the latest game day — flagged inactive (a single
 // skip is within the grace period, so no rating decay yet; see ADR 0011 / TASK-36).
 const E2E_INACTIVE: string[] = ['e2e-7', 'e2e-8']
+
+// Latest game-day board seed (TASK-33): six players who played the most recent
+// casual game day, ranked by net point differential (strongest first).
+const E2E_GAME_DAY_BOARD: GameDayBoard = {
+  sessionId: 'e2e-day-1',
+  playedAt: '2026-07-10T18:00:00Z',
+  standings: [
+    { playerId: 'e2e-1', played: 3, wins: 3, diff: 34 },
+    { playerId: 'e2e-2', played: 3, wins: 2, diff: 17 },
+    { playerId: 'e2e-3', played: 3, wins: 2, diff: 8 },
+    { playerId: 'e2e-4', played: 3, wins: 1, diff: -6 },
+    { playerId: 'e2e-5', played: 3, wins: 1, diff: -18 },
+    { playerId: 'e2e-6', played: 3, wins: 0, diff: -35 },
+  ],
+}
 
 // Fixed-pairs tournament board seed (E11) — Glicko-rated, like the doubles board.
 const E2E_TOURNAMENT_BOARD: RatedPair[] = [
