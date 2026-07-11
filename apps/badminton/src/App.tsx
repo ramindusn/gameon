@@ -7,6 +7,7 @@ import { GeneratePage } from './routes/GeneratePage'
 import { PlayPage } from './routes/PlayPage'
 import { PlayersPage } from './routes/PlayersPage'
 import { PlayerProfilePage } from './routes/PlayerProfilePage'
+import { GameDayPage } from './routes/GameDayPage'
 import { LeaderboardPage } from './routes/LeaderboardPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 
@@ -22,6 +23,7 @@ export function App() {
             <Route path="/" element={<Home />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/players/:id" element={<PlayerProfilePage />} />
+            <Route path="/game-days/:id" element={<GameDayPage />} />
 
             <Route element={<ProtectedRoute allow={['admin']} />}>
               <Route path="/dashboard" element={<DashboardPage />} />

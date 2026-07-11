@@ -240,13 +240,13 @@ export async function loadRecentForm(): Promise<FormMap> {
 }
 
 /**
- * The most recent casual game day that has at least one scored match, with its
- * per-player standings (net point differential). It stays on the home page until
- * a newer game day produces results, then rolls over. Null when no game day has
- * been scored yet — the section is then omitted (TASK-33).
+ * Every casual game day that has at least one scored match, each with its
+ * per-player standings (net point differential), newest game day first. The
+ * public home shows [0] and lets the visitor page back through the rest
+ * (TASK-33 / TASK-37). Empty when no game day has been scored yet.
  */
-export async function loadLatestGameDayBoard(): Promise<GameDayBoard | null> {
-  if (isE2E()) return E2E_GAME_DAY_BOARD
+export async function loadGameDayBoards(): Promise<GameDayBoard[]> {
+  if (isE2E()) return E2E_GAME_DAY_BOARDS
   const { data } = await client()
     .from('match_results')
     .select(
@@ -267,7 +267,7 @@ export async function loadLatestGameDayBoard(): Promise<GameDayBoard | null> {
     match_sessions: { played_at: string } | { played_at: string }[]
   }
   const rows = (data ?? []) as Row[]
-  if (rows.length === 0) return null
+  if (rows.length === 0) return []
 
   const playedAtOf = (r: Row): string => {
     // PostgREST returns the to-one embed as an object; guard the array shape.
@@ -275,31 +275,27 @@ export async function loadLatestGameDayBoard(): Promise<GameDayBoard | null> {
     return s?.played_at ?? ''
   }
 
-  // Pick the game day with the latest played_at among those that produced scores.
-  let latestId = rows[0].session_id
-  let latestAt = playedAtOf(rows[0])
+  // Group the scored courts by game day, keeping each day's date.
+  const bySession = new Map<string, { playedAt: string; rows: GameDayResultRow[] }>()
   for (const r of rows) {
-    const at = playedAtOf(r)
-    if (at.localeCompare(latestAt) > 0) {
-      latestAt = at
-      latestId = r.session_id
-    }
-  }
-
-  const dayRows: GameDayResultRow[] = rows
-    .filter((r) => r.session_id === latestId)
-    .map((r) => ({
+    const entry = bySession.get(r.session_id) ?? { playedAt: playedAtOf(r), rows: [] }
+    entry.rows.push({
       teamA: [r.team_a1, r.team_a2],
       teamB: [r.team_b1, r.team_b2],
       scoreA: r.score_a ?? 0,
       scoreB: r.score_b ?? 0,
       winner: r.winner === 'b' ? 'b' : 'a',
-    }))
-  return {
-    sessionId: latestId,
-    playedAt: latestAt,
-    standings: buildGameDayBoard(dayRows),
+    })
+    bySession.set(r.session_id, entry)
   }
+
+  return [...bySession.entries()]
+    .map(([sessionId, { playedAt, rows }]): GameDayBoard => ({
+      sessionId,
+      playedAt,
+      standings: buildGameDayBoard(rows),
+    }))
+    .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
 }
 
 /**
@@ -419,20 +415,33 @@ const E2E_FORM: FormMap = {
 // skip is within the grace period, so no rating decay yet; see ADR 0011 / TASK-36).
 const E2E_INACTIVE: string[] = ['e2e-7', 'e2e-8']
 
-// Latest game-day board seed (TASK-33): six players who played the most recent
-// casual game day, ranked by net point differential (strongest first).
-const E2E_GAME_DAY_BOARD: GameDayBoard = {
-  sessionId: 'e2e-day-1',
-  playedAt: '2026-07-10T18:00:00Z',
-  standings: [
-    { playerId: 'e2e-1', played: 3, wins: 3, diff: 34 },
-    { playerId: 'e2e-2', played: 3, wins: 2, diff: 17 },
-    { playerId: 'e2e-3', played: 3, wins: 2, diff: 8 },
-    { playerId: 'e2e-4', played: 3, wins: 1, diff: -6 },
-    { playerId: 'e2e-5', played: 3, wins: 1, diff: -18 },
-    { playerId: 'e2e-6', played: 3, wins: 0, diff: -35 },
-  ],
-}
+// Game-day board seed (TASK-33 / TASK-37): two casual game days, newest first,
+// each ranked by net point differential (strongest first). Two days let the
+// public home's paging arrows be exercised.
+const E2E_GAME_DAY_BOARDS: GameDayBoard[] = [
+  {
+    sessionId: 'e2e-day-2',
+    playedAt: '2026-07-10T18:00:00Z',
+    standings: [
+      { playerId: 'e2e-1', played: 3, wins: 3, diff: 34 },
+      { playerId: 'e2e-2', played: 3, wins: 2, diff: 17 },
+      { playerId: 'e2e-3', played: 3, wins: 2, diff: 8 },
+      { playerId: 'e2e-4', played: 3, wins: 1, diff: -6 },
+      { playerId: 'e2e-5', played: 3, wins: 1, diff: -18 },
+      { playerId: 'e2e-6', played: 3, wins: 0, diff: -35 },
+    ],
+  },
+  {
+    sessionId: 'e2e-day-1',
+    playedAt: '2026-07-03T18:00:00Z',
+    standings: [
+      { playerId: 'e2e-3', played: 2, wins: 2, diff: 21 },
+      { playerId: 'e2e-5', played: 2, wins: 1, diff: 4 },
+      { playerId: 'e2e-2', played: 2, wins: 1, diff: -3 },
+      { playerId: 'e2e-8', played: 2, wins: 0, diff: -22 },
+    ],
+  },
+]
 
 // Fixed-pairs tournament board seed (E11) — Glicko-rated, like the doubles board.
 const E2E_TOURNAMENT_BOARD: RatedPair[] = [

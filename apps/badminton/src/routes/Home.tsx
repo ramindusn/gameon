@@ -7,7 +7,7 @@ import { roleHome } from '../auth/roleHome'
 import { AdminLogin } from '../auth/AdminLogin'
 import { MatchmakerLogin } from '../auth/MatchmakerLogin'
 import {
-  useGameDayBoard,
+  useGameDayBoards,
   usePairBoard,
   usePlayerBoard,
   usePlayerNames,
@@ -32,7 +32,7 @@ export function Home() {
       <PublicNav />
       <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 sm:px-6">
         <Hero />
-        <LatestGameDay />
+        <GameDayRank />
         <RankingPreview />
       </main>
       <Footer />
@@ -95,34 +95,94 @@ function whenLabel(iso: string): string {
   return `${datePart}, ${time}`
 }
 
-// ---- Latest Game Day ------------------------------------------------------
+// ---- Game Day Rank --------------------------------------------------------
 
 /** "+38" / "-12" / "0" — a signed net point differential. */
 const fmtDiff = (n: number) => (n > 0 ? `+${n}` : String(n))
 
+/** A small ‹ / › paging control for the game-day carousel. */
+function ArrowButton({
+  dir,
+  disabled,
+  onClick,
+  testid,
+}: {
+  dir: 'prev' | 'next'
+  disabled: boolean
+  onClick: () => void
+  testid: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testid}
+      aria-label={dir === 'next' ? 'Older game day' : 'Newer game day'}
+      className="grid h-8 w-8 place-items-center rounded-lg border border-line text-fg-muted transition-colors hover:border-accent hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
+    >
+      {dir === 'next' ? '›' : '‹'}
+    </button>
+  )
+}
+
 /**
- * Standings scoped to the most recent casual game day, ranked by net point
- * differential. Persists until a newer game day produces results, then rolls
- * over (TASK-33). Hidden until the first game day has been scored.
+ * Game Day Rank (TASK-33 / TASK-37): the standings for one casual game day,
+ * ranked by net point differential. The latest day shows first; the ›/‹ arrows
+ * page back through older days and forward toward the latest. The card links to
+ * that game day's detail page (rank + full score history). Hidden until the
+ * first game day has been scored.
  */
-function LatestGameDay() {
-  const { data, isLoading } = useGameDayBoard()
+function GameDayRank() {
+  const { data, isLoading } = useGameDayBoards()
   const nameOf = usePlayerNames()
+  const [index, setIndex] = useState(0)
+
+  const boards = data ?? []
+  const board = boards[index]
   const rows = useMemo(() => {
-    return (data?.standings ?? [])
+    return (board?.standings ?? [])
       .map((s) => ({ ...s, name: nameOf(s.playerId) }))
       .sort((a, b) => b.diff - a.diff || a.name.localeCompare(b.name))
-  }, [data, nameOf])
+  }, [board, nameOf])
 
-  if (isLoading || !data || rows.length === 0) return null
+  if (isLoading || boards.length === 0 || !board) return null
+
+  const canNewer = index > 0 // ‹ toward the latest
+  const canOlder = index < boards.length - 1 // › back in time
 
   return (
     <Section
-      title="Latest Game Day"
+      title="Game Day Rank"
       icon="trophy"
-      action={<span className="text-sm font-medium text-fg-muted">{whenLabel(data.playedAt)}</span>}
+      action={
+        <div className="flex items-center gap-2">
+          <ArrowButton
+            dir="prev"
+            disabled={!canNewer}
+            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            testid="game-day-newer"
+          />
+          <span
+            className="min-w-[6.5rem] text-center text-sm font-medium text-fg-muted"
+            data-testid="game-day-date"
+          >
+            {whenLabel(board.playedAt)}
+          </span>
+          <ArrowButton
+            dir="next"
+            disabled={!canOlder}
+            onClick={() => setIndex((i) => Math.min(boards.length - 1, i + 1))}
+            testid="game-day-older"
+          />
+        </div>
+      }
     >
-      <Card icon={<Icon name="ranking" />} title="Points differential">
+      <Link
+        to={`/game-days/${board.sessionId}`}
+        className="block rounded-2xl border border-line bg-surface p-5 shadow-sm transition-colors hover:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent sm:p-6"
+        data-testid="game-day-card"
+      >
         <table className="w-full text-sm" data-testid="game-day-board">
           <thead>
             <tr className="border-b border-line text-left text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
@@ -137,9 +197,7 @@ function LatestGameDay() {
                 <td className="py-3">
                   <RankBadge n={i + 1} />
                 </td>
-                <td className="py-3 font-medium text-fg">
-                  <PlayerLink id={r.playerId} nameOf={nameOf} />
-                </td>
+                <td className="py-3 font-medium text-fg">{r.name}</td>
                 <td
                   className={cx(
                     'py-3 text-right font-display font-bold tabular-nums',
@@ -152,7 +210,10 @@ function LatestGameDay() {
             ))}
           </tbody>
         </table>
-      </Card>
+        <div className="mt-3 text-right text-sm font-medium text-accent-strong">
+          View game day scores →
+        </div>
+      </Link>
     </Section>
   )
 }
