@@ -1,11 +1,11 @@
 ---
 id: TASK-33
 title: Per-game-day leaderboard shown on dashboard until the next game day
-status: In Progress
+status: Done
 assignee:
   - '@ramindusn'
 created_date: '2026-07-09 07:06'
-updated_date: '2026-07-11 16:18'
+updated_date: '2026-07-11 16:19'
 labels:
   - feature
   - ranking

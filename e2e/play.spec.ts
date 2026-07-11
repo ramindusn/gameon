@@ -164,42 +164,6 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
   await expect(page).toHaveURL(/\/leaderboard$/)
 })
 
-test('public home surfaces scheduled matches and recent results', async ({ page }) => {
-  // Create a live game day (1 round, 8 players → 2 courts) with a future date.
-  await page.goto('/generate')
-  await page.getByTestId('rounds-input').fill('1')
-  await page.getByTestId('generate-button').click()
-  await expect(page.getByTestId('draw-result')).toBeVisible()
-  await page.getByTestId('game-day-datetime').fill('2030-01-01T18:30')
-  await page.getByTestId('create-game-day').click()
-  await expect(page).toHaveURL(/\/play\/[^/]+$/)
-  const sessionUrl = page.url()
-
-  // The public home lists the two unscored courts under Scheduled Matches, and
-  // nothing under Recent Results yet.
-  await page.goto('/')
-  await expect(page.getByText('Scheduled Matches')).toBeVisible()
-  await expect(page.locator('[data-testid^="scheduled-"]')).toHaveCount(2)
-  await expect(page.getByText('Recent Results')).toHaveCount(0)
-
-  // Score one court back in the play view.
-  await page.goto(sessionUrl)
-  const court = page.locator('[data-testid^="court-"]').first()
-  await court.locator('[data-testid^="score-"][data-testid$="-a"]').fill('21')
-  await court.locator('[data-testid^="score-"][data-testid$="-b"]').fill('17')
-  await court.locator('[data-testid^="save-score-"]').click()
-  await expect(page.getByText(/1 \/ 2 recorded/)).toBeVisible()
-
-  // Home now shows one scheduled match left and the played one under Recent Results.
-  await page.goto('/')
-  await expect(page.locator('[data-testid^="scheduled-"]')).toHaveCount(1)
-  await expect(page.getByText('Recent Results')).toBeVisible()
-  const result = page.locator('[data-testid^="result-"]')
-  await expect(result).toHaveCount(1)
-  await expect(result).toContainText('21')
-  await expect(result).toContainText('Winner')
-})
-
 test('signed-out visitor cannot reach /play or a session', async ({ page }) => {
   await page.evaluate(() => sessionStorage.clear())
 

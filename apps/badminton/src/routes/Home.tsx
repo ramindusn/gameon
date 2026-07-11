@@ -15,13 +15,11 @@ import {
 } from '../ranking/useRanking'
 import { BoardState } from '../ranking/Leaderboard'
 import { SearchBox } from '../search/SearchBox'
-import { useRecentResults, useScheduledMatches } from '../play/useMatchPlay'
-import type { RecentResult, ScheduledMatch } from '../play/api'
 
 // Public, logged-out home (TASK-9.1 / 9.2 / 9.5). Top bar with the two login
-// buttons, hero, then Scheduled Matches → Recent Results → rankings. When no
-// game days exist the match sections hide and only the leaderboard shows
-// (TASK-9.2); the layout follows the GameOn mockup (TASK-9.5).
+// buttons, hero, then the latest game day's standings and the rankings. The
+// Scheduled Matches / Recent Results feeds were removed to keep the public home
+// focused (too much detail); the layout follows the GameOn mockup (TASK-9.5).
 export function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="home">
@@ -34,8 +32,6 @@ export function Home() {
       <PublicNav />
       <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 sm:px-6">
         <Hero />
-        <ScheduledMatches />
-        <RecentResults />
         <LatestGameDay />
         <RankingPreview />
       </main>
@@ -47,8 +43,6 @@ export function Home() {
 // ---- shared bits ----------------------------------------------------------
 
 const PREVIEW_LIMIT = 5
-const SCHEDULED_LIMIT = 6
-const RESULTS_LIMIT = 5
 
 /** A player name that links to their public profile (plain text when unknown). */
 function PlayerLink({ id, nameOf }: { id: string | null; nameOf: NameOf }) {
@@ -99,169 +93,6 @@ function whenLabel(iso: string): string {
   if (!hasTime) return datePart
   const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   return `${datePart}, ${time}`
-}
-
-/** A compact "x minutes ago" label, falling back to a date for older results. */
-function timeAgo(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const sec = Math.floor((Date.now() - d.getTime()) / 1000)
-  if (sec < 60) return 'just now'
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min} min${min === 1 ? '' : 's'} ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} hour${hr === 1 ? '' : 's'} ago`
-  const day = Math.floor(hr / 24)
-  if (day < 7) return `${day} day${day === 1 ? '' : 's'} ago`
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-}
-
-const pairKey = (a: string, b: string) => [a, b].sort().join('|')
-
-/**
- * The partnership's own doubles rating, or null when the pair has never played
- * together (no row on the pair board) — in that case the home shows no rating
- * rather than inventing one from the players' singles standings.
- */
-function useSideRating() {
-  const pairs = usePairBoard()
-  return useMemo(() => {
-    const byPair = new Map<string, number>()
-    for (const p of pairs.data ?? []) byPair.set(pairKey(p.player1Id, p.player2Id), p.rating)
-    return (a: string | null, b: string | null): number | null => {
-      if (!a || !b) return null
-      return byPair.get(pairKey(a, b)) ?? null
-    }
-  }, [pairs.data])
-}
-
-// ---- Scheduled Matches ----------------------------------------------------
-
-function ScheduledMatches() {
-  const { data, isLoading } = useScheduledMatches(SCHEDULED_LIMIT)
-  const nameOf = usePlayerNames()
-  const sideRating = useSideRating()
-  const matches = data ?? []
-  if (isLoading || matches.length === 0) return null
-  return (
-    <Section title="Scheduled Matches" icon="calendar">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {matches.map((m) => (
-          <MatchCard key={m.id} match={m} nameOf={nameOf} sideRating={sideRating} />
-        ))}
-      </div>
-    </Section>
-  )
-}
-
-function MatchCard({
-  match,
-  nameOf,
-  sideRating,
-}: {
-  match: ScheduledMatch
-  nameOf: NameOf
-  sideRating: (a: string | null, b: string | null) => number | null
-}) {
-  const ra = sideRating(match.teamA[0], match.teamA[1])
-  const rb = sideRating(match.teamB[0], match.teamB[1])
-  return (
-    <div
-      className="rounded-2xl border border-line bg-surface p-5"
-      data-testid={`scheduled-${match.id}`}
-    >
-      <div className="mb-5 flex items-start justify-between gap-2">
-        <span className="rounded-full bg-accent/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent-strong">
-          Doubles
-        </span>
-        <div className="text-right">
-          <p className="text-xs text-fg-muted">Court #{match.court}</p>
-          <p className="text-sm font-semibold text-accent-strong">{whenLabel(match.playedAt)}</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1 text-center">
-          <p className="break-words font-display text-sm font-bold leading-tight text-fg">
-            <PairNames ids={match.teamA} nameOf={nameOf} />
-          </p>
-          {ra != null && <p className="text-xs text-fg-muted">Rating: {fmtRating(ra)}</p>}
-        </div>
-        <span className="text-xs font-medium uppercase text-fg-subtle">vs</span>
-        <div className="min-w-0 flex-1 text-center">
-          <p className="break-words font-display text-sm font-bold leading-tight text-fg">
-            <PairNames ids={match.teamB} nameOf={nameOf} />
-          </p>
-          {rb != null && <p className="text-xs text-fg-muted">Rating: {fmtRating(rb)}</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ---- Recent Results -------------------------------------------------------
-
-function RecentResults() {
-  const { data, isLoading } = useRecentResults(RESULTS_LIMIT)
-  const nameOf = usePlayerNames()
-  const results = data ?? []
-  if (isLoading || results.length === 0) return null
-  return (
-    <Section title="Recent Results" icon="finish">
-      <div className="space-y-3">
-        {results.map((r) => (
-          <ResultRow key={r.id} result={r} nameOf={nameOf} />
-        ))}
-      </div>
-    </Section>
-  )
-}
-
-function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf }) {
-  const aWon = result.winner === 'a'
-  const bWon = result.winner === 'b'
-  return (
-    <div
-      className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-4 sm:px-6"
-      data-testid={`result-${result.id}`}
-    >
-      <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-6">
-        <div className="flex min-w-0 flex-col justify-center text-center">
-          <p
-            className={cx(
-              'break-words font-display text-sm font-bold leading-tight',
-              aWon ? 'text-accent-strong' : 'text-fg',
-            )}
-          >
-            <PairNames ids={result.teamA} nameOf={nameOf} />
-            {aWon && <span className="sr-only"> — Winner</span>}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 self-center font-display tabular-nums">
-          <span className={cx('text-2xl font-extrabold', aWon ? 'text-fg' : 'text-fg-subtle')}>
-            {result.scoreA}
-          </span>
-          <span className="text-fg-subtle">-</span>
-          <span className={cx('text-2xl font-extrabold', bWon ? 'text-fg' : 'text-fg-subtle')}>
-            {result.scoreB}
-          </span>
-        </div>
-        <div className="flex min-w-0 flex-col justify-center text-center">
-          <p
-            className={cx(
-              'break-words font-display text-sm font-bold leading-tight',
-              bWon ? 'text-accent-strong' : 'text-fg',
-            )}
-          >
-            <PairNames ids={result.teamB} nameOf={nameOf} />
-            {bWon && <span className="sr-only"> — Winner</span>}
-          </p>
-        </div>
-      </div>
-      <span className="hidden w-20 shrink-0 text-right text-xs text-fg-subtle sm:block">
-        {timeAgo(result.playedAt)}
-      </span>
-    </div>
-  )
 }
 
 // ---- Latest Game Day ------------------------------------------------------
