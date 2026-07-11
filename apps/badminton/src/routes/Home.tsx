@@ -7,6 +7,7 @@ import { roleHome } from '../auth/roleHome'
 import { AdminLogin } from '../auth/AdminLogin'
 import { MatchmakerLogin } from '../auth/MatchmakerLogin'
 import {
+  useGameDayBoards,
   usePairBoard,
   usePlayerBoard,
   usePlayerNames,
@@ -14,13 +15,11 @@ import {
 } from '../ranking/useRanking'
 import { BoardState } from '../ranking/Leaderboard'
 import { SearchBox } from '../search/SearchBox'
-import { useRecentResults, useScheduledMatches } from '../play/useMatchPlay'
-import type { RecentResult, ScheduledMatch } from '../play/api'
 
 // Public, logged-out home (TASK-9.1 / 9.2 / 9.5). Top bar with the two login
-// buttons, hero, then Scheduled Matches → Recent Results → rankings. When no
-// game days exist the match sections hide and only the leaderboard shows
-// (TASK-9.2); the layout follows the GameOn mockup (TASK-9.5).
+// buttons, hero, then the latest game day's standings and the rankings. The
+// Scheduled Matches / Recent Results feeds were removed to keep the public home
+// focused (too much detail); the layout follows the GameOn mockup (TASK-9.5).
 export function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="home">
@@ -33,8 +32,7 @@ export function Home() {
       <PublicNav />
       <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 sm:px-6">
         <Hero />
-        <ScheduledMatches />
-        <RecentResults />
+        <GameDayRank />
         <RankingPreview />
       </main>
       <Footer />
@@ -45,8 +43,6 @@ export function Home() {
 // ---- shared bits ----------------------------------------------------------
 
 const PREVIEW_LIMIT = 5
-const SCHEDULED_LIMIT = 6
-const RESULTS_LIMIT = 5
 
 /** A player name that links to their public profile (plain text when unknown). */
 function PlayerLink({ id, nameOf }: { id: string | null; nameOf: NameOf }) {
@@ -99,166 +95,126 @@ function whenLabel(iso: string): string {
   return `${datePart}, ${time}`
 }
 
-/** A compact "x minutes ago" label, falling back to a date for older results. */
-function timeAgo(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const sec = Math.floor((Date.now() - d.getTime()) / 1000)
-  if (sec < 60) return 'just now'
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min} min${min === 1 ? '' : 's'} ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} hour${hr === 1 ? '' : 's'} ago`
-  const day = Math.floor(hr / 24)
-  if (day < 7) return `${day} day${day === 1 ? '' : 's'} ago`
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-}
+// ---- Game Day Rank --------------------------------------------------------
 
-const pairKey = (a: string, b: string) => [a, b].sort().join('|')
+/** "+38" / "-12" / "0" — a signed net point differential. */
+const fmtDiff = (n: number) => (n > 0 ? `+${n}` : String(n))
+
+/** A small ‹ / › paging control for the game-day carousel. */
+function ArrowButton({
+  dir,
+  disabled,
+  onClick,
+  testid,
+}: {
+  dir: 'prev' | 'next'
+  disabled: boolean
+  onClick: () => void
+  testid: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testid}
+      aria-label={dir === 'next' ? 'Older game day' : 'Newer game day'}
+      className="grid h-8 w-8 place-items-center rounded-lg border border-line text-fg-muted transition-colors hover:border-accent hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
+    >
+      {dir === 'next' ? '›' : '‹'}
+    </button>
+  )
+}
 
 /**
- * The partnership's own doubles rating, or null when the pair has never played
- * together (no row on the pair board) — in that case the home shows no rating
- * rather than inventing one from the players' singles standings.
+ * Game Day Rank (TASK-33 / TASK-37): the standings for one casual game day,
+ * ranked by net point differential. The latest day shows first; the ›/‹ arrows
+ * page back through older days and forward toward the latest. The card links to
+ * that game day's detail page (rank + full score history). Hidden until the
+ * first game day has been scored.
  */
-function useSideRating() {
-  const pairs = usePairBoard()
-  return useMemo(() => {
-    const byPair = new Map<string, number>()
-    for (const p of pairs.data ?? []) byPair.set(pairKey(p.player1Id, p.player2Id), p.rating)
-    return (a: string | null, b: string | null): number | null => {
-      if (!a || !b) return null
-      return byPair.get(pairKey(a, b)) ?? null
-    }
-  }, [pairs.data])
-}
-
-// ---- Scheduled Matches ----------------------------------------------------
-
-function ScheduledMatches() {
-  const { data, isLoading } = useScheduledMatches(SCHEDULED_LIMIT)
+function GameDayRank() {
+  const { data, isLoading } = useGameDayBoards()
   const nameOf = usePlayerNames()
-  const sideRating = useSideRating()
-  const matches = data ?? []
-  if (isLoading || matches.length === 0) return null
-  return (
-    <Section title="Scheduled Matches" icon="calendar">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {matches.map((m) => (
-          <MatchCard key={m.id} match={m} nameOf={nameOf} sideRating={sideRating} />
-        ))}
-      </div>
-    </Section>
-  )
-}
+  const [index, setIndex] = useState(0)
 
-function MatchCard({
-  match,
-  nameOf,
-  sideRating,
-}: {
-  match: ScheduledMatch
-  nameOf: NameOf
-  sideRating: (a: string | null, b: string | null) => number | null
-}) {
-  const ra = sideRating(match.teamA[0], match.teamA[1])
-  const rb = sideRating(match.teamB[0], match.teamB[1])
-  return (
-    <div
-      className="rounded-2xl border border-line bg-surface p-5"
-      data-testid={`scheduled-${match.id}`}
-    >
-      <div className="mb-5 flex items-start justify-between gap-2">
-        <span className="rounded-full bg-accent/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent-strong">
-          Doubles
-        </span>
-        <div className="text-right">
-          <p className="text-xs text-fg-muted">Court #{match.court}</p>
-          <p className="text-sm font-semibold text-accent-strong">{whenLabel(match.playedAt)}</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1 text-center">
-          <p className="break-words font-display text-sm font-bold leading-tight text-fg">
-            <PairNames ids={match.teamA} nameOf={nameOf} />
-          </p>
-          {ra != null && <p className="text-xs text-fg-muted">Rating: {fmtRating(ra)}</p>}
-        </div>
-        <span className="text-xs font-medium uppercase text-fg-subtle">vs</span>
-        <div className="min-w-0 flex-1 text-center">
-          <p className="break-words font-display text-sm font-bold leading-tight text-fg">
-            <PairNames ids={match.teamB} nameOf={nameOf} />
-          </p>
-          {rb != null && <p className="text-xs text-fg-muted">Rating: {fmtRating(rb)}</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
+  const boards = data ?? []
+  const board = boards[index]
+  const rows = useMemo(() => {
+    return (board?.standings ?? [])
+      .map((s) => ({ ...s, name: nameOf(s.playerId) }))
+      .sort((a, b) => b.diff - a.diff || a.name.localeCompare(b.name))
+  }, [board, nameOf])
 
-// ---- Recent Results -------------------------------------------------------
+  if (isLoading || boards.length === 0 || !board) return null
 
-function RecentResults() {
-  const { data, isLoading } = useRecentResults(RESULTS_LIMIT)
-  const nameOf = usePlayerNames()
-  const results = data ?? []
-  if (isLoading || results.length === 0) return null
-  return (
-    <Section title="Recent Results" icon="finish">
-      <div className="space-y-3">
-        {results.map((r) => (
-          <ResultRow key={r.id} result={r} nameOf={nameOf} />
-        ))}
-      </div>
-    </Section>
-  )
-}
+  const canNewer = index > 0 // ‹ toward the latest
+  const canOlder = index < boards.length - 1 // › back in time
 
-function ResultRow({ result, nameOf }: { result: RecentResult; nameOf: NameOf }) {
-  const aWon = result.winner === 'a'
-  const bWon = result.winner === 'b'
   return (
-    <div
-      className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-4 sm:px-6"
-      data-testid={`result-${result.id}`}
-    >
-      <div className="grid flex-1 grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-6">
-        <div className="flex min-w-0 flex-col justify-center text-center">
-          <p
-            className={cx(
-              'break-words font-display text-sm font-bold leading-tight',
-              aWon ? 'text-accent-strong' : 'text-fg',
-            )}
+    <Section
+      title="Game Day Rank"
+      icon="trophy"
+      action={
+        <div className="flex items-center gap-2">
+          <ArrowButton
+            dir="prev"
+            disabled={!canNewer}
+            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            testid="game-day-newer"
+          />
+          <span
+            className="min-w-[6.5rem] text-center text-sm font-medium text-fg-muted"
+            data-testid="game-day-date"
           >
-            <PairNames ids={result.teamA} nameOf={nameOf} />
-            {aWon && <span className="sr-only"> — Winner</span>}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 self-center font-display tabular-nums">
-          <span className={cx('text-2xl font-extrabold', aWon ? 'text-fg' : 'text-fg-subtle')}>
-            {result.scoreA}
+            {whenLabel(board.playedAt)}
           </span>
-          <span className="text-fg-subtle">-</span>
-          <span className={cx('text-2xl font-extrabold', bWon ? 'text-fg' : 'text-fg-subtle')}>
-            {result.scoreB}
-          </span>
+          <ArrowButton
+            dir="next"
+            disabled={!canOlder}
+            onClick={() => setIndex((i) => Math.min(boards.length - 1, i + 1))}
+            testid="game-day-older"
+          />
         </div>
-        <div className="flex min-w-0 flex-col justify-center text-center">
-          <p
-            className={cx(
-              'break-words font-display text-sm font-bold leading-tight',
-              bWon ? 'text-accent-strong' : 'text-fg',
-            )}
-          >
-            <PairNames ids={result.teamB} nameOf={nameOf} />
-            {bWon && <span className="sr-only"> — Winner</span>}
-          </p>
+      }
+    >
+      <Link
+        to={`/game-days/${board.sessionId}`}
+        className="block rounded-2xl border border-line bg-surface p-5 shadow-sm transition-colors hover:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent sm:p-6"
+        data-testid="game-day-card"
+      >
+        <table className="w-full text-sm" data-testid="game-day-board">
+          <thead>
+            <tr className="border-b border-line text-left text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+              <th className="w-14 py-2 font-medium">Rank</th>
+              <th className="py-2 font-medium">Player Name</th>
+              <th className="py-2 text-right font-medium">+/-</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {rows.map((r, i) => (
+              <tr key={r.playerId} data-testid={`game-day-row-${r.playerId}`}>
+                <td className="py-3">
+                  <RankBadge n={i + 1} />
+                </td>
+                <td className="py-3 font-medium text-fg">{r.name}</td>
+                <td
+                  className={cx(
+                    'py-3 text-right font-display font-bold tabular-nums',
+                    r.diff > 0 ? 'text-accent-strong' : r.diff < 0 ? 'text-fg-subtle' : 'text-fg',
+                  )}
+                >
+                  {fmtDiff(r.diff)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="mt-3 text-right text-sm font-medium text-accent-strong">
+          View game day scores →
         </div>
-      </div>
-      <span className="hidden w-20 shrink-0 text-right text-xs text-fg-subtle sm:block">
-        {timeAgo(result.playedAt)}
-      </span>
-    </div>
+      </Link>
+    </Section>
   )
 }
 

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildFormMap,
+  buildGameDayBoard,
   mapPairRatingRow,
   mapPlayerRatingRow,
   type FormResultRow,
+  type GameDayResultRow,
 } from './api'
 
 describe('mapPlayerRatingRow', () => {
@@ -95,5 +97,54 @@ describe('buildFormMap', () => {
     ])
     expect(form.p1).toEqual(['W'])
     expect(Object.keys(form)).not.toContain('null')
+  })
+})
+
+describe('buildGameDayBoard', () => {
+  const row = (
+    a: [string | null, string | null],
+    b: [string | null, string | null],
+    scoreA: number,
+    scoreB: number,
+  ): GameDayResultRow => ({
+    teamA: a,
+    teamB: b,
+    scoreA,
+    scoreB,
+    winner: scoreA > scoreB ? 'a' : 'b',
+  })
+
+  it('credits each player their team point differential and a win/loss', () => {
+    const board = buildGameDayBoard([row(['p1', 'p2'], ['p3', 'p4'], 21, 15)])
+    expect(board).toEqual([
+      { playerId: 'p1', played: 1, wins: 1, diff: 6 },
+      { playerId: 'p2', played: 1, wins: 1, diff: 6 },
+      { playerId: 'p3', played: 1, wins: 0, diff: -6 },
+      { playerId: 'p4', played: 1, wins: 0, diff: -6 },
+    ])
+  })
+
+  it('sums a player’s differential across their matches on the day', () => {
+    const board = buildGameDayBoard([
+      row(['p1', 'p2'], ['p3', 'p4'], 21, 15), // p1 +6
+      row(['p1', 'p5'], ['p6', 'p7'], 18, 21), // p1 -3
+    ])
+    const p1 = board.find((s) => s.playerId === 'p1')
+    expect(p1).toEqual({ playerId: 'p1', played: 2, wins: 1, diff: 3 })
+  })
+
+  it('ranks by net differential, breaking ties by playerId', () => {
+    const board = buildGameDayBoard([
+      row(['pB', 'pA'], ['pC', 'pD'], 21, 10), // winners +11
+      row(['pC', 'pD'], ['pE', 'pF'], 21, 19), // pC/pD +2 → net -9
+    ])
+    // pA & pB (+11) lead; tie broken pA before pB by id.
+    expect(board.map((s) => s.playerId).slice(0, 2)).toEqual(['pA', 'pB'])
+    expect(board[0].diff).toBe(11)
+  })
+
+  it('ignores null player slots', () => {
+    const board = buildGameDayBoard([row(['p1', null], ['p3', 'p4'], 21, 15)])
+    expect(board.map((s) => s.playerId)).toEqual(['p1', 'p3', 'p4'])
   })
 })
