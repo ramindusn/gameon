@@ -31,6 +31,7 @@ function session(id: string, status: 'live' | 'finished'): MatchSession {
     mode: 'open',
     kind: 'casual',
     rounds: 5,
+    hidden: false,
     playedAt: '2026-06-22T18:00:00Z',
     createdAt: '2026-06-22T18:00:00Z',
   }

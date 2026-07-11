@@ -8,6 +8,7 @@ import { PlayPage } from './routes/PlayPage'
 import { PlayersPage } from './routes/PlayersPage'
 import { PlayerProfilePage } from './routes/PlayerProfilePage'
 import { GameDayPage } from './routes/GameDayPage'
+import { AllGameDaysPage } from './routes/AllGameDaysPage'
 import { LeaderboardPage } from './routes/LeaderboardPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 
@@ -37,6 +38,7 @@ export function App() {
 
             <Route element={<ProtectedRoute allow={['admin', 'matchmaker']} />}>
               <Route path="/players" element={<PlayersPage />} />
+              <Route path="/game-days" element={<AllGameDaysPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

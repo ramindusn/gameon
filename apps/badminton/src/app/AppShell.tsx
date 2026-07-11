@@ -11,11 +11,13 @@ const NAV_BY_ROLE: Record<'admin' | 'matchmaker', NavItem[]> = {
   admin: [
     { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { to: '/players', label: 'Players', icon: 'players' },
+    { to: '/game-days', label: 'Game Days', icon: 'schedule' },
   ],
   matchmaker: [
     { to: '/matchmaker', label: 'Home', icon: 'home' },
     { to: '/generate', label: 'Generate', icon: 'generate' },
     { to: '/players', label: 'Players', icon: 'players' },
+    { to: '/game-days', label: 'Game Days', icon: 'schedule' },
   ],
 }
 

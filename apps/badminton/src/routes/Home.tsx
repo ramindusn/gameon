@@ -75,33 +75,89 @@ type NameOf = (id: string | null) => string
 
 const fmtRating = (n: number) => Math.round(n).toLocaleString('en-US')
 
-/** A friendly absolute label for a game day's date/time. */
-function whenLabel(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
-  const days = Math.round((startOf(d) - startOf(new Date())) / 86_400_000)
-  const datePart =
-    days === 0
-      ? 'Today'
-      : days === 1
-        ? 'Tomorrow'
-        : days === -1
-          ? 'Yesterday'
-          : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-  const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0
-  if (!hasTime) return datePart
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  return `${datePart}, ${time}`
-}
-
-// ---- Game Day Rank --------------------------------------------------------
+// ---- Game Day Podium ------------------------------------------------------
 
 /** "+38" / "-12" / "0" — a signed net point differential. */
 const fmtDiff = (n: number) => (n > 0 ? `+${n}` : String(n))
 
-/** A small ‹ / › paging control for the game-day carousel. */
-function ArrowButton({
+/** Accent for a positive diff, muted for negative, plain for zero. */
+const diffColor = (n: number) =>
+  n > 0 ? 'text-accent-strong' : n < 0 ? 'text-fg-subtle' : 'text-fg'
+
+interface StandingRow {
+  playerId: string
+  name: string
+  diff: number
+}
+
+/** One podium column: player + diff above a medal pedestal (1st is tallest). */
+function PodiumSpot({ row, place }: { row: StandingRow; place: 1 | 2 | 3 }) {
+  const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : '🥉'
+  const height = place === 1 ? 'h-20 sm:h-24' : place === 2 ? 'h-14 sm:h-16' : 'h-11 sm:h-12'
+  return (
+    <div
+      className="flex w-full max-w-[9rem] flex-1 flex-col items-center"
+      data-testid={`podium-${place}`}
+    >
+      <span className="mb-0.5 break-words text-center text-sm font-semibold leading-tight text-fg">
+        {row.name}
+      </span>
+      <span
+        className={cx('mb-2 font-display text-sm font-bold tabular-nums', diffColor(row.diff))}
+      >
+        {fmtDiff(row.diff)}
+      </span>
+      <div
+        className={cx(
+          'flex w-full items-start justify-center rounded-t-xl border pt-2',
+          height,
+          place === 1 ? 'border-accent bg-accent/15' : 'border-line bg-surface-muted',
+        )}
+      >
+        <span aria-hidden className="text-xl leading-none">
+          {medal}
+        </span>
+        <span className="sr-only">Rank {place}</span>
+      </div>
+    </div>
+  )
+}
+
+/** Top-3 podium (2nd · 1st · 3rd), gracefully handling fewer than three. */
+function Podium({ rows }: { rows: StandingRow[] }) {
+  const top = rows.slice(0, 3)
+  // Left-to-right the podium reads 2nd, 1st, 3rd so the winner sits centre.
+  const slots: { row?: StandingRow; place: 1 | 2 | 3 }[] = [
+    { row: top[1], place: 2 },
+    { row: top[0], place: 1 },
+    { row: top[2], place: 3 },
+  ]
+  return (
+    <div className="flex items-end justify-center gap-3 sm:gap-5">
+      {slots.map((s, i) =>
+        s.row ? (
+          <PodiumSpot key={s.row.playerId} row={s.row} place={s.place} />
+        ) : (
+          <div key={`empty-${i}`} className="w-full max-w-[9rem] flex-1" />
+        ),
+      )}
+    </div>
+  )
+}
+
+/** A compact date label for the pager (no time): "Today" / "8 Jul". */
+function shortDay(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const days = Math.round((startOf(d) - startOf(new Date())) / 86_400_000)
+  if (days === 0) return 'Today'
+  if (days === -1) return 'Yesterday'
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+/** One ‹ / › segment inside the pager pill. */
+function PagerArrow({
   dir,
   disabled,
   onClick,
@@ -119,15 +175,43 @@ function ArrowButton({
       disabled={disabled}
       data-testid={testid}
       aria-label={dir === 'next' ? 'Older game day' : 'Newer game day'}
-      className="grid h-8 w-8 place-items-center rounded-lg border border-line text-fg-muted transition-colors hover:border-accent hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
+      className="grid h-7 w-7 place-items-center rounded-full text-lg font-bold leading-none text-accent-strong transition-colors hover:bg-accent/20 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent"
     >
       {dir === 'next' ? '›' : '‹'}
     </button>
   )
 }
 
+/** The date pager: ‹ 8 Jul › as one cohesive control. */
+function GameDayPager({
+  label,
+  canNewer,
+  canOlder,
+  onNewer,
+  onOlder,
+}: {
+  label: string
+  canNewer: boolean
+  canOlder: boolean
+  onNewer: () => void
+  onOlder: () => void
+}) {
+  return (
+    <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-surface-muted p-1">
+      <PagerArrow dir="prev" disabled={!canNewer} onClick={onNewer} testid="game-day-newer" />
+      <span
+        className="min-w-[3.5rem] whitespace-nowrap px-1 text-center text-xs font-semibold tabular-nums text-fg"
+        data-testid="game-day-date"
+      >
+        {label}
+      </span>
+      <PagerArrow dir="next" disabled={!canOlder} onClick={onOlder} testid="game-day-older" />
+    </div>
+  )
+}
+
 /**
- * Game Day Rank (TASK-33 / TASK-37): the standings for one casual game day,
+ * Game Day Podium (TASK-33 / TASK-37): the standings for one casual game day,
  * ranked by net point differential. The latest day shows first; the ›/‹ arrows
  * page back through older days and forward toward the latest. The card links to
  * that game day's detail page (rank + full score history). Hidden until the
@@ -153,64 +237,48 @@ function GameDayRank() {
 
   return (
     <Section
-      title="Game Day Rank"
+      title="Game Day Podium"
       icon="trophy"
       action={
-        <div className="flex items-center gap-2">
-          <ArrowButton
-            dir="prev"
-            disabled={!canNewer}
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
-            testid="game-day-newer"
-          />
-          <span
-            className="min-w-[6.5rem] text-center text-sm font-medium text-fg-muted"
-            data-testid="game-day-date"
-          >
-            {whenLabel(board.playedAt)}
-          </span>
-          <ArrowButton
-            dir="next"
-            disabled={!canOlder}
-            onClick={() => setIndex((i) => Math.min(boards.length - 1, i + 1))}
-            testid="game-day-older"
-          />
-        </div>
+        <GameDayPager
+          label={shortDay(board.playedAt)}
+          canNewer={canNewer}
+          canOlder={canOlder}
+          onNewer={() => setIndex((i) => Math.max(0, i - 1))}
+          onOlder={() => setIndex((i) => Math.min(boards.length - 1, i + 1))}
+        />
       }
     >
       <Link
         to={`/game-days/${board.sessionId}`}
-        className="block rounded-2xl border border-line bg-surface p-5 shadow-sm transition-colors hover:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent sm:p-6"
+        className="block rounded-2xl border border-accent/40 bg-accent/5 p-5 shadow-sm transition-colors hover:border-accent focus:outline-none focus:ring-2 focus:ring-accent sm:p-6"
         data-testid="game-day-card"
       >
-        <table className="w-full text-sm" data-testid="game-day-board">
-          <thead>
-            <tr className="border-b border-line text-left text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
-              <th className="w-14 py-2 font-medium">Rank</th>
-              <th className="py-2 font-medium">Player Name</th>
-              <th className="py-2 text-right font-medium">+/-</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {rows.map((r, i) => (
-              <tr key={r.playerId} data-testid={`game-day-row-${r.playerId}`}>
-                <td className="py-3">
-                  <RankBadge n={i + 1} />
-                </td>
-                <td className="py-3 font-medium text-fg">{r.name}</td>
-                <td
-                  className={cx(
-                    'py-3 text-right font-display font-bold tabular-nums',
-                    r.diff > 0 ? 'text-accent-strong' : r.diff < 0 ? 'text-fg-subtle' : 'text-fg',
-                  )}
+        <div data-testid="game-day-board">
+          <Podium rows={rows} />
+          {rows.length > 3 && (
+            <ul className="mt-5 divide-y divide-line/70 border-t border-line/70">
+              {rows.slice(3).map((r, i) => (
+                <li
+                  key={r.playerId}
+                  data-testid={`game-day-row-${r.playerId}`}
+                  className="flex items-center gap-3 py-2 text-sm"
                 >
-                  {fmtDiff(r.diff)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="mt-3 text-right text-sm font-medium text-accent-strong">
+                  <span className="w-6 shrink-0 text-center text-xs font-medium text-fg-subtle">
+                    {i + 4}
+                  </span>
+                  <span className="flex-1 font-medium text-fg">{r.name}</span>
+                  <span
+                    className={cx('font-display font-bold tabular-nums', diffColor(r.diff))}
+                  >
+                    {fmtDiff(r.diff)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="mt-4 text-right text-sm font-medium text-accent-strong">
           View game day scores →
         </div>
       </Link>
@@ -488,9 +556,9 @@ function Section({
   return (
     <section className="mb-12">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-display text-xl font-bold">
+        <h2 className="flex min-w-0 items-center gap-2 font-display text-xl font-bold">
           <Icon name={icon} className="text-accent" />
-          {title}
+          <span className="truncate">{title}</span>
         </h2>
         {action}
       </div>

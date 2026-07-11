@@ -22,6 +22,7 @@ describe('mapSessionRow', () => {
       mode: 'mixed',
       kind: 'casual',
       rounds: 5,
+      hidden: false,
       createdAt: '2026-06-22T10:00:00Z',
     })
   })

@@ -14,6 +14,7 @@ import {
   e2eFeed,
   e2eSetScore,
   e2eSetStatus,
+  e2eSetHidden,
   e2eSetPlayedAt,
   e2eDelete,
   e2eUpdateLineup,
@@ -34,6 +35,8 @@ export interface MatchSession {
   mode: Mode
   kind: SessionKind
   rounds: number
+  /** Hidden from the public home's Game Day Podium (TASK-38). */
+  hidden: boolean
   /** The game-day date/time the matchmaker chose (editable). */
   playedAt: string
   createdAt: string
@@ -68,6 +71,7 @@ export const mapSessionRow = (r: {
   mode: string
   kind?: string | null
   rounds: number
+  hidden?: boolean | null
   played_at: string
   created_at: string
 }): MatchSession => ({
@@ -77,6 +81,7 @@ export const mapSessionRow = (r: {
   mode: r.mode as Mode,
   kind: (r.kind as SessionKind) ?? 'casual',
   rounds: r.rounds,
+  hidden: r.hidden ?? false,
   playedAt: r.played_at,
   createdAt: r.created_at,
 })
@@ -148,7 +153,7 @@ export function planToResultRows(
 
 // ---- data access ----------------------------------------------------------
 
-const SESSION_COLS = 'id, club_id, status, mode, kind, rounds, played_at, created_at'
+const SESSION_COLS = 'id, club_id, status, mode, kind, rounds, hidden, played_at, created_at'
 const RESULT_COLS =
   'id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, score_a, score_b, winner'
 
@@ -173,6 +178,7 @@ export async function createSessionFromPlan(
         mode,
         kind: 'casual',
         rounds: plan.rounds.length,
+        hidden: false,
         playedAt,
         createdAt: new Date().toISOString(),
       },
@@ -242,6 +248,7 @@ export async function createTournamentWithMatches(
         mode: 'open',
         kind: 'tournament',
         rounds,
+        hidden: false,
         playedAt,
         createdAt: new Date().toISOString(),
       },
@@ -420,6 +427,19 @@ export async function deleteMatch(resultId: string): Promise<void> {
       console.error('recompute-ratings failed', e)
     }
   }
+}
+
+/**
+ * Show/hide a game day on the public home's Game Day Podium (TASK-38). The
+ * matchmaker ticks "Don't show on home page" next to Finish game day.
+ */
+export async function setSessionHidden(id: string, hidden: boolean): Promise<void> {
+  if (isE2E()) return e2eSetHidden(id, hidden)
+  const { error } = await client()
+    .from('match_sessions')
+    .update({ hidden })
+    .eq('id', id)
+  if (error) throw error
 }
 
 /** Update a game day's date/time (the matchmaker can correct it any time). */

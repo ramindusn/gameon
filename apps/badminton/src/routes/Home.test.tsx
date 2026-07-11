@@ -45,14 +45,14 @@ describe('Home (TASK-9.5)', () => {
     renderHome()
     expect(screen.getAllByTestId('view-all-leaderboard').length).toBeGreaterThan(0)
     // The Scheduled Matches / Recent Results feeds were removed to declutter the
-    // public home; the Game Day Rank widget only appears once a day is scored.
+    // public home; the Game Day Podium widget only appears once a day is scored.
     expect(screen.queryByText('Scheduled Matches')).toBeNull()
     expect(screen.queryByText('Recent Results')).toBeNull()
-    expect(screen.queryByText('Game Day Rank')).toBeNull()
+    expect(screen.queryByText('Game Day Podium')).toBeNull()
     expect(screen.queryByTestId('game-day-board')).toBeNull()
   })
 
-  it('shows the latest game day ranked by point differential (TASK-33/37)', () => {
+  it('shows the latest game day as a podium + rest, ranked by diff (TASK-33/37)', () => {
     state.players = []
     state.pairs = []
     state.gameDays = [
@@ -70,20 +70,16 @@ describe('Home (TASK-9.5)', () => {
       },
     ]
     renderHome()
-    expect(screen.getByText('Game Day Rank')).toBeInTheDocument()
-    const board = screen.getByTestId('game-day-board')
-    expect(board).toHaveTextContent('+22')
-    expect(board).toHaveTextContent('-18')
-    // Row order: Siti (+22), Alex (+5), Ryan (+5, name tie-break), Maya (-18).
-    const order = Array.from(board.querySelectorAll('tbody tr')).map(
-      (tr) => tr.getAttribute('data-testid'),
-    )
-    expect(order).toEqual([
-      'game-day-row-p1',
-      'game-day-row-p3',
-      'game-day-row-p4',
-      'game-day-row-p2',
-    ])
+    expect(screen.getByText('Game Day Podium')).toBeInTheDocument()
+    // Podium top three: 1st Siti (+22), 2nd Alex (+5), 3rd Ryan (+5, name tie-break).
+    expect(screen.getByTestId('podium-1')).toHaveTextContent('Siti')
+    expect(screen.getByTestId('podium-1')).toHaveTextContent('+22')
+    expect(screen.getByTestId('podium-2')).toHaveTextContent('Alex')
+    expect(screen.getByTestId('podium-3')).toHaveTextContent('Ryan')
+    // The rest fall below the podium: Maya at rank 4 (-18).
+    const rest = screen.getByTestId('game-day-row-p2')
+    expect(rest).toHaveTextContent('Maya')
+    expect(rest).toHaveTextContent('-18')
     // The card links to that game day's detail page.
     expect(screen.getByTestId('game-day-card')).toHaveAttribute('href', '/game-days/s-latest')
   })
@@ -106,13 +102,15 @@ describe('Home (TASK-9.5)', () => {
     renderHome()
     // Latest is shown first; "newer" arrow is disabled at the start.
     expect(screen.getByTestId('game-day-card')).toHaveAttribute('href', '/game-days/s-latest')
+    expect(screen.getByTestId('podium-1')).toHaveTextContent('Siti')
     expect(screen.getByTestId('game-day-newer')).toBeDisabled()
     expect(screen.getByTestId('game-day-older')).toBeEnabled()
 
     // Right arrow → previous (older) game day.
     fireEvent.click(screen.getByTestId('game-day-older'))
     expect(screen.getByTestId('game-day-card')).toHaveAttribute('href', '/game-days/s-older')
-    expect(screen.getByTestId('game-day-board')).toHaveTextContent('-4')
+    expect(screen.getByTestId('podium-1')).toHaveTextContent('Maya')
+    expect(screen.getByTestId('podium-1')).toHaveTextContent('-4')
     // Now at the oldest: "older" disabled, "newer" enabled.
     expect(screen.getByTestId('game-day-older')).toBeDisabled()
     expect(screen.getByTestId('game-day-newer')).toBeEnabled()
