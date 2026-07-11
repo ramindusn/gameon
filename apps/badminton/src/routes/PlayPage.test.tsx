@@ -264,6 +264,40 @@ describe('PlayPage', () => {
     expect(opts).not.toContain('Player 9')
   })
 
+  it('shows who is resting a round and no label when nobody rests (TASK-31)', () => {
+    // Add a round-2 court with a fresh player (p9). Now p9 is a game-day player
+    // who sits out round 1, so round 1 lists a resting player; round 2 (only p9,
+    // p10, p11, p12 present, all booked) shows no resting label.
+    const extra: MatchResult = {
+      id: 'r3',
+      sessionId: 's1',
+      round: 2,
+      court: 1,
+      teamA: ['p9', 'p10'],
+      teamB: ['p11', 'p12'],
+      scoreA: null,
+      scoreB: null,
+      winner: null,
+    }
+    sessionData.results.push(extra)
+    renderPage()
+    // Round 1: p1–p8 play, p9–p12 rest.
+    const resting1 = screen.getByTestId('resting-1')
+    expect(resting1).toHaveTextContent('Resting:')
+    expect(resting1).toHaveTextContent('Player 9')
+    expect(resting1).toHaveTextContent('Player 12')
+    // Round 2: everyone present (only p9–p12 are game-day players once summed)…
+    // p1–p8 also play round 1, so they rest round 2.
+    expect(screen.getByTestId('resting-2')).toHaveTextContent('Player 1')
+    sessionData.results.pop()
+  })
+
+  it('shows no resting label when every game-day player is booked in the round', () => {
+    // The base fixture has p1–p8 all playing the single round → nobody resting.
+    renderPage()
+    expect(screen.queryByTestId('resting-1')).toBeNull()
+  })
+
   it('deletes a match via a two-step confirm', () => {
     renderPage()
     expect(screen.queryByTestId('confirm-delete-match-r1')).toBeNull()
