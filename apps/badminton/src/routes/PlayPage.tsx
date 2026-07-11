@@ -258,31 +258,47 @@ export function PlayPage() {
             )}
 
             <div className="mt-6 space-y-4">
-              {rounds.map(({ round, results }) => (
-                <Card key={round} title={`Round ${round}`} icon={<Icon name="target" />}>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {results.map((r) => (
-                      <CourtScore
-                        key={r.id}
-                        result={r}
-                        nameOf={nameOf}
-                        present={sessionPlayers}
-                        live={data.session.status === 'live'}
-                        saving={setScore.isPending}
-                        editing={updateLineup.isPending}
-                        deleting={deleteMatch.isPending}
-                        onSave={(scoreA, scoreB) =>
-                          setScore.mutate({ resultId: r.id, scoreA, scoreB })
-                        }
-                        onSaveLineup={(teamA, teamB) =>
-                          updateLineup.mutate({ resultId: r.id, teamA, teamB })
-                        }
-                        onDelete={() => deleteMatch.mutate(r.id)}
-                      />
-                    ))}
-                  </div>
-                </Card>
-              ))}
+              {rounds.map(({ round, results }) => {
+                // Present players not on any court this round are resting and
+                // free to sub in or be added to a custom match. Derived from the
+                // live results, so it tracks line-up edits and added/deleted
+                // matches (AC#4).
+                const resting = restingInRound(sessionPlayers, results)
+                return (
+                  <Card key={round} title={`Round ${round}`} icon={<Icon name="target" />}>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {results.map((r) => (
+                        <CourtScore
+                          key={r.id}
+                          result={r}
+                          nameOf={nameOf}
+                          present={sessionPlayers}
+                          live={data.session.status === 'live'}
+                          saving={setScore.isPending}
+                          editing={updateLineup.isPending}
+                          deleting={deleteMatch.isPending}
+                          onSave={(scoreA, scoreB) =>
+                            setScore.mutate({ resultId: r.id, scoreA, scoreB })
+                          }
+                          onSaveLineup={(teamA, teamB) =>
+                            updateLineup.mutate({ resultId: r.id, teamA, teamB })
+                          }
+                          onDelete={() => deleteMatch.mutate(r.id)}
+                        />
+                      ))}
+                    </div>
+                    {resting.length > 0 && (
+                      <p
+                        className="mt-3 text-xs text-fg-muted"
+                        data-testid={`resting-${round}`}
+                      >
+                        <span className="font-medium text-fg-subtle">Resting:</span>{' '}
+                        {resting.map((p) => p.nickname).join(', ')}
+                      </p>
+                    )}
+                  </Card>
+                )
+              })}
 
               {data.session.status === 'live' && (
                 <AddCustomMatch
@@ -750,6 +766,18 @@ function groupByRound(results: MatchResult[]): RoundGroup[] {
     g.results.push(r)
   }
   return groups
+}
+
+/** Present players not assigned to any court in the round's results. */
+function restingInRound(
+  present: PresentPlayer[],
+  results: MatchResult[],
+): PresentPlayer[] {
+  const booked = new Set<string>()
+  for (const r of results) {
+    for (const id of [...r.teamA, ...r.teamB]) if (id) booked.add(id)
+  }
+  return present.filter((p) => !booked.has(p.id))
 }
 
 /** The next free court in a given round (court 1 if the round is empty). */
