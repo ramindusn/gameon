@@ -13,6 +13,7 @@ import {
   usePlayerNames,
 } from '../ranking/useRanking'
 import { BoardState } from '../ranking/Leaderboard'
+import { PROVISIONAL_RD } from '../ranking/api'
 import { SearchBox } from '../search/SearchBox'
 
 // Public, logged-out home (TASK-9.1 / 9.2 / 9.5). Top bar with the two login
@@ -292,20 +293,26 @@ function RankingPreview() {
   const pairs = usePairBoard()
   const nameOf = usePlayerNames()
 
+  // The home preview shows only established leaders (low RD) — provisional
+  // entries with few games live in the full leaderboard's "Needs more games"
+  // section, not the headline top 5 (TASK-40).
+  const topPlayers = (players.data ?? []).filter((p) => p.rd < PROVISIONAL_RD)
+  const topPairs = (pairs.data ?? []).filter((p) => p.rd < PROVISIONAL_RD)
+
   return (
     <div className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card title="Individual Ranking" icon={<Icon name="ranking" />} action={<ViewAll />}>
         <BoardState
           isLoading={players.isLoading}
           isError={players.isError}
-          count={players.data?.length ?? 0}
+          count={topPlayers.length}
           noun="individual leaderboard"
         />
-        {(players.data?.length ?? 0) > 0 && (
+        {topPlayers.length > 0 && (
           <RankTable
             head="Player Name"
             testid="individual-ranking"
-            rows={players.data!.slice(0, PREVIEW_LIMIT).map((p, i) => ({
+            rows={topPlayers.slice(0, PREVIEW_LIMIT).map((p, i) => ({
               key: p.playerId,
               rank: i + 1,
               rating: p.rating,
@@ -318,14 +325,14 @@ function RankingPreview() {
         <BoardState
           isLoading={pairs.isLoading}
           isError={pairs.isError}
-          count={pairs.data?.length ?? 0}
+          count={topPairs.length}
           noun="doubles leaderboard"
         />
-        {(pairs.data?.length ?? 0) > 0 && (
+        {topPairs.length > 0 && (
           <RankTable
             head="Pair Names"
             testid="doubles-ranking"
-            rows={pairs.data!.slice(0, PREVIEW_LIMIT).map((p, i) => ({
+            rows={topPairs.slice(0, PREVIEW_LIMIT).map((p, i) => ({
               key: `${p.player1Id}|${p.player2Id}`,
               rank: i + 1,
               rating: p.rating,
