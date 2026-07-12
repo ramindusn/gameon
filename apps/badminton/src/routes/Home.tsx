@@ -11,7 +11,6 @@ import {
   usePairBoard,
   usePlayerBoard,
   usePlayerNames,
-  useTournamentPairBoard,
 } from '../ranking/useRanking'
 import { BoardState } from '../ranking/Leaderboard'
 import { SearchBox } from '../search/SearchBox'
@@ -291,9 +290,7 @@ function GameDayRank() {
 function RankingPreview() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
-  const tournament = useTournamentPairBoard()
   const nameOf = usePlayerNames()
-  const hasTournament = (tournament.data?.length ?? 0) > 0
 
   return (
     <div className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -337,20 +334,6 @@ function RankingPreview() {
           />
         )}
       </Card>
-      {hasTournament && (
-        <Card title="Fixed Pairs (Tournament)" icon={<Icon name="tournament" />} action={<ViewAll />}>
-          <RankTable
-            head="Pair Names"
-            testid="tournament-ranking"
-            rows={tournament.data!.slice(0, PREVIEW_LIMIT).map((p, i) => ({
-              key: `${p.player1Id}|${p.player2Id}`,
-              rank: i + 1,
-              rating: p.rating,
-              name: <PairNames ids={[p.player1Id, p.player2Id]} nameOf={nameOf} />,
-            }))}
-          />
-        </Card>
-      )}
     </div>
   )
 }

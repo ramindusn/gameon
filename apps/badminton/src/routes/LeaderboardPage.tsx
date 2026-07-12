@@ -7,7 +7,6 @@ import {
   usePlayerBoard,
   usePlayerNames,
   useRecentForm,
-  useTournamentPairBoard,
 } from '../ranking/useRanking'
 import { BoardState, PairBoardList, PlayerBoardList } from '../ranking/Leaderboard'
 
@@ -17,7 +16,6 @@ import { BoardState, PairBoardList, PlayerBoardList } from '../ranking/Leaderboa
 export function LeaderboardPage() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
-  const tournament = useTournamentPairBoard()
   const form = useRecentForm()
   const inactive = useInactivePlayers()
   const nameOf = usePlayerNames()
@@ -64,23 +62,6 @@ export function LeaderboardPage() {
             />
             {(pairs.data?.length ?? 0) > 0 && (
               <PairBoardList pairs={pairs.data!} nameOf={nameOf} />
-            )}
-          </Card>
-
-          <Card title="Fixed Pairs (Tournament)" icon={<Icon name="tournament" />}>
-            <BoardState
-              isLoading={tournament.isLoading}
-              isError={tournament.isError}
-              count={tournament.data?.length ?? 0}
-              noun="fixed pairs leaderboard"
-            />
-            {(tournament.data?.length ?? 0) > 0 && (
-              <PairBoardList
-                pairs={tournament.data!}
-                nameOf={nameOf}
-                testid="tournament-pair-board"
-                rowPrefix="tournament-pair-row"
-              />
             )}
           </Card>
         </div>

@@ -120,14 +120,14 @@ Deno.serve(async (req) => {
 
   // 2) Load the club's finished sessions + their results (service role).
   const db = createClient(url, serviceKey)
-  // Only CASUAL sessions feed the Glicko boards — fixed-pairs tournaments are
-  // isolated (E11): their points live on a separate standings leaderboard.
+  // All finished sessions feed the Glicko boards — casual game days AND fixed-
+  // pairs tournaments (TASK-39). Tournament matches now count toward the main
+  // individual + doubles rankings (the separate Fixed Pairs board was removed).
   const { data: sessions, error: sErr } = await db
     .from('match_sessions')
     .select('id, created_at')
     .eq('club_id', clubId)
     .eq('status', 'finished')
-    .eq('kind', 'casual')
     .order('created_at', { ascending: true })
   if (sErr) return json(500, { error: sErr.message })
 
