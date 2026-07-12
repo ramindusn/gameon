@@ -45,6 +45,50 @@ export function FormStrip({ results }: { results?: FormResult[] }) {
   )
 }
 
+/** A single W/L/D form pill with its meaning — used in the legend. */
+function LegendPill({ r, label }: { r: FormResult; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className={cx(
+          'grid h-5 w-5 place-items-center rounded text-[10px] font-bold',
+          r === 'W' && 'bg-accent/15 text-accent-strong',
+          r === 'L' && 'bg-negative/15 text-negative',
+          r === 'D' && 'bg-surface-muted text-fg-muted',
+        )}
+      >
+        {r}
+      </span>
+      <span className="text-fg-muted">{label}</span>
+    </span>
+  )
+}
+
+/** Explains the ranking page's markers so a first-time visitor understands them. */
+export function LeaderboardLegend() {
+  return (
+    <div
+      className="mb-6 rounded-xl border border-line bg-surface px-4 py-3 text-xs"
+      data-testid="leaderboard-legend"
+    >
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className="font-semibold text-fg-subtle">
+          Recent form — one mark per game day, newest first:
+        </span>
+        <LegendPill r="W" label="Won the day" />
+        <LegendPill r="L" label="Lost the day" />
+        <LegendPill r="D" label="Even (equal wins &amp; losses)" />
+      </div>
+      <p className="mt-2 text-fg-muted">
+        <span className="font-medium text-fg-subtle">inactive</span> — missed the
+        last game day, so the rating is slowly decaying.{' '}
+        <span className="font-medium text-fg-subtle">Needs more games</span> —
+        played too few games for a confident rating yet.
+      </p>
+    </div>
+  )
+}
+
 function Rank({ n }: { n: number | null }) {
   return (
     <span className="w-6 shrink-0 text-right font-display text-sm font-bold text-fg-subtle tabular-nums">
