@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { cx, Skeleton } from '@gameon/ui'
 import {
   PROVISIONAL_RD,
@@ -19,6 +20,22 @@ type NameOf = (id: string | null) => string
 
 /** Established = enough games for a confident rating (low RD). */
 const isEstablished = (rd: number) => rd < PROVISIONAL_RD
+
+/**
+ * A player name that links to their public profile. A persistent dotted
+ * underline signals it's tappable (works on mobile, no hover needed); it turns
+ * accent-green on hover/focus.
+ */
+function ProfileLink({ id, nameOf }: { id: string; nameOf: NameOf }) {
+  return (
+    <Link
+      to={`/players/${id}`}
+      className="rounded text-fg underline decoration-fg-subtle/50 decoration-dotted underline-offset-4 transition-colors hover:text-accent-strong hover:decoration-accent focus:text-accent-strong focus:outline-none focus:ring-1 focus:ring-accent"
+    >
+      {nameOf(id)}
+    </Link>
+  )
+}
 
 /** Recent game-day form as compact W/L/D pills, newest first. */
 export function FormStrip({ results }: { results?: FormResult[] }) {
@@ -84,6 +101,13 @@ export function LeaderboardLegend() {
         last game day, so the rating is slowly decaying.{' '}
         <span className="font-medium text-fg-subtle">Needs more games</span> —
         played too few games for a confident rating yet.
+      </p>
+      <p className="mt-1 text-fg-muted">
+        Tap an{' '}
+        <span className="text-fg underline decoration-fg-subtle/50 decoration-dotted underline-offset-4">
+          underlined name
+        </span>{' '}
+        to open their profile.
       </p>
     </div>
   )
@@ -166,7 +190,9 @@ function PlayerRow({
     >
       <Rank n={rank} />
       <span className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="truncate text-sm font-medium text-fg">{nameOf(p.playerId)}</span>
+        <span className="truncate text-sm font-medium">
+          <ProfileLink id={p.playerId} nameOf={nameOf} />
+        </span>
         {inactive?.has(p.playerId) && (
           <span
             className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-fg-muted"
@@ -252,8 +278,9 @@ function PairRow({
     >
       <Rank n={rank} />
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
-        {nameOf(p.player1Id)} <span className="text-fg-subtle">&amp;</span>{' '}
-        {nameOf(p.player2Id)}
+        <ProfileLink id={p.player1Id} nameOf={nameOf} />{' '}
+        <span className="text-fg-subtle">&amp;</span>{' '}
+        <ProfileLink id={p.player2Id} nameOf={nameOf} />
       </span>
       <Rating rating={p.rating} />
     </li>

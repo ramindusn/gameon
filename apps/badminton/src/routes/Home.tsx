@@ -453,7 +453,7 @@ function PublicNav() {
         </div>
 
         <div className="relative flex items-center gap-3">
-          <div className="hidden lg:block">
+          <div className="hidden w-56 lg:block">
             <SearchBox />
           </div>
           {role ? (
@@ -513,6 +513,12 @@ function PublicNav() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Search lives in the nav on desktop (hidden lg:block above); on smaller
+          screens it gets its own full-width row so it's reachable on mobile. */}
+      <div className="border-t border-line px-4 pb-3 pt-2 sm:px-6 lg:hidden">
+        <SearchBox />
       </div>
     </header>
   )

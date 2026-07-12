@@ -51,6 +51,18 @@ describe('LeaderboardPage', () => {
     expect(pair).toHaveTextContent('1620')
   })
 
+  it('links each player name to their profile (TASK-42)', () => {
+    renderPage()
+    // Individual and doubles names both link to /players/:id.
+    const nameLink = screen.getByTestId('player-row-p1').querySelector('a')
+    expect(nameLink).toHaveAttribute('href', '/players/p1')
+    const pairLinks = screen.getByTestId('pair-row-p1-p3').querySelectorAll('a')
+    expect(Array.from(pairLinks).map((a) => a.getAttribute('href'))).toEqual([
+      '/players/p1',
+      '/players/p3',
+    ])
+  })
+
   it('collapses provisional (high-RD) entries under "Needs more games" (TASK-40)', () => {
     renderPage()
     // Provisional player is hidden by default (not in the main board).
