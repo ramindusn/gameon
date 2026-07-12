@@ -7,7 +7,6 @@ import {
   loadPairBoard,
   loadPlayerBoard,
   loadRecentForm,
-  loadTournamentPairBoard,
 } from './api'
 
 // Leaderboard read hooks (E05 / TASK-6.4, ADR 0006: TanStack Query). The boards
@@ -40,14 +39,6 @@ export function useInactivePlayers() {
 /** Every scored casual game day's standings, newest first (TASK-33 / TASK-37). */
 export function useGameDayBoards() {
   return useQuery({ queryKey: ['ratings', 'game-days'], queryFn: loadGameDayBoards })
-}
-
-/** The isolated Fixed Pairs tournament board (Glicko-rated, like doubles) (E11). */
-export function useTournamentPairBoard() {
-  return useQuery({
-    queryKey: ['ratings', 'tournament-pairs'],
-    queryFn: loadTournamentPairBoard,
-  })
 }
 
 /** Resolve a player id to their nickname via the (public) roster. */
