@@ -68,6 +68,16 @@ describe('LeaderboardPage', () => {
     expect(screen.getByTestId('pair-row-p2-p3')).toBeInTheDocument()
   })
 
+  it('explains the W/L/D form markers in a legend (TASK-41)', () => {
+    renderPage()
+    const legend = screen.getByTestId('leaderboard-legend')
+    expect(legend).toHaveTextContent('Won the day')
+    expect(legend).toHaveTextContent('Lost the day')
+    expect(legend).toHaveTextContent('Even')
+    expect(legend).toHaveTextContent('inactive')
+    expect(legend).toHaveTextContent('Needs more games')
+  })
+
   it('shows recent form pills for a player with history', () => {
     renderPage()
     const strip = screen.getByTestId('player-row-p1').querySelector('[data-testid="form-strip"]')

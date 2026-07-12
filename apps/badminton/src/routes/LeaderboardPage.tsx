@@ -8,7 +8,12 @@ import {
   usePlayerNames,
   useRecentForm,
 } from '../ranking/useRanking'
-import { BoardState, PairBoardList, PlayerBoardList } from '../ranking/Leaderboard'
+import {
+  BoardState,
+  LeaderboardLegend,
+  PairBoardList,
+  PlayerBoardList,
+} from '../ranking/Leaderboard'
 
 // Public leaderboard (E05 / TASK-6.4) — full individual + doubles boards. Like
 // the player profile it is public (no AppShell): the boards are RLS public-read,
@@ -34,7 +39,8 @@ export function LeaderboardPage() {
       </header>
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
-        <h1 className="mb-6 font-display text-2xl font-bold">Leaderboards</h1>
+        <h1 className="mb-4 font-display text-2xl font-bold">Leaderboards</h1>
+        <LeaderboardLegend />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card title="Individual Ranking" icon={<Icon name="ranking" />}>
             <BoardState
