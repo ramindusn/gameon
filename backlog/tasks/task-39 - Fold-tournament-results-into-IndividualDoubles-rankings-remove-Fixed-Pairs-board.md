@@ -3,11 +3,11 @@ id: TASK-39
 title: >-
   Fold tournament results into Individual+Doubles rankings; remove Fixed Pairs
   board
-status: In Progress
+status: Done
 assignee:
   - '@ramindusn'
 created_date: '2026-07-12 09:13'
-updated_date: '2026-07-12 09:39'
+updated_date: '2026-07-12 09:45'
 labels:
   - feature
   - ranking
@@ -32,6 +32,8 @@ Fixed-pairs tournaments were isolated on their own standings board (ADR 0011/E11
 
 <!-- SECTION:NOTES:BEGIN -->
 recompute-ratings now feeds all finished sessions (removed kind='casual' filter). Removed loadTournamentPairBoard/useTournamentPairBoard + E2E seed; removed Fixed Pairs cards from Home + LeaderboardPage + tests. Deployed updated function to prod + recomputed (6 periods): tournaments folded into individual+doubles. Backed up to local/backup/prod-ratings-pre-task39-*.json. Verified prod (Nilusha now #1). 197 tests + lint + tsc green. Dev function NOT updated (user scoped to prod).
+
+Merged PR #17 → main; frontend deployed. Prod verified: Fixed Pairs board removed; Individual board shows tournament-folded ratings (Nilusha #1, 1520); Doubles board now includes tournament pairs (Ramboo & Sahan #1, 1581; 54 pairs). No console errors.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

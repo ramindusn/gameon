@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from 'react'
 import { cx, Skeleton } from '@gameon/ui'
 import {
   PROVISIONAL_RD,
@@ -9,8 +10,15 @@ import {
 
 // Leaderboard presentational components (E05 / TASK-6.4). Pure rendering — the
 // caller supplies the boards, a player-id -> name resolver, and the form map.
+//
+// A rating with a high RD is still settling (few games played), so those entries
+// are split off the main board into a collapsible "Needs more games" section
+// (TASK-40) instead of bloating the ranking with one-off partnerships.
 
 type NameOf = (id: string | null) => string
+
+/** Established = enough games for a confident rating (low RD). */
+const isEstablished = (rd: number) => rd < PROVISIONAL_RD
 
 /** Recent game-day form as compact W/L/D pills, newest first. */
 export function FormStrip({ results }: { results?: FormResult[] }) {
@@ -37,115 +45,223 @@ export function FormStrip({ results }: { results?: FormResult[] }) {
   )
 }
 
-function Rank({ n }: { n: number }) {
+function Rank({ n }: { n: number | null }) {
   return (
     <span className="w-6 shrink-0 text-right font-display text-sm font-bold text-fg-subtle tabular-nums">
-      {n}
+      {n ?? '·'}
     </span>
   )
 }
 
-function Rating({ rating, rd }: { rating: number; rd: number }) {
-  // Fixed-width, right-aligned column: the rating number always sits on the
-  // same right edge across rows, and the PROV badge hangs to its left in the
-  // reserved space — so present/absent badges never shift the column.
+function Rating({ rating }: { rating: number }) {
   return (
-    <span className="flex w-[5.5rem] shrink-0 items-center justify-end gap-1.5">
-      {rd > PROVISIONAL_RD && (
-        <span
-          className="rounded bg-warning/15 px-1 py-0.5 text-[10px] font-medium leading-none text-warning"
-          title="Provisional — few games played"
-        >
-          PROV
-        </span>
-      )}
-      <span className="font-display text-sm font-bold tabular-nums text-fg">
-        {Math.round(rating)}
-      </span>
+    <span className="w-[3.25rem] shrink-0 text-right font-display text-sm font-bold tabular-nums text-fg">
+      {Math.round(rating)}
     </span>
   )
 }
 
-/** Individual board: rank, name, rating (+provisional), recent form. */
+/**
+ * A collapsible "Needs more games" group holding the provisional (high-RD)
+ * entries, hidden by default so the main board stays uncluttered.
+ */
+function NeedsMoreGames({
+  count,
+  testid,
+  defaultOpen = false,
+  children,
+}: {
+  count: number
+  testid: string
+  /** Open by default when there are no established rows to show above it. */
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  if (count === 0) return null
+  return (
+    <div className="mt-3 border-t border-line pt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        data-testid={`${testid}-toggle`}
+        className="flex w-full items-center gap-1.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg"
+      >
+        <span className="text-fg-subtle">{open ? '▾' : '▸'}</span>
+        Needs more games ({count})
+      </button>
+      {open && (
+        <ul className="divide-y divide-line/60" data-testid={testid}>
+          {children}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function PlayerRow({
+  p,
+  rank,
+  nameOf,
+  form,
+  inactive,
+  muted,
+}: {
+  p: RatedPlayer
+  rank: number | null
+  nameOf: NameOf
+  form: FormMap
+  inactive?: Set<string>
+  muted?: boolean
+}) {
+  return (
+    <li
+      className={cx('flex items-center gap-3 py-2.5', muted && 'opacity-70')}
+      data-testid={`player-row-${p.playerId}`}
+    >
+      <Rank n={rank} />
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="truncate text-sm font-medium text-fg">{nameOf(p.playerId)}</span>
+        {inactive?.has(p.playerId) && (
+          <span
+            className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-fg-muted"
+            title="Missed the last game day — rating is decaying"
+            data-testid="inactive-tag"
+          >
+            inactive
+          </span>
+        )}
+      </span>
+      <FormStrip results={form[p.playerId]} />
+      <Rating rating={p.rating} />
+    </li>
+  )
+}
+
+/** Individual board: established players ranked, provisional ones collapsed. */
 export function PlayerBoardList({
   players,
   nameOf,
   form,
   inactive,
-  limit,
 }: {
   players: RatedPlayer[]
   nameOf: NameOf
   form: FormMap
   inactive?: Set<string>
-  limit?: number
 }) {
-  const rows = limit ? players.slice(0, limit) : players
+  const established = players.filter((p) => isEstablished(p.rd))
+  const provisional = players.filter((p) => !isEstablished(p.rd))
   return (
-    <ul className="divide-y divide-line" data-testid="player-board">
-      {rows.map((p, i) => (
-        <li
-          key={p.playerId}
-          className="flex items-center gap-3 py-2.5"
-          data-testid={`player-row-${p.playerId}`}
-        >
-          <Rank n={i + 1} />
-          <span className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="truncate text-sm font-medium text-fg">
-              {nameOf(p.playerId)}
-            </span>
-            {inactive?.has(p.playerId) && (
-              <span
-                className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-fg-muted"
-                title="Missed the last game day — rating is decaying"
-                data-testid="inactive-tag"
-              >
-                inactive
-              </span>
-            )}
-          </span>
-          <FormStrip results={form[p.playerId]} />
-          <Rating rating={p.rating} rd={p.rd} />
-        </li>
-      ))}
-    </ul>
+    <div>
+      <ul className="divide-y divide-line" data-testid="player-board">
+        {established.map((p, i) => (
+          <PlayerRow
+            key={p.playerId}
+            p={p}
+            rank={i + 1}
+            nameOf={nameOf}
+            form={form}
+            inactive={inactive}
+          />
+        ))}
+      </ul>
+      <NeedsMoreGames
+        count={provisional.length}
+        testid="player-board-prov"
+        defaultOpen={established.length === 0}
+      >
+        {provisional.map((p) => (
+          <PlayerRow
+            key={p.playerId}
+            p={p}
+            rank={null}
+            nameOf={nameOf}
+            form={form}
+            inactive={inactive}
+            muted
+          />
+        ))}
+      </NeedsMoreGames>
+    </div>
   )
 }
 
-/** Doubles board: rank, the partnership's two names, rating (+provisional). */
+function PairRow({
+  p,
+  rank,
+  nameOf,
+  rowPrefix,
+  muted,
+}: {
+  p: RatedPair
+  rank: number | null
+  nameOf: NameOf
+  rowPrefix: string
+  muted?: boolean
+}) {
+  return (
+    <li
+      className={cx('flex items-center gap-3 py-2.5', muted && 'opacity-70')}
+      data-testid={`${rowPrefix}-${p.player1Id}-${p.player2Id}`}
+    >
+      <Rank n={rank} />
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
+        {nameOf(p.player1Id)} <span className="text-fg-subtle">&amp;</span>{' '}
+        {nameOf(p.player2Id)}
+      </span>
+      <Rating rating={p.rating} />
+    </li>
+  )
+}
+
+/** Doubles board: established partnerships ranked, provisional ones collapsed. */
 export function PairBoardList({
   pairs,
   nameOf,
-  limit,
   testid = 'pair-board',
   rowPrefix = 'pair-row',
 }: {
   pairs: RatedPair[]
   nameOf: NameOf
-  limit?: number
   /** Board-level testid; distinct per board so the same pair can appear twice. */
   testid?: string
   /** Row testid prefix; pairs with `testid` to keep each board's rows unique. */
   rowPrefix?: string
 }) {
-  const rows = limit ? pairs.slice(0, limit) : pairs
+  const established = pairs.filter((p) => isEstablished(p.rd))
+  const provisional = pairs.filter((p) => !isEstablished(p.rd))
   return (
-    <ul className="divide-y divide-line" data-testid={testid}>
-      {rows.map((p, i) => (
-        <li
-          key={`${p.player1Id}|${p.player2Id}`}
-          className="flex items-center gap-3 py-2.5"
-          data-testid={`${rowPrefix}-${p.player1Id}-${p.player2Id}`}
-        >
-          <Rank n={i + 1} />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
-            {nameOf(p.player1Id)} <span className="text-fg-subtle">&amp;</span>{' '}
-            {nameOf(p.player2Id)}
-          </span>
-          <Rating rating={p.rating} rd={p.rd} />
-        </li>
-      ))}
-    </ul>
+    <div>
+      <ul className="divide-y divide-line" data-testid={testid}>
+        {established.map((p, i) => (
+          <PairRow
+            key={`${p.player1Id}|${p.player2Id}`}
+            p={p}
+            rank={i + 1}
+            nameOf={nameOf}
+            rowPrefix={rowPrefix}
+          />
+        ))}
+      </ul>
+      <NeedsMoreGames
+        count={provisional.length}
+        testid={`${testid}-prov`}
+        defaultOpen={established.length === 0}
+      >
+        {provisional.map((p) => (
+          <PairRow
+            key={`${p.player1Id}|${p.player2Id}`}
+            p={p}
+            rank={null}
+            nameOf={nameOf}
+            rowPrefix={rowPrefix}
+            muted
+          />
+        ))}
+      </NeedsMoreGames>
+    </div>
   )
 }
 
