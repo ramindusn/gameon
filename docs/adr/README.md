@@ -15,5 +15,6 @@ Short records of significant decisions: context, decision, consequences.
 | [0009](0009-tailwind-css.md) | Styling: **Tailwind CSS** with the Emerald Pro token layer |
 | [0010](0010-auth-model-magic-link.md) | Auth: **Admin magic-link**, **Matchmaker username+password**, players don't log in |
 | [0011](0011-ranking-glicko2.md) | Ranking: **Glicko-2** for **individual + per-pair** boards, **point-margin** outcomes |
+| [0012](0012-tournaments-feed-main-boards.md) | Tournament results **feed the main boards**; no separate Fixed Pairs leaderboard (supersedes E11 isolation) |
 
 Roles + information architecture live in [`../REQUIREMENTS.md`](../REQUIREMENTS.md).
