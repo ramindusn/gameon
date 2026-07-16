@@ -8,6 +8,7 @@ import { usePlayerBoard, usePlayerNames, useRecentForm } from '../ranking/useRan
 import { FormStrip } from '../ranking/Leaderboard'
 import { effectiveSkill } from '../ranking/effectiveSkill'
 import { PerformanceChart } from '../profile/PerformanceChart'
+import { useAuth } from '../auth/useAuth'
 
 // Public, read-only player profile (E02/E08, TASK-3.3 + 9.3). Anyone can view it
 // without logging in: rating + record + recent form, and full match history.
@@ -25,6 +26,9 @@ export function PlayerProfilePage() {
   const board = usePlayerBoard()
   const form = useRecentForm()
   const nameOf = usePlayerNames()
+  const { role } = useAuth()
+  // The manual (base) skill is staff-only; everyone sees the live skill.
+  const isStaff = role === 'admin' || role === 'matchmaker'
 
   const rated = board.data?.find((p) => p.playerId === id)
   const wins = history.filter((m) => m.won).length
@@ -34,6 +38,11 @@ export function PlayerProfilePage() {
   const liveSkill = player
     ? effectiveSkill(player.skill, rated?.rating, rated?.games ?? history.length)
     : null
+  // "Improving" = recently winning more than losing (motivating up-signal only).
+  const recentForm = form.data?.[id] ?? []
+  const recentWins = recentForm.filter((r) => r === 'W').length
+  const recentLosses = recentForm.filter((r) => r === 'L').length
+  const improving = recentForm.length >= 3 && recentWins > recentLosses
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="player-profile">
@@ -63,11 +72,23 @@ export function PlayerProfilePage() {
                 🏸
               </div>
               <div>
-                <h1 className="font-display text-2xl font-bold" data-testid="profile-name">
-                  {player.nickname}
-                </h1>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-display text-2xl font-bold" data-testid="profile-name">
+                    {player.nickname}
+                  </h1>
+                  {improving && (
+                    <span
+                      className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-accent-strong"
+                      title="Winning more than losing lately — keep it up!"
+                      data-testid="improving-badge"
+                    >
+                      📈 Improving
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-fg-muted">
-                  Skill {player.skill ?? '—'}
+                  {/* Public sees the live (results-aware) skill; base is staff-only. */}
+                  Skill {liveSkill != null ? liveSkill.toFixed(1) : '—'}
                   {player.isMatchmaker ? ' · Matchmaker' : ''}
                   {player.absent ? ' · Absent' : ''}
                 </p>
@@ -86,16 +107,15 @@ export function PlayerProfilePage() {
               <Card title="Performance" icon={<Icon name="stats" />}>
                 <dl className="space-y-3 text-sm" data-testid="profile-performance">
                   <Stat label="Rating" value={rated ? String(Math.round(rated.rating)) : '—'} />
-                  <Stat
-                    label="Skill (base → now)"
-                    value={
-                      player.skill == null
-                        ? liveSkill != null
-                          ? liveSkill.toFixed(1)
-                          : '—'
-                        : `${player.skill} → ${liveSkill!.toFixed(1)}`
-                    }
-                  />
+                  {/* Base skill is the manual seed — staff-only; public sees live. */}
+                  {isStaff ? (
+                    <Stat
+                      label="Skill (base → now)"
+                      value={`${player.skill ?? '—'} → ${liveSkill != null ? liveSkill.toFixed(1) : '—'}`}
+                    />
+                  ) : (
+                    <Stat label="Skill" value={liveSkill != null ? liveSkill.toFixed(1) : '—'} />
+                  )}
                   <Stat label="Record" value={`${wins}W – ${losses}L`} />
                   <Stat label="Games" value={String(history.length)} />
                   <div className="flex items-center justify-between gap-3">

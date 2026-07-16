@@ -6,6 +6,7 @@
 // about ratings + results.
 
 import { supabase, isE2E } from '@gameon/supabase'
+import { ABSENCE_GRACE_PERIOD } from '@gameon/domain'
 
 /** One rated player from the individual board (strongest first). */
 export interface RatedPlayer {
@@ -299,27 +300,46 @@ export async function loadGameDayBoards(): Promise<GameDayBoard[]> {
 }
 
 /**
- * Players flagged inactive on the board: those who were absent from the most
- * recent finished game day (TASK-6.5). Their rating has already decayed; the UI
- * adds an "inactive" tag so the drop is explained.
+ * Players flagged inactive on the board: those who missed the last
+ * ABSENCE_GRACE_PERIOD (5) finished game days in a row — i.e. their absence
+ * streak has reached the grace period and their rating is about to decay
+ * (TASK-6.5 / TASK-36 / TASK-45). A single missed game day is NOT inactive.
+ * The UI adds an "inactive" tag so the drift is explained.
  */
 export async function loadInactivePlayers(): Promise<string[]> {
   if (isE2E()) return E2E_INACTIVE
   const db = client()
-  const { data: latest } = await db
+  // The most recent finished casual game days (one attendance snapshot each).
+  const { data: sessions } = await db
     .from('match_sessions')
     .select('id')
     .eq('status', 'finished')
+    .eq('kind', 'casual')
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (!latest) return []
+    .limit(ABSENCE_GRACE_PERIOD)
+  const ids = (sessions ?? []).map((s) => s.id)
+  // Nobody can have missed 5 in a row until there are at least 5 game days.
+  if (ids.length < ABSENCE_GRACE_PERIOD) return []
+
   const { data } = await db
     .from('session_attendance')
-    .select('player_id')
-    .eq('session_id', latest.id)
-    .eq('present', false)
-  return (data ?? []).map((r) => r.player_id)
+    .select('player_id, present')
+    .in('session_id', ids)
+
+  // A player is inactive only if they have an attendance record for every one of
+  // these game days AND was absent from all of them (a full 5-day miss streak;
+  // playing any of them would have reset it).
+  const seen = new Map<string, number>()
+  const present = new Set<string>()
+  for (const r of (data ?? []) as { player_id: string; present: boolean }[]) {
+    seen.set(r.player_id, (seen.get(r.player_id) ?? 0) + 1)
+    if (r.present) present.add(r.player_id)
+  }
+  const inactive: string[] = []
+  for (const [pid, count] of seen) {
+    if (count >= ABSENCE_GRACE_PERIOD && !present.has(pid)) inactive.push(pid)
+  }
+  return inactive
 }
 
 // ---- E2E seed -------------------------------------------------------------
