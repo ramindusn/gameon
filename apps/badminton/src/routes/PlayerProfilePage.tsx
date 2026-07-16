@@ -6,6 +6,7 @@ import { getPlayer } from '../roster/api'
 import { loadPlayerHistory, type PlayerMatch } from '../play/api'
 import { usePlayerBoard, usePlayerNames, useRecentForm } from '../ranking/useRanking'
 import { FormStrip } from '../ranking/Leaderboard'
+import { PerformanceChart } from '../profile/PerformanceChart'
 
 // Public, read-only player profile (E02/E08, TASK-3.3 + 9.3). Anyone can view it
 // without logging in: rating + record + recent form, and full match history.
@@ -66,6 +67,14 @@ export function PlayerProfilePage() {
                 </p>
               </div>
             </div>
+
+            {history.length >= 2 && (
+              <div className="mb-6">
+                <Card title="Performance trend" icon={<Icon name="ranking" />}>
+                  <PerformanceChart matches={history} />
+                </Card>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <Card title="Performance" icon={<Icon name="stats" />}>
