@@ -6,6 +6,7 @@ import { getPlayer } from '../roster/api'
 import { loadPlayerHistory, type PlayerMatch } from '../play/api'
 import { usePlayerBoard, usePlayerNames, useRecentForm } from '../ranking/useRanking'
 import { FormStrip } from '../ranking/Leaderboard'
+import { effectiveSkill } from '../ranking/effectiveSkill'
 import { PerformanceChart } from '../profile/PerformanceChart'
 
 // Public, read-only player profile (E02/E08, TASK-3.3 + 9.3). Anyone can view it
@@ -28,6 +29,11 @@ export function PlayerProfilePage() {
   const rated = board.data?.find((p) => p.playerId === id)
   const wins = history.filter((m) => m.won).length
   const losses = history.length - wins
+  // Live, results-aware skill (manual seed blended with rating); the manual value
+  // stays the reference (TASK-44).
+  const liveSkill = player
+    ? effectiveSkill(player.skill, rated?.rating, rated?.games ?? history.length)
+    : null
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="player-profile">
@@ -80,6 +86,16 @@ export function PlayerProfilePage() {
               <Card title="Performance" icon={<Icon name="stats" />}>
                 <dl className="space-y-3 text-sm" data-testid="profile-performance">
                   <Stat label="Rating" value={rated ? String(Math.round(rated.rating)) : '—'} />
+                  <Stat
+                    label="Skill (base → now)"
+                    value={
+                      player.skill == null
+                        ? liveSkill != null
+                          ? liveSkill.toFixed(1)
+                          : '—'
+                        : `${player.skill} → ${liveSkill!.toFixed(1)}`
+                    }
+                  />
                   <Stat label="Record" value={`${wins}W – ${losses}L`} />
                   <Stat label="Games" value={String(history.length)} />
                   <div className="flex items-center justify-between gap-3">

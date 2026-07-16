@@ -29,6 +29,10 @@ vi.mock('../play/useMatchPlay', () => ({
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ role: 'matchmaker', signOut: vi.fn() }),
 }))
+// No ratings in this test → the balancer falls back to the manual skills above.
+vi.mock('../ranking/useRanking', () => ({
+  usePlayerBoard: () => ({ data: [], isLoading: false, isError: false }),
+}))
 
 import { GeneratePage } from './GeneratePage'
 
