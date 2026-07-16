@@ -98,7 +98,7 @@ export function LeaderboardLegend() {
       </div>
       <p className="mt-2 text-fg-muted">
         <span className="font-medium text-fg-subtle">inactive</span> — missed the
-        last game day, so the rating is slowly decaying.{' '}
+        last 5 game days, so the rating is starting to decay.{' '}
         <span className="font-medium text-fg-subtle">Needs more games</span> —
         played too few games for a confident rating yet.
       </p>
@@ -196,7 +196,7 @@ function PlayerRow({
         {inactive?.has(p.playerId) && (
           <span
             className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-fg-muted"
-            title="Missed the last game day — rating is decaying"
+            title="Missed the last 5 game days — rating is decaying"
             data-testid="inactive-tag"
           >
             inactive

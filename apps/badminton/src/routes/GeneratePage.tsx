@@ -124,24 +124,36 @@ export function GeneratePage() {
                 <p className="mb-2 text-sm text-fg-muted">
                   Selected: {selected.size} / {active.length}
                 </p>
+                <p className="mb-2 text-xs text-fg-subtle">
+                  The number is each player's results-aware skill (used to balance
+                  the draw): their manual skill blended with how they've been
+                  playing.
+                </p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {active.map((p) => (
-                    <label
-                      key={p.id}
-                      className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected.has(p.id)}
-                        onChange={() => toggle(p.id)}
-                        data-testid={`present-${p.id}`}
-                      />
-                      <span className="truncate text-fg">{p.nickname}</span>
-                      <span className="ml-auto text-xs text-fg-subtle">
-                        {p.skill ?? '—'}
-                      </span>
-                    </label>
-                  ))}
+                  {active.map((p) => {
+                    const r = strengthOf(p.id)
+                    const eff = effectiveSkill(p.skill, r?.rating, r?.games ?? 0)
+                    return (
+                      <label
+                        key={p.id}
+                        className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected.has(p.id)}
+                          onChange={() => toggle(p.id)}
+                          data-testid={`present-${p.id}`}
+                        />
+                        <span className="truncate text-fg">{p.nickname}</span>
+                        <span
+                          className="ml-auto text-xs font-medium tabular-nums text-fg-subtle"
+                          title={`Manual skill ${p.skill ?? '—'} · results-aware ${eff.toFixed(1)}`}
+                        >
+                          {eff.toFixed(1)}
+                        </span>
+                      </label>
+                    )
+                  })}
                 </div>
 
                 <div className="mt-5 space-y-3 border-t border-line pt-4">

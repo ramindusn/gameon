@@ -55,6 +55,9 @@ vi.mock('../ranking/useRanking', () => ({
     ({ p2: 'Bob', p3: 'Cara', p4: 'Dan' })[id ?? ''] ?? '—',
 }))
 
+// Logged-out visitor → public view (base skill hidden).
+vi.mock('../auth/useAuth', () => ({ useAuth: () => ({ role: null, signOut: vi.fn() }) }))
+
 import { PlayerProfilePage } from './PlayerProfilePage'
 
 function renderProfile(id = 'p1') {
@@ -77,6 +80,15 @@ describe('PlayerProfilePage', () => {
     const perf = screen.getByTestId('profile-performance')
     expect(perf).toHaveTextContent('1632')
     expect(perf).toHaveTextContent('1W – 1L')
+  })
+
+  it('hides the base skill from the public (shows only the live skill) (TASK-45)', async () => {
+    renderProfile()
+    await screen.findByTestId('profile-name')
+    const perf = screen.getByTestId('profile-performance')
+    // Public view: a plain "Skill" with the live value, no "base → now" arrow.
+    expect(perf).not.toHaveTextContent('base → now')
+    expect(perf).not.toHaveTextContent('→')
   })
 
   it('lists match history with partner, opponents and scores', async () => {
