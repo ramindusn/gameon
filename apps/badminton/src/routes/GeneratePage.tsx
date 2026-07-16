@@ -10,6 +10,8 @@ import {
 import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import { useRoster } from '../roster/useRoster'
+import { usePlayerBoard } from '../ranking/useRanking'
+import { effectiveSkill } from '../ranking/effectiveSkill'
 import { useCreateSession, useCreateTournamentWithMatches } from '../play/useMatchPlay'
 import type { TournamentFixture } from '../play/api'
 import { localInputToIso, nowLocalInput } from '../play/datetime'
@@ -34,6 +36,13 @@ export function GeneratePage() {
     () => (data?.players ?? []).filter((p) => !p.absent),
     [data],
   )
+  // Results-based strength per player (rating + games), used to blend the manual
+  // skill into the effective skill the balancer sees (TASK-44).
+  const board = usePlayerBoard()
+  const strengthOf = useMemo(() => {
+    const m = new Map((board.data ?? []).map((r) => [r.playerId, r]))
+    return (id: string) => m.get(id)
+  }, [board.data])
   const createSession = useCreateSession()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -70,12 +79,16 @@ export function GeneratePage() {
   function generate() {
     const present: Named[] = active
       .filter((p) => selected.has(p.id))
-      .map((p) => ({
-        id: p.id,
-        nickname: p.nickname,
-        skill: p.skill ?? 5,
-        gender: p.gender,
-      }))
+      .map((p) => {
+        const r = strengthOf(p.id)
+        return {
+          id: p.id,
+          nickname: p.nickname,
+          // Balance by the results-aware skill (manual seed blended with rating).
+          skill: effectiveSkill(p.skill, r?.rating, r?.games ?? 0),
+          gender: p.gender,
+        }
+      })
     setResult(generateRounds(present, rounds, { mode, courts }))
     setGenerated(true)
   }
