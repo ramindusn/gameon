@@ -15,6 +15,8 @@ import {
 import { BoardState } from '../ranking/Leaderboard'
 import { PROVISIONAL_RD } from '../ranking/api'
 import { SearchBox } from '../search/SearchBox'
+import { useSessions } from '../play/useMatchPlay'
+import { formatPlayedAt } from '../play/datetime'
 
 // Public, logged-out home (TASK-9.1 / 9.2 / 9.5). Top bar with the two login
 // buttons, hero, then the latest game day's standings and the rankings. The
@@ -32,6 +34,7 @@ export function Home() {
       <PublicNav />
       <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 sm:px-6">
         <Hero />
+        <LiveNow />
         <GameDayRank />
         <RankingPreview />
       </main>
@@ -74,6 +77,53 @@ function PairNames({ ids, nameOf }: { ids: [string | null, string | null]; nameO
 type NameOf = (id: string | null) => string
 
 const fmtRating = (n: number) => Math.round(n).toLocaleString('en-US')
+
+// ---- Live now (public access to the live game day) ------------------------
+
+/**
+ * When a casual game day is in progress, surface it so players (logged out) can
+ * open the live schedule / points / scores at /play/:id — otherwise that page is
+ * only reachable by direct link. Hidden game days are excluded, matching the
+ * rest of the public home.
+ */
+function LiveNow() {
+  const { data } = useSessions()
+  const live = (data ?? []).filter(
+    (s) => s.status === 'live' && s.kind === 'casual' && !s.hidden,
+  )
+  if (live.length === 0) return null
+  return (
+    <Section title="Live now" icon="live">
+      <div className="space-y-3">
+        {live.map((s) => (
+          <Link
+            key={s.id}
+            to={`/play/${s.id}`}
+            data-testid={`live-now-${s.id}`}
+            className="flex items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent/5 p-5 shadow-sm transition-colors hover:border-accent focus:outline-none focus:ring-2 focus:ring-accent sm:p-6"
+          >
+            <span className="flex min-w-0 flex-col">
+              <span className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent-strong">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  Live
+                </span>
+                <span className="truncate font-display text-lg font-semibold text-fg">
+                  {formatPlayedAt(s.playedAt)}
+                </span>
+              </span>
+              <span className="mt-1 text-sm text-fg-muted">
+                {s.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'} · {s.rounds} rounds — see
+                the schedule, points &amp; live scores
+              </span>
+            </span>
+            <span className="shrink-0 text-sm font-medium text-accent-strong">View →</span>
+          </Link>
+        ))}
+      </div>
+    </Section>
+  )
+}
 
 // ---- Game Day Podium ------------------------------------------------------
 
