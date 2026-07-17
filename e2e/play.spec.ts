@@ -37,7 +37,7 @@ test('matchmaker starts a session, scores a match, and finds it in history', asy
 
   // Finishing is blocked while the second court is still unscored.
   await expect(page.getByTestId('finish-session')).toBeDisabled()
-  await expect(page.getByTestId('outstanding-matches')).toBeVisible()
+  await expect(page.getByTestId('finish-hint')).toBeVisible()
 
   // Score the second court too → nothing outstanding.
   const court2 = page.locator('[data-testid^="court-"]').nth(1)
@@ -45,7 +45,7 @@ test('matchmaker starts a session, scores a match, and finds it in history', asy
   await court2.locator('[data-testid^="score-"][data-testid$="-b"]').fill('19')
   await court2.locator('[data-testid^="save-score-"]').click()
   await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
-  await expect(page.getByTestId('outstanding-matches')).toHaveCount(0)
+  await expect(page.getByTestId('finish-hint')).toHaveCount(0)
 
   // Finishing succeeds and routes to the leaderboard (the recompute landing).
   await expect(page.getByTestId('finish-session')).toBeEnabled()
@@ -144,7 +144,7 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
 
   // Finishing is blocked until every remaining match is scored.
   await expect(page.getByTestId('finish-session')).toBeDisabled()
-  await expect(page.getByTestId('outstanding-matches')).toBeVisible()
+  await expect(page.getByTestId('finish-hint')).toBeVisible()
 
   // Score both courts.
   const courts = page.locator('[data-testid^="court-"]')
@@ -155,7 +155,7 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
     await c.locator('[data-testid^="save-score-"]').click()
   }
   await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
-  await expect(page.getByTestId('outstanding-matches')).toHaveCount(0)
+  await expect(page.getByTestId('finish-hint')).toHaveCount(0)
 
   // Now finishing succeeds (which, in production, triggers the ranking
   // recompute) and routes to the leaderboard.
@@ -164,15 +164,19 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
   await expect(page).toHaveURL(/\/leaderboard$/)
 })
 
-test('signed-out visitor cannot reach /play or a session', async ({ page }) => {
+test('signed-out visitor gets the public, read-only game-day page (TASK-50)', async ({ page }) => {
+  await page.goto('/')
   await page.evaluate(() => sessionStorage.clear())
 
+  // /play with no id has no route → catch-all bounces to the public home.
   await page.goto('/play')
-  // ProtectedRoute bounces to the public home (which hosts the login dropdowns).
   await expect(page.getByTestId('nav-admin-login')).toBeVisible()
-  await expect(page.getByTestId('sessions')).toHaveCount(0)
 
+  // /play/:id is public: the page renders read-only (a bogus id shows the
+  // "not found" state, but crucially it is NOT bounced to login).
   await page.goto('/play/some-session-id')
-  await expect(page.getByTestId('nav-admin-login')).toBeVisible()
-  await expect(page.getByTestId('play')).toHaveCount(0)
+  await expect(page.getByTestId('play')).toBeVisible()
+  // No matchmaker editing controls for a signed-out viewer.
+  await expect(page.getByTestId('finish-session')).toHaveCount(0)
+  await expect(page.getByTestId('add-custom-match')).toHaveCount(0)
 })
