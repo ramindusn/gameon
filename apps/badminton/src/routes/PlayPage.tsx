@@ -11,6 +11,7 @@ import {
   useDeleteMatch,
   useDeleteSession,
   useSession,
+  useSessionRealtime,
   useSetScore,
   useSetSessionHidden,
   useSetSessionStatus,
@@ -33,7 +34,7 @@ interface PresentPlayer {
   nickname: string
 }
 
-type Tab = 'schedule' | 'points' | 'score'
+type Tab = 'matches' | 'points'
 /** Look up a player's effective skill (or null if unknown). */
 type SkillOf = (id: string | null) => number | null
 
@@ -45,6 +46,9 @@ export function PlayPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data, isLoading, isError } = useSession(id)
+  // Live updates: every viewer (players + matchmaker) sees scores/standings
+  // refresh the moment the matchmaker saves, no manual reload.
+  useSessionRealtime(id)
   const { data: roster } = useRoster()
   const board = usePlayerBoard()
   const { role } = useAuth()
@@ -60,7 +64,7 @@ export function PlayPage() {
   const addMatch = useAddCustomMatch(id)
   const deleteMatch = useDeleteMatch(id)
 
-  const [tab, setTab] = useState<Tab>(canEdit ? 'score' : 'schedule')
+  const [tab, setTab] = useState<Tab>('matches')
   const [editingDate, setEditingDate] = useState(false)
   const [dateValue, setDateValue] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -133,6 +137,8 @@ export function PlayPage() {
         )}
 
         {data && (
+          // Header (summary + sticky tabs) reads as one component: the summary
+          // scrolls away and the tab bar pins below the top nav.
           <>
             <SessionHeader
               session={data.session}
@@ -177,69 +183,78 @@ export function PlayPage() {
               }
             />
 
-            <Tabs active={tab} onChange={setTab} />
+            <div>
+              <Tabs active={tab} onChange={setTab} />
+              <div className="pt-4">
+                {tab === 'points' && <PointsTab standings={standings} />}
 
-            {tab === 'schedule' && (
-              <ScheduleTab rounds={rounds} sessionPlayers={sessionPlayers} nameOf={nameOf} skillOf={skillOf} />
-            )}
+                {/* Matches = schedule + scores in one view. Matchmakers edit
+                    inline; everyone else sees it read-only. */}
+                {tab === 'matches' &&
+                  (canEdit ? (
+                    <div className="space-y-4">
+                      {rounds.map(({ round, results }) => {
+                        const resting = restingInRound(sessionPlayers, results)
+                        return (
+                          <Card key={round} title={`Round ${round}`} icon={<Icon name="target" />}>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {results.map((r) => (
+                                <CourtScore
+                                  key={r.id}
+                                  result={r}
+                                  nameOf={nameOf}
+                                  skillOf={skillOf}
+                                  present={sessionPlayers}
+                                  editable={live}
+                                  saving={setScore.isPending}
+                                  editing={updateLineup.isPending}
+                                  deleting={deleteMatch.isPending}
+                                  onSave={(scoreA, scoreB) =>
+                                    setScore.mutate({ resultId: r.id, scoreA, scoreB })
+                                  }
+                                  onSaveLineup={(teamA, teamB) =>
+                                    updateLineup.mutate({ resultId: r.id, teamA, teamB })
+                                  }
+                                  onDelete={() => deleteMatch.mutate(r.id)}
+                                />
+                              ))}
+                            </div>
+                            {resting.length > 0 && (
+                              <p className="mt-3 text-xs text-fg-muted" data-testid={`resting-${round}`}>
+                                <span className="font-medium text-fg-subtle">Resting:</span>{' '}
+                                {resting.map((p) => p.nickname).join(', ')}
+                              </p>
+                            )}
+                          </Card>
+                        )
+                      })}
 
-            {tab === 'points' && <PointsTab standings={standings} />}
-
-            {tab === 'score' && (
-              <div className="space-y-4">
-                {rounds.map(({ round, results }) => {
-                  const resting = restingInRound(sessionPlayers, results)
-                  return (
-                    <Card key={round} title={`Round ${round}`} icon={<Icon name="target" />}>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {results.map((r) => (
-                          <CourtScore
-                            key={r.id}
-                            result={r}
-                            nameOf={nameOf}
-                            skillOf={skillOf}
-                            present={sessionPlayers}
-                            editable={canEdit && live}
-                            saving={setScore.isPending}
-                            editing={updateLineup.isPending}
-                            deleting={deleteMatch.isPending}
-                            onSave={(scoreA, scoreB) =>
-                              setScore.mutate({ resultId: r.id, scoreA, scoreB })
-                            }
-                            onSaveLineup={(teamA, teamB) =>
-                              updateLineup.mutate({ resultId: r.id, teamA, teamB })
-                            }
-                            onDelete={() => deleteMatch.mutate(r.id)}
-                          />
-                        ))}
-                      </div>
-                      {resting.length > 0 && (
-                        <p className="mt-3 text-xs text-fg-muted" data-testid={`resting-${round}`}>
-                          <span className="font-medium text-fg-subtle">Resting:</span>{' '}
-                          {resting.map((p) => p.nickname).join(', ')}
-                        </p>
+                      {live && (
+                        <AddCustomMatch
+                          present={sessionPlayers}
+                          results={data.results}
+                          saving={addMatch.isPending}
+                          onAdd={(round, players) => {
+                            addMatch.mutate({
+                              clubId: data.session.clubId,
+                              round,
+                              court: nextCourtInRound(data.results, round),
+                              players,
+                            })
+                          }}
+                        />
                       )}
-                    </Card>
-                  )
-                })}
-
-                {canEdit && live && (
-                  <AddCustomMatch
-                    present={sessionPlayers}
-                    results={data.results}
-                    saving={addMatch.isPending}
-                    onAdd={(round, players) => {
-                      addMatch.mutate({
-                        clubId: data.session.clubId,
-                        round,
-                        court: nextCourtInRound(data.results, round),
-                        players,
-                      })
-                    }}
-                  />
-                )}
+                    </div>
+                  ) : (
+                    <ScheduleTab
+                      rounds={rounds}
+                      sessionPlayers={sessionPlayers}
+                      nameOf={nameOf}
+                      skillOf={skillOf}
+                    />
+                  ))}
               </div>
-            )}
+            </div>
           </>
         )}
       </div>
@@ -247,12 +262,15 @@ export function PlayPage() {
   )
 }
 
-/** Staff get the full app shell (nav); the public gets a lightweight header. */
+/** Staff get the full app shell (nav); the public gets a lightweight header.
+ *  Both headers are sticky at top-0 so the tab bar can pin just beneath them. */
 function Frame({ staff, children }: { staff: boolean; children: ReactNode }) {
-  if (staff) return <AppShell title="Game day">{children}</AppShell>
+  // No AppShell title: this page renders its own unified header (summary +
+  // sticky tabs), so a separate "Game day" h1 above it would be redundant.
+  if (staff) return <AppShell>{children}</AppShell>
   return (
     <div className="flex min-h-screen flex-col bg-bg text-fg">
-      <header className="border-b border-line bg-surface/95 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
           <Link to="/" className="font-display text-lg font-bold text-accent-strong">
             BadmintonDuo
@@ -316,7 +334,7 @@ function SessionHeader({
 }) {
   const live = session.status === 'live'
   return (
-    <div className="mb-5 rounded-xl border border-line bg-surface px-4 py-3">
+    <div className="rounded-t-xl border border-line border-b-0 bg-surface px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
           <Icon name={session.kind === 'tournament' ? 'tournament' : 'shuttle'} className="h-4 w-4 text-accent" />
@@ -432,39 +450,47 @@ function SessionHeader({
 
 // ---- Tabs -----------------------------------------------------------------
 
-const TABS: { id: Tab; label: string; icon: 'schedule' | 'ranking' | 'target' }[] = [
-  { id: 'schedule', label: 'Schedule', icon: 'schedule' },
+const TABS: { id: Tab; label: string; icon: 'shuttle' | 'ranking' }[] = [
+  { id: 'matches', label: 'Matches', icon: 'shuttle' },
   { id: 'points', label: 'Points', icon: 'ranking' },
-  { id: 'score', label: 'Score', icon: 'target' },
 ]
 
+/**
+ * Sticky, centered tab bar. At rest it sits flush under the session summary
+ * (shared border → the two read as one component); on scroll it pins just below
+ * the top nav (top-14) while the tab content scrolls beneath it.
+ */
 function Tabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
-    <div
-      role="tablist"
-      aria-label="Game day views"
-      className="mb-5 inline-flex rounded-lg border border-line bg-surface p-1 text-sm"
-    >
-      {TABS.map((t) => {
-        const on = active === t.id
-        return (
-          <button
-            key={t.id}
-            role="tab"
-            type="button"
-            aria-selected={on}
-            onClick={() => onChange(t.id)}
-            data-testid={`tab-${t.id}`}
-            className={cx(
-              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors',
-              on ? 'bg-surface-muted text-fg' : 'text-fg-muted hover:text-fg',
-            )}
-          >
-            <Icon name={t.icon} className="h-4 w-4" />
-            {t.label}
-          </button>
-        )
-      })}
+    <div className="sticky top-14 z-[9] rounded-b-xl border border-t-0 border-line bg-surface/95 px-2 py-2 shadow-sm backdrop-blur">
+      <div
+        role="tablist"
+        aria-label="Game day views"
+        className="mx-auto flex max-w-md items-center justify-center gap-1 text-sm"
+      >
+        {TABS.map((t) => {
+          const on = active === t.id
+          return (
+            <button
+              key={t.id}
+              role="tab"
+              type="button"
+              aria-selected={on}
+              onClick={() => onChange(t.id)}
+              data-testid={`tab-${t.id}`}
+              className={cx(
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 font-medium transition-colors',
+                on
+                  ? 'bg-accent/15 text-accent-strong'
+                  : 'text-fg-muted hover:bg-surface-muted hover:text-fg',
+              )}
+            >
+              <Icon name={t.icon} className="h-4 w-4" />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
