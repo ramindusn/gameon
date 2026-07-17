@@ -1,11 +1,11 @@
 ---
 id: TASK-49
 title: 'Fix: Create game day button stuck disabled (clubId lost on roster refetch)'
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-07-17 10:33'
-updated_date: '2026-07-17 10:33'
+updated_date: '2026-07-17 10:37'
 labels: []
 dependencies: []
 ordinal: 103000
