@@ -1,9 +1,10 @@
 ---
 id: TASK-48
 title: Exact-decimal game-day ranking + favoured-to-win meter on match cards
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-07-17 09:40'
+updated_date: '2026-07-17 09:54'
 labels: []
 dependencies: []
 ordinal: 102000
