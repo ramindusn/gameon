@@ -96,7 +96,7 @@ export function PlayPage() {
                   ? 'Tournament · Fixed pairs'
                   : `Game day · ${data.session.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'}`
               }
-              icon={data.session.kind === 'tournament' ? '🏆' : '🏸'}
+              icon={<Icon name={data.session.kind === 'tournament' ? 'tournament' : 'shuttle'} />}
               action={
                 <span
                   className={cx(
