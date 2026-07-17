@@ -113,14 +113,18 @@ function PodiumSpot({ row, place }: { row: StandingRow; place: 1 | 2 | 3 }) {
           place === 1 ? 'border-accent bg-accent/15' : 'border-line bg-surface-muted',
         )}
       >
-        {/* A themed medal per rank: green for 1st, muted silver/bronze feel for 2nd/3rd. */}
-        <Icon
-          name="ranking"
+        {/* A themed medal disc showing the rank: green for 1st, muted for 2nd/3rd. */}
+        <span
+          aria-hidden
           className={cx(
-            'h-5 w-5',
-            place === 1 ? 'text-accent-strong' : place === 2 ? 'text-fg-muted' : 'text-fg-subtle',
+            'grid h-7 w-7 place-items-center rounded-full font-display text-sm font-bold ring-1',
+            place === 1
+              ? 'bg-accent/20 text-accent-strong ring-accent/50'
+              : 'bg-surface-muted text-fg-muted ring-line',
           )}
-        />
+        >
+          {place}
+        </span>
         <span className="sr-only">Rank {place}</span>
       </div>
     </div>
