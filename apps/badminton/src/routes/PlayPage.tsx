@@ -11,6 +11,7 @@ import {
   useDeleteMatch,
   useDeleteSession,
   useSession,
+  useSessionRealtime,
   useSetScore,
   useSetSessionHidden,
   useSetSessionStatus,
@@ -33,7 +34,7 @@ interface PresentPlayer {
   nickname: string
 }
 
-type Tab = 'schedule' | 'points' | 'score'
+type Tab = 'matches' | 'points'
 /** Look up a player's effective skill (or null if unknown). */
 type SkillOf = (id: string | null) => number | null
 
@@ -45,6 +46,9 @@ export function PlayPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data, isLoading, isError } = useSession(id)
+  // Live updates: every viewer (players + matchmaker) sees scores/standings
+  // refresh the moment the matchmaker saves, no manual reload.
+  useSessionRealtime(id)
   const { data: roster } = useRoster()
   const board = usePlayerBoard()
   const { role } = useAuth()
@@ -60,7 +64,7 @@ export function PlayPage() {
   const addMatch = useAddCustomMatch(id)
   const deleteMatch = useDeleteMatch(id)
 
-  const [tab, setTab] = useState<Tab>(canEdit ? 'score' : 'schedule')
+  const [tab, setTab] = useState<Tab>('matches')
   const [editingDate, setEditingDate] = useState(false)
   const [dateValue, setDateValue] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -182,67 +186,73 @@ export function PlayPage() {
             <div>
               <Tabs active={tab} onChange={setTab} />
               <div className="pt-4">
-                {tab === 'schedule' && (
-                  <ScheduleTab rounds={rounds} sessionPlayers={sessionPlayers} nameOf={nameOf} skillOf={skillOf} />
-                )}
-
                 {tab === 'points' && <PointsTab standings={standings} />}
 
-                {tab === 'score' && (
-                  <div className="space-y-4">
-                    {rounds.map(({ round, results }) => {
-                      const resting = restingInRound(sessionPlayers, results)
-                      return (
-                        <Card key={round} title={`Round ${round}`} icon={<Icon name="target" />}>
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {results.map((r) => (
-                              <CourtScore
-                                key={r.id}
-                                result={r}
-                                nameOf={nameOf}
-                                skillOf={skillOf}
-                                present={sessionPlayers}
-                                editable={canEdit && live}
-                                saving={setScore.isPending}
-                                editing={updateLineup.isPending}
-                                deleting={deleteMatch.isPending}
-                                onSave={(scoreA, scoreB) =>
-                                  setScore.mutate({ resultId: r.id, scoreA, scoreB })
-                                }
-                                onSaveLineup={(teamA, teamB) =>
-                                  updateLineup.mutate({ resultId: r.id, teamA, teamB })
-                                }
-                                onDelete={() => deleteMatch.mutate(r.id)}
-                              />
-                            ))}
-                          </div>
-                          {resting.length > 0 && (
-                            <p className="mt-3 text-xs text-fg-muted" data-testid={`resting-${round}`}>
-                              <span className="font-medium text-fg-subtle">Resting:</span>{' '}
-                              {resting.map((p) => p.nickname).join(', ')}
-                            </p>
-                          )}
-                        </Card>
-                      )
-                    })}
+                {/* Matches = schedule + scores in one view. Matchmakers edit
+                    inline; everyone else sees it read-only. */}
+                {tab === 'matches' &&
+                  (canEdit ? (
+                    <div className="space-y-4">
+                      {rounds.map(({ round, results }) => {
+                        const resting = restingInRound(sessionPlayers, results)
+                        return (
+                          <Card key={round} title={`Round ${round}`} icon={<Icon name="target" />}>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {results.map((r) => (
+                                <CourtScore
+                                  key={r.id}
+                                  result={r}
+                                  nameOf={nameOf}
+                                  skillOf={skillOf}
+                                  present={sessionPlayers}
+                                  editable={live}
+                                  saving={setScore.isPending}
+                                  editing={updateLineup.isPending}
+                                  deleting={deleteMatch.isPending}
+                                  onSave={(scoreA, scoreB) =>
+                                    setScore.mutate({ resultId: r.id, scoreA, scoreB })
+                                  }
+                                  onSaveLineup={(teamA, teamB) =>
+                                    updateLineup.mutate({ resultId: r.id, teamA, teamB })
+                                  }
+                                  onDelete={() => deleteMatch.mutate(r.id)}
+                                />
+                              ))}
+                            </div>
+                            {resting.length > 0 && (
+                              <p className="mt-3 text-xs text-fg-muted" data-testid={`resting-${round}`}>
+                                <span className="font-medium text-fg-subtle">Resting:</span>{' '}
+                                {resting.map((p) => p.nickname).join(', ')}
+                              </p>
+                            )}
+                          </Card>
+                        )
+                      })}
 
-                    {canEdit && live && (
-                      <AddCustomMatch
-                        present={sessionPlayers}
-                        results={data.results}
-                        saving={addMatch.isPending}
-                        onAdd={(round, players) => {
-                          addMatch.mutate({
-                            clubId: data.session.clubId,
-                            round,
-                            court: nextCourtInRound(data.results, round),
-                            players,
-                          })
-                        }}
-                      />
-                    )}
-                  </div>
-                )}
+                      {live && (
+                        <AddCustomMatch
+                          present={sessionPlayers}
+                          results={data.results}
+                          saving={addMatch.isPending}
+                          onAdd={(round, players) => {
+                            addMatch.mutate({
+                              clubId: data.session.clubId,
+                              round,
+                              court: nextCourtInRound(data.results, round),
+                              players,
+                            })
+                          }}
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <ScheduleTab
+                      rounds={rounds}
+                      sessionPlayers={sessionPlayers}
+                      nameOf={nameOf}
+                      skillOf={skillOf}
+                    />
+                  ))}
               </div>
             </div>
           </>
@@ -440,10 +450,9 @@ function SessionHeader({
 
 // ---- Tabs -----------------------------------------------------------------
 
-const TABS: { id: Tab; label: string; icon: 'schedule' | 'ranking' | 'target' }[] = [
-  { id: 'schedule', label: 'Schedule', icon: 'schedule' },
+const TABS: { id: Tab; label: string; icon: 'shuttle' | 'ranking' }[] = [
+  { id: 'matches', label: 'Matches', icon: 'shuttle' },
   { id: 'points', label: 'Points', icon: 'ranking' },
-  { id: 'score', label: 'Score', icon: 'target' },
 ]
 
 /**

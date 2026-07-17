@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@gameon/ui'
+import { supabase } from '@gameon/supabase'
 import type { GeneratedMatches } from '@gameon/domain'
 import {
   addCustomMatch,
@@ -62,6 +64,36 @@ export function useSession(id: string | undefined) {
     queryFn: () => getSession(id as string),
     enabled: Boolean(id),
   })
+}
+
+/**
+ * Keep an open game day live for every viewer: subscribe to Postgres changes on
+ * this session's rows and refetch when the matchmaker saves a score, edits a
+ * line-up, or adds/removes a match — so players watching see scores + standings
+ * update without refreshing. No-ops when Supabase is unconfigured (tests/E2E).
+ */
+export function useSessionRealtime(id: string | undefined) {
+  const qc = useQueryClient()
+  useEffect(() => {
+    if (!id || !supabase) return
+    const invalidate = () => qc.invalidateQueries({ queryKey: sessionKey(id) })
+    const channel = supabase
+      .channel(`session:${id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'match_results', filter: `session_id=eq.${id}` },
+        invalidate,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'match_sessions', filter: `id=eq.${id}` },
+        invalidate,
+      )
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [id, qc])
 }
 
 /** Create a live game day from a generated draw; refreshes the session list. */

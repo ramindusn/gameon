@@ -54,6 +54,7 @@ const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, ses
 
 vi.mock('../play/useMatchPlay', () => ({
   useSession: () => ({ data: sessionData, isLoading: false, isError: false }),
+  useSessionRealtime: () => {},
   useSetScore: () => ({ mutate: setScore, isPending: false }),
   useSetSessionStatus: () => ({ mutate: setStatus, isPending: false }),
   useSetSessionHidden: () => ({ mutate: setHidden, isPending: false }),
@@ -121,27 +122,35 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('points-p7')).toHaveTextContent('-6')
   })
 
-  it('shows a read-only schedule tab with the round matchups', () => {
+  it('has two tabs (Matches + Points), not separate Schedule/Score', () => {
     renderPage()
-    fireEvent.click(screen.getByTestId('tab-schedule'))
-    expect(screen.getByTestId('schedule-tab')).toBeInTheDocument()
-    expect(screen.getByTestId('schedule-r1')).toBeInTheDocument()
-    // No score inputs live on the schedule tab.
-    expect(screen.queryByTestId('score-r1-a')).toBeNull()
+    expect(screen.getByTestId('tab-matches')).toBeInTheDocument()
+    expect(screen.getByTestId('tab-points')).toBeInTheDocument()
+    expect(screen.queryByTestId('tab-schedule')).toBeNull()
+    expect(screen.queryByTestId('tab-score')).toBeNull()
   })
 
-  it('is public + read-only for a signed-out viewer (no editing controls)', () => {
+  it('gives a signed-out viewer a read-only Matches tab (no editing controls)', () => {
     authRole.current = null
     renderPage()
-    // Session controls are matchmaker-only.
+    // Matches is the default tab; players see the read-only schedule view.
+    expect(screen.getByTestId('schedule-tab')).toBeInTheDocument()
+    expect(screen.getByTestId('schedule-r1')).toBeInTheDocument()
+    // Session controls + inline editing are matchmaker-only.
     expect(screen.queryByTestId('finish-session')).toBeNull()
     expect(screen.queryByTestId('delete-game-day')).toBeNull()
-    // The Score tab is view-only: no inputs or save buttons.
-    fireEvent.click(screen.getByTestId('tab-score'))
     expect(screen.queryByTestId('score-r1-a')).toBeNull()
     expect(screen.queryByTestId('save-score-r1')).toBeNull()
     expect(screen.queryByTestId('edit-lineup-r1')).toBeNull()
     expect(screen.queryByTestId('add-custom-match')).toBeNull()
+  })
+
+  it('lets a matchmaker edit scores inline on the Matches tab', () => {
+    renderPage()
+    // Matches is the default tab and shows editable court cards for matchmakers.
+    expect(screen.getByTestId('score-r1-a')).toBeInTheDocument()
+    expect(screen.getByTestId('save-score-r1')).toBeInTheDocument()
+    expect(screen.getByTestId('add-custom-match')).toBeInTheDocument()
   })
 
   it('renders the session with player names and an existing winner', () => {
