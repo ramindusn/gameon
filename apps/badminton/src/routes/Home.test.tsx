@@ -2,12 +2,14 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { GameDayBoard, RatedPair, RatedPlayer } from '../ranking/api'
+import type { MatchSession } from '../play/api'
 
 const { state } = vi.hoisted(() => ({
   state: {
     players: [] as RatedPlayer[],
     pairs: [] as RatedPair[],
     gameDays: [] as GameDayBoard[],
+    sessions: [] as MatchSession[],
   },
 }))
 
@@ -26,6 +28,10 @@ vi.mock('../auth/useAuth', () => ({
 
 vi.mock('../search/SearchBox', () => ({ SearchBox: () => null }))
 
+vi.mock('../play/useMatchPlay', () => ({
+  useSessions: () => ({ data: state.sessions, isLoading: false, isError: false }),
+}))
+
 import { Home } from './Home'
 
 function renderHome() {
@@ -41,6 +47,7 @@ describe('Home (TASK-9.5)', () => {
     state.players = []
     state.pairs = []
     state.gameDays = []
+    state.sessions = []
     renderHome()
     expect(screen.getAllByTestId('view-all-leaderboard').length).toBeGreaterThan(0)
     // The Scheduled Matches / Recent Results feeds were removed to declutter the
@@ -49,6 +56,43 @@ describe('Home (TASK-9.5)', () => {
     expect(screen.queryByText('Recent Results')).toBeNull()
     expect(screen.queryByText('Game Day Podium')).toBeNull()
     expect(screen.queryByTestId('game-day-board')).toBeNull()
+    // No live game day → no "Live now" access card.
+    expect(screen.queryByText('Live now')).toBeNull()
+  })
+
+  it('surfaces a live casual game day so players can open it (TASK-51)', () => {
+    state.players = []
+    state.pairs = []
+    state.gameDays = []
+    state.sessions = [
+      {
+        id: 'live-1',
+        clubId: 'c1',
+        status: 'live',
+        mode: 'open',
+        kind: 'casual',
+        rounds: 5,
+        hidden: false,
+        playedAt: '2026-07-17T18:00:00Z',
+        createdAt: '2026-07-17T18:00:00Z',
+      },
+      // A hidden live day must NOT be surfaced publicly.
+      {
+        id: 'live-hidden',
+        clubId: 'c1',
+        status: 'live',
+        mode: 'open',
+        kind: 'casual',
+        rounds: 5,
+        hidden: true,
+        playedAt: '2026-07-17T19:00:00Z',
+        createdAt: '2026-07-17T19:00:00Z',
+      },
+    ] as MatchSession[]
+    renderHome()
+    expect(screen.getByText('Live now')).toBeInTheDocument()
+    expect(screen.getByTestId('live-now-live-1')).toHaveAttribute('href', '/play/live-1')
+    expect(screen.queryByTestId('live-now-live-hidden')).toBeNull()
   })
 
   it('shows the latest game day as a podium + rest, ranked by diff (TASK-33/37)', () => {

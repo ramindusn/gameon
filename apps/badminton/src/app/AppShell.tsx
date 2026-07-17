@@ -26,7 +26,9 @@ export function AppShell({
   actions,
   children,
 }: {
-  title: string
+  /** Page heading. Omit to let the page render its own header (e.g. a page
+   *  that has a self-contained hero + sticky sub-nav). */
+  title?: string
   actions?: ReactNode
   children: ReactNode
 }) {
@@ -96,10 +98,12 @@ export function AppShell({
         className="mx-auto w-full max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-8"
         data-testid="app-main"
       >
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-display text-2xl font-bold">{title}</h1>
-          {actions && <div className="flex items-center gap-2">{actions}</div>}
-        </div>
+        {(title || actions) && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            {title && <h1 className="font-display text-2xl font-bold">{title}</h1>}
+            {actions && <div className="flex items-center gap-2">{actions}</div>}
+          </div>
+        )}
         {children}
       </main>
 
