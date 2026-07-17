@@ -14,6 +14,7 @@ vi.mock('../play/useMatchPlay', () => ({
 vi.mock('../ranking/useRanking', () => ({
   usePlayerNames: () => (id: string | null) =>
     id ? ({ p1: 'Siti', p2: 'Maya', p3: 'Alex', p4: 'Ryan' }[id] ?? id) : '—',
+  useGameDayRatingDeltas: () => ({ data: { p1: 12, p2: -8 } }),
 }))
 
 import { GameDayPage } from './GameDayPage'
@@ -89,6 +90,9 @@ describe('GameDayPage (TASK-37)', () => {
     expect(standings).toHaveTextContent('-8')
     // p1 went 2–0.
     expect(screen.getByTestId('standing-p1')).toHaveTextContent('2–0')
+    // Ranking points gained/lost this game day (TASK-46).
+    expect(screen.getByTestId('rating-delta-p1')).toHaveTextContent('+12')
+    expect(screen.getByTestId('rating-delta-p2')).toHaveTextContent('-8')
 
     // Match scores are listed per court.
     const scores = screen.getByTestId('game-day-scores')

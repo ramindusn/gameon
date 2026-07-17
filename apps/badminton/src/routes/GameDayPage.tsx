@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import { Card, cx } from '@gameon/ui'
 import { Icon } from '../app/Icon'
 import { useSession } from '../play/useMatchPlay'
-import { usePlayerNames } from '../ranking/useRanking'
+import { usePlayerNames, useGameDayRatingDeltas } from '../ranking/useRanking'
 import { buildGameDayBoard, type GameDayResultRow } from '../ranking/api'
 import type { MatchResult } from '../play/api'
 
@@ -14,6 +14,8 @@ export function GameDayPage() {
   const { id = '' } = useParams()
   const { data, isLoading, isError } = useSession(id)
   const nameOf = usePlayerNames()
+  // Ranking points each player gained/lost this game day (TASK-46).
+  const { data: ratingDeltas } = useGameDayRatingDeltas(id)
 
   const session = data?.session
   const results = useMemo(() => data?.results ?? [], [data])
@@ -79,6 +81,9 @@ export function GameDayPage() {
                         <th className="py-2 font-medium">Player Name</th>
                         <th className="py-2 text-right font-medium">W–L</th>
                         <th className="py-2 text-right font-medium">+/-</th>
+                        <th className="py-2 text-right font-medium" title="Ranking points gained/lost this game day">
+                          Ranking
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
@@ -109,6 +114,9 @@ export function GameDayPage() {
                             )}
                           >
                             {fmtDiff(s.diff)}
+                          </td>
+                          <td className="py-3 text-right tabular-nums" data-testid={`rating-delta-${s.playerId}`}>
+                            <RatingDelta value={ratingDeltas?.[s.playerId]} />
                           </td>
                         </tr>
                       ))}
@@ -212,6 +220,23 @@ function RankBadge({ n }: { n: number }) {
 }
 
 const fmtDiff = (n: number) => (n > 0 ? `+${n}` : String(n))
+
+/** Ranking points gained/lost that game day (green up, red down, — while loading). */
+function RatingDelta({ value }: { value?: number }) {
+  if (value == null) return <span className="text-fg-subtle">—</span>
+  const r = Math.round(value)
+  return (
+    <span
+      className={cx(
+        'font-display font-semibold',
+        r > 0 ? 'text-accent-strong' : r < 0 ? 'text-negative' : 'text-fg-muted',
+      )}
+    >
+      {r > 0 ? '+' : ''}
+      {r}
+    </span>
+  )
+}
 
 /** A readable "Wed, 8 Jul 2026, 18:31" style label for the game day. */
 function formatDay(iso: string): string {

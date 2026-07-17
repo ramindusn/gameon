@@ -6,7 +6,13 @@
 // about ratings + results.
 
 import { supabase, isE2E } from '@gameon/supabase'
-import { ABSENCE_GRACE_PERIOD } from '@gameon/domain'
+import {
+  ABSENCE_GRACE_PERIOD,
+  computeRatings,
+  DEFAULT_RATING,
+  type MatchRecord,
+  type RatingPeriod,
+} from '@gameon/domain'
 
 /** One rated player from the individual board (strongest first). */
 export interface RatedPlayer {
@@ -340,6 +346,92 @@ export async function loadInactivePlayers(): Promise<string[]> {
     if (count >= ABSENCE_GRACE_PERIOD && !present.has(pid)) inactive.push(pid)
   }
   return inactive
+}
+
+// ---- per-game-day rating change (TASK-46) ---------------------------------
+
+/**
+ * Ranking points each player gained/lost on one game day: the change in their
+ * Glicko rating caused by that day's rating period. Replays all finished
+ * sessions (casual + tournament, chronological) up to and including the target
+ * day, and just before it, and diffs — for the players who played that day.
+ */
+export async function loadGameDayRatingDeltas(
+  sessionId: string,
+): Promise<Record<string, number>> {
+  if (isE2E()) return {}
+  const db = client()
+  const { data: sessions } = await db
+    .from('match_sessions')
+    .select('id, created_at')
+    .eq('status', 'finished')
+    .order('created_at', { ascending: true })
+  const sRows = (sessions ?? []) as { id: string; created_at: string }[]
+  const targetIdx = sRows.findIndex((s) => s.id === sessionId)
+  if (targetIdx < 0) return {}
+
+  const { data: results } = await db
+    .from('match_results')
+    .select('session_id, team_a1, team_a2, team_b1, team_b2, winner, score_a, score_b')
+  const { data: attendance } = await db
+    .from('session_attendance')
+    .select('session_id, player_id, present')
+
+  type R = {
+    session_id: string
+    team_a1: string | null
+    team_a2: string | null
+    team_b1: string | null
+    team_b2: string | null
+    winner: string | null
+    score_a: number | null
+    score_b: number | null
+  }
+  const toRecord = (r: R): MatchRecord | null => {
+    if (!r.team_a1 || !r.team_a2 || !r.team_b1 || !r.team_b2) return null
+    let a = r.score_a
+    let b = r.score_b
+    if (a == null || b == null) {
+      if (r.winner === 'a') [a, b] = [1, 0]
+      else if (r.winner === 'b') [a, b] = [0, 1]
+      else return null
+    }
+    return { teamA: [r.team_a1, r.team_a2], teamB: [r.team_b1, r.team_b2], scoreA: a, scoreB: b }
+  }
+
+  const bySession = new Map<string, MatchRecord[]>()
+  for (const r of (results ?? []) as R[]) {
+    const rec = toRecord(r)
+    if (!rec) continue
+    ;(bySession.get(r.session_id) ?? bySession.set(r.session_id, []).get(r.session_id)!).push(rec)
+  }
+  const absBySession = new Map<string, string[]>()
+  for (const a of (attendance ?? []) as { session_id: string; player_id: string; present: boolean }[]) {
+    if (a.present) continue
+    ;(absBySession.get(a.session_id) ?? absBySession.set(a.session_id, []).get(a.session_id)!).push(
+      a.player_id,
+    )
+  }
+
+  const ratingsAfter = (count: number): Map<string, number> => {
+    const periods: RatingPeriod[] = sRows.slice(0, count).map((s) => ({
+      matches: bySession.get(s.id) ?? [],
+      absentees: absBySession.get(s.id) ?? [],
+    }))
+    return new Map(computeRatings(periods).players.map((p) => [p.id, p.rating]))
+  }
+  const before = ratingsAfter(targetIdx)
+  const after = ratingsAfter(targetIdx + 1)
+
+  const played = new Set<string>()
+  for (const m of bySession.get(sessionId) ?? []) {
+    for (const pid of [...m.teamA, ...m.teamB]) played.add(pid)
+  }
+  const deltas: Record<string, number> = {}
+  for (const pid of played) {
+    deltas[pid] = (after.get(pid) ?? DEFAULT_RATING) - (before.get(pid) ?? DEFAULT_RATING)
+  }
+  return deltas
 }
 
 // ---- E2E seed -------------------------------------------------------------

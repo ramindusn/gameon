@@ -4,6 +4,7 @@ import { useRoster } from '../roster/useRoster'
 import {
   loadInactivePlayers,
   loadGameDayBoards,
+  loadGameDayRatingDeltas,
   loadPairBoard,
   loadPlayerBoard,
   loadRecentForm,
@@ -39,6 +40,15 @@ export function useInactivePlayers() {
 /** Every scored casual game day's standings, newest first (TASK-33 / TASK-37). */
 export function useGameDayBoards() {
   return useQuery({ queryKey: ['ratings', 'game-days'], queryFn: loadGameDayBoards })
+}
+
+/** Ranking points each player gained/lost on one game day (TASK-46). */
+export function useGameDayRatingDeltas(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ['ratings', 'game-day-deltas', sessionId],
+    queryFn: () => loadGameDayRatingDeltas(sessionId as string),
+    enabled: !!sessionId,
+  })
 }
 
 /** Resolve a player id to their nickname via the (public) roster. */
