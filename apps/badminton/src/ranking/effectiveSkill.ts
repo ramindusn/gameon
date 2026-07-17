@@ -47,14 +47,16 @@ export function effectiveSkill(
  *  A ~1-point team-skill edge reads ~64%, ~2 points ~76% — enough lean to be
  *  visible without over-claiming certainty on a tightly-clustered club. */
 export const ODDS_SCALE = 4
-/** Win probabilities within this band of 50/50 are treated as a toss-up (no
- *  favourite), so a hair's-width edge doesn't get crowned. */
-export const EVEN_BAND = 0.02
+
+/** Win probability for team A from the two teams' average effective skills. */
+export function winProbability(teamSkillA: number, teamSkillB: number): number {
+  return 1 / (1 + Math.pow(10, (teamSkillB - teamSkillA) / ODDS_SCALE))
+}
 
 export interface MatchOdds {
   /** Team A win probability, 0–1 (teamB = 1 - probA). */
   probA: number
-  /** Which side the odds favour, or null for an even match. */
+  /** Which side the odds favour, or null when it's an exact 50/50. */
   favoured: 'a' | 'b' | null
 }
 
@@ -62,9 +64,26 @@ export interface MatchOdds {
  * Favoured-to-win odds for a doubles court from each team's average effective
  * skill. Uses an Elo-style logistic on the skill gap, so it lines up with how
  * the matchmaker balances teams (higher combined effective skill = favourite).
+ * Any non-exact split names a favourite; only a true 50/50 is "even".
  */
 export function matchOdds(teamSkillA: number, teamSkillB: number): MatchOdds {
-  const probA = 1 / (1 + Math.pow(10, (teamSkillB - teamSkillA) / ODDS_SCALE))
-  const favoured = probA > 0.5 + EVEN_BAND ? 'a' : probA < 0.5 - EVEN_BAND ? 'b' : null
+  const probA = winProbability(teamSkillA, teamSkillB)
+  const favoured = probA > 0.5 ? 'a' : probA < 0.5 ? 'b' : null
   return { probA, favoured }
+}
+
+/** Points swing scale for a single decided match (indicative, Elo-style). */
+export const MATCH_POINTS_K = 16
+
+/**
+ * Indicative ranking-point swing from one decided match: the winning team gains
+ * this many, the losing team drops the same. Because it scales with 1 − (the
+ * winner's pre-match win probability), an underdog win is worth more than a
+ * favourite simply holding serve — mirroring how the game-day rating rewards
+ * beating expectations. This is a per-match estimate for feedback on the card;
+ * the official leaderboard change settles when the whole game day is locked.
+ */
+export function matchPoints(teamSkillWinner: number, teamSkillLoser: number): number {
+  const expectedWin = winProbability(teamSkillWinner, teamSkillLoser)
+  return MATCH_POINTS_K * (1 - expectedWin)
 }

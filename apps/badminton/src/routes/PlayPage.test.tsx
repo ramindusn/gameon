@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { MatchResult, MatchSession } from '../play/api'
 
-const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData } =
+const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole } =
   vi.hoisted(() => {
   const session: MatchSession = {
     id: 's1',
@@ -48,6 +48,7 @@ const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, ses
     addMatch: vi.fn(),
     deleteMatch: vi.fn(),
     sessionData: { session, results },
+    authRole: { current: 'matchmaker' as 'matchmaker' | 'admin' | null },
   }
 })
 
@@ -82,7 +83,7 @@ vi.mock('../roster/useRoster', () => ({
   }),
 }))
 vi.mock('../auth/useAuth', () => ({
-  useAuth: () => ({ role: 'matchmaker', signOut: vi.fn() }),
+  useAuth: () => ({ role: authRole.current, signOut: vi.fn() }),
 }))
 vi.mock('../ranking/useRanking', () => ({
   usePlayerBoard: () => ({ data: [] }),
@@ -108,14 +109,48 @@ describe('PlayPage', () => {
     updateLineup.mockClear()
     addMatch.mockClear()
     deleteMatch.mockClear()
+    authRole.current = 'matchmaker'
+  })
+
+  it('switches to the Points tab and ranks the scored players by point differential', () => {
+    // r2 (21–15, team A won): p5/p6 at +6, p7/p8 at -6.
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-points'))
+    expect(screen.getByTestId('points-table')).toBeInTheDocument()
+    expect(screen.getByTestId('points-p5')).toHaveTextContent('+6')
+    expect(screen.getByTestId('points-p7')).toHaveTextContent('-6')
+  })
+
+  it('shows a read-only schedule tab with the round matchups', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-schedule'))
+    expect(screen.getByTestId('schedule-tab')).toBeInTheDocument()
+    expect(screen.getByTestId('schedule-r1')).toBeInTheDocument()
+    // No score inputs live on the schedule tab.
+    expect(screen.queryByTestId('score-r1-a')).toBeNull()
+  })
+
+  it('is public + read-only for a signed-out viewer (no editing controls)', () => {
+    authRole.current = null
+    renderPage()
+    // Session controls are matchmaker-only.
+    expect(screen.queryByTestId('finish-session')).toBeNull()
+    expect(screen.queryByTestId('delete-game-day')).toBeNull()
+    // The Score tab is view-only: no inputs or save buttons.
+    fireEvent.click(screen.getByTestId('tab-score'))
+    expect(screen.queryByTestId('score-r1-a')).toBeNull()
+    expect(screen.queryByTestId('save-score-r1')).toBeNull()
+    expect(screen.queryByTestId('edit-lineup-r1')).toBeNull()
+    expect(screen.queryByTestId('add-custom-match')).toBeNull()
   })
 
   it('renders the session with player names and an existing winner', () => {
     renderPage()
     expect(screen.getByTestId('play')).toBeInTheDocument()
     expect(screen.getByText('Round 1')).toBeInTheDocument()
-    // Names resolved from the roster (shown on the court and in the outstanding list).
-    expect(screen.getAllByText(/Player 1 & Player 2/).length).toBeGreaterThan(0)
+    // Names resolved from the roster (shown on the court cards).
+    expect(screen.getAllByText('Player 1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Player 2').length).toBeGreaterThan(0)
     // Court 2 already has team A as winner.
     expect(screen.getByTestId('session-status')).toHaveTextContent('Live')
     // Only this game day's players (p1–p8) are counted, not the 12-strong roster.
@@ -139,21 +174,18 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('score-error-r1')).toBeInTheDocument()
   })
 
-  it('blocks finishing while a match is unscored and lists the outstanding match', () => {
+  it('blocks finishing while a match is unscored and shows a hint', () => {
     // r1 has no winner (unscored), r2 is scored → one match outstanding.
     renderPage()
     expect(screen.getByTestId('finish-session')).toBeDisabled()
-    expect(screen.getByTestId('outstanding-matches')).toBeInTheDocument()
-    expect(screen.getByTestId('outstanding-r1')).toBeInTheDocument()
-    // The scored match is not listed.
-    expect(screen.queryByTestId('outstanding-r2')).toBeNull()
+    expect(screen.getByTestId('finish-hint')).toHaveTextContent('1 match still need a score')
   })
 
   it('allows finishing once every match is scored', () => {
     // Temporarily resolve r1 so nothing is outstanding.
     sessionData.results[0].winner = 'a'
     renderPage()
-    expect(screen.queryByTestId('outstanding-matches')).toBeNull()
+    expect(screen.queryByTestId('finish-hint')).toBeNull()
     expect(screen.getByTestId('finish-session')).not.toBeDisabled()
     fireEvent.click(screen.getByTestId('finish-session'))
     expect(setStatus).toHaveBeenCalledWith(
