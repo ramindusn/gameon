@@ -75,9 +75,11 @@ export function useSession(id: string | undefined) {
 export function useSessionRealtime(id: string | undefined) {
   const qc = useQueryClient()
   useEffect(() => {
-    if (!id || !supabase) return
+    // Capture a non-null local so the cleanup closure keeps the narrowed type.
+    const client = supabase
+    if (!id || !client) return
     const invalidate = () => qc.invalidateQueries({ queryKey: sessionKey(id) })
-    const channel = supabase
+    const channel = client
       .channel(`session:${id}`)
       .on(
         'postgres_changes',
@@ -91,7 +93,7 @@ export function useSessionRealtime(id: string | undefined) {
       )
       .subscribe()
     return () => {
-      void supabase.removeChannel(channel)
+      void client.removeChannel(channel)
     }
   }, [id, qc])
 }
