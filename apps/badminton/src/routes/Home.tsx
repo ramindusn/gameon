@@ -90,8 +90,9 @@ interface StandingRow {
   diff: number
 }
 
-/** One podium column: player + diff above a ranked pedestal (1st is tallest). */
+/** One podium column: player + diff above a medal pedestal (1st is tallest). */
 function PodiumSpot({ row, place }: { row: StandingRow; place: 1 | 2 | 3 }) {
+  const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : '🥉'
   const height = place === 1 ? 'h-20 sm:h-24' : place === 2 ? 'h-14 sm:h-16' : 'h-11 sm:h-12'
   return (
     <div
@@ -113,17 +114,8 @@ function PodiumSpot({ row, place }: { row: StandingRow; place: 1 | 2 | 3 }) {
           place === 1 ? 'border-accent bg-accent/15' : 'border-line bg-surface-muted',
         )}
       >
-        {/* A themed medal disc showing the rank: green for 1st, muted for 2nd/3rd. */}
-        <span
-          aria-hidden
-          className={cx(
-            'grid h-7 w-7 place-items-center rounded-full font-display text-sm font-bold ring-1',
-            place === 1
-              ? 'bg-accent/20 text-accent-strong ring-accent/50'
-              : 'bg-surface-muted text-fg-muted ring-line',
-          )}
-        >
-          {place}
+        <span aria-hidden className="text-xl leading-none">
+          {medal}
         </span>
         <span className="sr-only">Rank {place}</span>
       </div>
