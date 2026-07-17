@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_SKILL,
   effectiveSkill,
+  matchOdds,
   resultsWeight,
   skillFromRating,
 } from './effectiveSkill'
@@ -40,5 +41,35 @@ describe('effectiveSkill', () => {
   it('blends manual and results in between', () => {
     // 4 games -> weight 0.5; manual 9, results 6.5 -> 7.75.
     expect(effectiveSkill(9, 1515, 4)).toBeCloseTo(7.75)
+  })
+})
+
+describe('matchOdds', () => {
+  it('is a 50/50 toss-up with no favourite for equal skill', () => {
+    const o = matchOdds(6, 6)
+    expect(o.probA).toBeCloseTo(0.5)
+    expect(o.favoured).toBeNull()
+  })
+
+  it('favours the stronger team and leans harder with a bigger gap', () => {
+    const edge = matchOdds(7, 6) // 1-point team edge
+    expect(edge.favoured).toBe('a')
+    expect(edge.probA).toBeGreaterThan(0.6)
+    expect(edge.probA).toBeLessThan(0.7)
+
+    const bigger = matchOdds(8, 6) // 2-point edge leans further
+    expect(bigger.favoured).toBe('a')
+    expect(bigger.probA).toBeGreaterThan(edge.probA)
+  })
+
+  it('favours team B when it is stronger and is symmetric', () => {
+    const o = matchOdds(6, 7)
+    expect(o.favoured).toBe('b')
+    expect(o.probA).toBeCloseTo(1 - matchOdds(7, 6).probA)
+  })
+
+  it('treats a hair-thin edge inside the even band as no favourite', () => {
+    const o = matchOdds(6.05, 6)
+    expect(o.favoured).toBeNull()
   })
 })

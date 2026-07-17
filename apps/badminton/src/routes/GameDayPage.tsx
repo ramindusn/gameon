@@ -221,19 +221,23 @@ function RankBadge({ n }: { n: number }) {
 
 const fmtDiff = (n: number) => (n > 0 ? `+${n}` : String(n))
 
-/** Ranking points gained/lost that game day (green up, red down, — while loading). */
+/** Ranking points gained/lost that game day, to one decimal so it stays exact
+ *  (green up, red down, — while loading). */
 function RatingDelta({ value }: { value?: number }) {
   if (value == null) return <span className="text-fg-subtle">—</span>
-  const r = Math.round(value)
+  // Round to one decimal; treat a hair either side of zero as flat.
+  const r = Math.round(value * 10) / 10
+  const positive = r > 0
+  const negative = r < 0
   return (
     <span
       className={cx(
         'font-display font-semibold',
-        r > 0 ? 'text-accent-strong' : r < 0 ? 'text-negative' : 'text-fg-muted',
+        positive ? 'text-accent-strong' : negative ? 'text-negative' : 'text-fg-muted',
       )}
     >
-      {r > 0 ? '+' : ''}
-      {r}
+      {positive ? '+' : ''}
+      {r.toFixed(1)}
     </span>
   )
 }

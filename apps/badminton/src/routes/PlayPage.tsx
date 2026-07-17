@@ -21,6 +21,8 @@ import {
   isoToLocalInput,
   localInputToIso,
 } from '../play/datetime'
+import { usePlayerBoard } from '../ranking/useRanking'
+import { effectiveSkill, matchOdds } from '../ranking/effectiveSkill'
 import type { MatchResult, Side } from '../play/api'
 
 /** A roster player reduced to what the live editors need. */
@@ -38,6 +40,7 @@ export function PlayPage() {
   const navigate = useNavigate()
   const { data, isLoading, isError } = useSession(id)
   const { data: roster } = useRoster()
+  const board = usePlayerBoard()
   const setScore = useSetScore(id)
   const setStatus = useSetSessionStatus(id)
   const setHidden = useSetSessionHidden(id)
@@ -55,6 +58,19 @@ export function PlayPage() {
     const byId = new Map((roster?.players ?? []).map((p) => [p.id, p.nickname]))
     return (pid: string | null) => (pid ? (byId.get(pid) ?? '—') : '—')
   }, [roster])
+
+  // Results-aware skill per player (manual seed blended with rating), so the
+  // court cards can show who's favoured — the same measure the matchmaker
+  // balances on. Returns null when the player isn't on the roster.
+  const skillOf = useMemo(() => {
+    const skillById = new Map((roster?.players ?? []).map((p) => [p.id, p.skill]))
+    const ratedById = new Map((board.data ?? []).map((r) => [r.playerId, r]))
+    return (pid: string | null): number | null => {
+      if (!pid || !skillById.has(pid)) return null
+      const r = ratedById.get(pid)
+      return effectiveSkill(skillById.get(pid), r?.rating, r?.games ?? 0)
+    }
+  }, [roster, board.data])
 
   // The players actually in this game day (distinct across all its matches) —
   // line-up swaps and custom matches stay within the people at the venue, not
@@ -290,6 +306,7 @@ export function PlayPage() {
                           key={r.id}
                           result={r}
                           nameOf={nameOf}
+                          skillOf={skillOf}
                           present={sessionPlayers}
                           live={data.session.status === 'live'}
                           saving={setScore.isPending}
@@ -341,9 +358,59 @@ export function PlayPage() {
   )
 }
 
+/** A compact accent tag marking the favoured team's row. */
+function FavouredTag() {
+  return (
+    <span
+      className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-strong"
+      data-testid="favoured-tag"
+    >
+      <svg aria-hidden viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="currentColor">
+        <path d="M6 1.5 11 10H1z" />
+      </svg>
+      Favoured
+    </span>
+  )
+}
+
+/**
+ * Favoured-to-win meter for a court: a single bar that fills from the
+ * favourite's side (team A = left, team B = right) in accent green, the underdog
+ * side faint, with each team's win % anchored to its end. The green mass sits on
+ * the favourite so which side is favoured reads at a glance.
+ */
+function OddsBar({ odds }: { odds: { probA: number; favoured: 'a' | 'b' | null } }) {
+  const pctA = Math.round(odds.probA * 100)
+  const pctB = 100 - pctA
+  const aFav = odds.favoured === 'a'
+  const bFav = odds.favoured === 'b'
+  return (
+    <div className="px-0.5 py-0.5" data-testid="odds-bar" aria-label={`Win odds ${pctA}% vs ${pctB}%`}>
+      <div className="mb-1 flex items-center justify-between text-[11px] font-semibold tabular-nums">
+        <span className={aFav ? 'text-accent-strong' : 'text-fg-subtle'}>{pctA}%</span>
+        <span className="text-[10px] font-medium uppercase tracking-wide text-fg-subtle">
+          {odds.favoured === null ? 'Even match' : 'Favoured to win'}
+        </span>
+        <span className={bFav ? 'text-accent-strong' : 'text-fg-subtle'}>{pctB}%</span>
+      </div>
+      <div className="flex h-1.5 overflow-hidden rounded-full bg-surface-muted">
+        <div
+          className={cx('h-full', aFav ? 'bg-accent' : 'bg-fg-subtle/30')}
+          style={{ width: `${pctA}%` }}
+        />
+        <div className="w-px shrink-0 bg-surface" />
+        <div
+          className={cx('h-full flex-1', bFav ? 'bg-accent' : 'bg-fg-subtle/30')}
+        />
+      </div>
+    </div>
+  )
+}
+
 function CourtScore({
   result,
   nameOf,
+  skillOf,
   present,
   live,
   saving,
@@ -355,6 +422,7 @@ function CourtScore({
 }: {
   result: MatchResult
   nameOf: (id: string | null) => string
+  skillOf: (id: string | null) => number | null
   present: PresentPlayer[]
   live: boolean
   saving: boolean
@@ -370,6 +438,18 @@ function CourtScore({
   const [mode, setMode] = useState<'score' | 'edit'>('score')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
+  // Favoured-to-win odds, shown only while the match is undecided and every
+  // seat is filled with a known player (needs both teams' effective skills).
+  const odds = useMemo(() => {
+    if (result.winner !== null) return null
+    const sa = [skillOf(result.teamA[0]), skillOf(result.teamA[1])]
+    const sb = [skillOf(result.teamB[0]), skillOf(result.teamB[1])]
+    if ([...sa, ...sb].some((s) => s == null)) return null
+    const teamA = (sa[0]! + sa[1]!) / 2
+    const teamB = (sb[0]! + sb[1]!) / 2
+    return matchOdds(teamA, teamB)
+  }, [result.winner, result.teamA, result.teamB, skillOf])
+
   const save = () => {
     const scoreA = a === '' ? null : Number(a)
     const scoreB = b === '' ? null : Number(b)
@@ -384,6 +464,7 @@ function CourtScore({
 
   const teamRow = (side: Side, ids: [string | null, string | null]) => {
     const won = result.winner === side
+    const favoured = odds?.favoured === side
     const value = side === 'a' ? a : b
     const set = side === 'a' ? setA : setB
     return (
@@ -392,12 +473,15 @@ function CourtScore({
           'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm',
           won
             ? 'border-accent bg-accent/15 font-semibold text-fg'
-            : 'border-line bg-surface-muted text-fg',
+            : favoured
+              ? 'border-accent/40 bg-surface-muted text-fg'
+              : 'border-line bg-surface-muted text-fg',
         )}
       >
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block break-words">{nameOf(ids[0])}</span>
           <span className="block break-words">{nameOf(ids[1])}</span>
+          {favoured && <FavouredTag />}
         </span>
         {won && <span aria-label="winner">✓</span>}
         <input
@@ -451,7 +535,11 @@ function CourtScore({
         <>
           <div className="space-y-1.5">
             {teamRow('a', result.teamA)}
-            <div className="text-center text-xs text-fg-muted">vs</div>
+            {odds ? (
+              <OddsBar odds={odds} />
+            ) : (
+              <div className="text-center text-xs text-fg-muted">vs</div>
+            )}
             {teamRow('b', result.teamB)}
           </div>
           {error && (
