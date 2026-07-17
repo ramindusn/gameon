@@ -90,6 +90,41 @@ interface StandingRow {
   diff: number
 }
 
+/** A themed medal (ribbon + disc) with the rank number — green 1st, muted 2nd/3rd. */
+function PodiumMedal({ place }: { place: 1 | 2 | 3 }) {
+  return (
+    <svg
+      viewBox="0 0 24 26"
+      className={cx('h-9 w-9', place === 1 ? 'text-accent-strong' : 'text-fg-muted')}
+      aria-hidden
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* ribbons */}
+      <path d="M9 2 L11.5 11" />
+      <path d="M15 2 L12.5 11" />
+      {/* medal disc */}
+      <circle cx="12" cy="17" r="7" fill="currentColor" fillOpacity={0.15} />
+      {/* rank number */}
+      <text
+        x="12"
+        y="17.5"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill="currentColor"
+        stroke="none"
+        fontSize="8.5"
+        fontWeight="700"
+      >
+        {place}
+      </text>
+    </svg>
+  )
+}
+
 /** One podium column: player + diff above a ranked pedestal (1st is tallest). */
 function PodiumSpot({ row, place }: { row: StandingRow; place: 1 | 2 | 3 }) {
   const height = place === 1 ? 'h-20 sm:h-24' : place === 2 ? 'h-14 sm:h-16' : 'h-11 sm:h-12'
@@ -113,18 +148,7 @@ function PodiumSpot({ row, place }: { row: StandingRow; place: 1 | 2 | 3 }) {
           place === 1 ? 'border-accent bg-accent/15' : 'border-line bg-surface-muted',
         )}
       >
-        {/* A themed medal disc showing the rank: green for 1st, muted for 2nd/3rd. */}
-        <span
-          aria-hidden
-          className={cx(
-            'grid h-7 w-7 place-items-center rounded-full font-display text-sm font-bold ring-1',
-            place === 1
-              ? 'bg-accent/20 text-accent-strong ring-accent/50'
-              : 'bg-surface-muted text-fg-muted ring-line',
-          )}
-        >
-          {place}
-        </span>
+        <PodiumMedal place={place} />
         <span className="sr-only">Rank {place}</span>
       </div>
     </div>
