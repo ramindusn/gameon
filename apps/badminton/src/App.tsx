@@ -25,6 +25,9 @@ export function App() {
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/players/:id" element={<PlayerProfilePage />} />
             <Route path="/game-days/:id" element={<GameDayPage />} />
+            {/* Public + read-only for players; editing controls are gated to
+                matchmakers inside the page (TASK-50). */}
+            <Route path="/play/:id" element={<PlayPage />} />
 
             <Route element={<ProtectedRoute allow={['admin']} />}>
               <Route path="/dashboard" element={<DashboardPage />} />
@@ -33,7 +36,6 @@ export function App() {
             <Route element={<ProtectedRoute allow={['matchmaker']} />}>
               <Route path="/matchmaker" element={<MatchmakerHome />} />
               <Route path="/generate" element={<GeneratePage />} />
-              <Route path="/play/:id" element={<PlayPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allow={['admin', 'matchmaker']} />}>

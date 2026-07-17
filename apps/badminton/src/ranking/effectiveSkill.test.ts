@@ -3,6 +3,7 @@ import {
   DEFAULT_SKILL,
   effectiveSkill,
   matchOdds,
+  matchPoints,
   resultsWeight,
   skillFromRating,
 } from './effectiveSkill'
@@ -45,7 +46,7 @@ describe('effectiveSkill', () => {
 })
 
 describe('matchOdds', () => {
-  it('is a 50/50 toss-up with no favourite for equal skill', () => {
+  it('is a 50/50 toss-up with no favourite only for exactly equal skill', () => {
     const o = matchOdds(6, 6)
     expect(o.probA).toBeCloseTo(0.5)
     expect(o.favoured).toBeNull()
@@ -68,8 +69,23 @@ describe('matchOdds', () => {
     expect(o.probA).toBeCloseTo(1 - matchOdds(7, 6).probA)
   })
 
-  it('treats a hair-thin edge inside the even band as no favourite', () => {
-    const o = matchOdds(6.05, 6)
-    expect(o.favoured).toBeNull()
+  it('names a favourite even for a hair-thin edge (only exact 50/50 is even)', () => {
+    expect(matchOdds(6.05, 6).favoured).toBe('a')
+    expect(matchOdds(6, 6.05).favoured).toBe('b')
+  })
+})
+
+describe('matchPoints', () => {
+  it('is symmetric-worthy: an even match awards the coin-flip swing', () => {
+    // equal skill -> expectedWin 0.5 -> K * 0.5 = 8
+    expect(matchPoints(6, 6)).toBeCloseTo(8)
+  })
+
+  it('rewards an underdog win more than a favourite holding serve', () => {
+    const upset = matchPoints(5, 7) // weaker team won
+    const held = matchPoints(7, 5) // stronger team won
+    expect(upset).toBeGreaterThan(held)
+    expect(upset).toBeGreaterThan(8) // above the coin-flip baseline
+    expect(held).toBeLessThan(8)
   })
 })
