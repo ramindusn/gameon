@@ -96,17 +96,18 @@ export function LeaderboardLegend() {
         <LegendPill r="L" label="Lost the day" />
         <LegendPill r="D" label="Even (equal wins &amp; losses)" />
       </div>
-      <dl className="mt-3 space-y-1.5 text-fg-muted">
-        <div className="flex gap-2">
-          <dt className="shrink-0 font-medium text-fg-subtle">inactive</dt>
-          <dd>No games in the last 5 game days; the rating gradually declines.</dd>
-        </div>
-        <div className="flex gap-2">
-          <dt className="shrink-0 font-medium text-fg-subtle">Needs more games</dt>
-          <dd>Rating is still provisional — too few games for a confident figure.</dd>
-        </div>
-      </dl>
-      <p className="mt-2 text-fg-subtle">Player names link to their profile.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-fg-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-fg-subtle">
+            inactive
+          </span>
+          no games in 5+ game days
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="font-medium text-fg-subtle">Needs more games</span>
+          rating still settling in
+        </span>
+      </div>
     </div>
   )
 }
