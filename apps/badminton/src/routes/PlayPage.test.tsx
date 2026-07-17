@@ -84,6 +84,9 @@ vi.mock('../roster/useRoster', () => ({
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ role: 'matchmaker', signOut: vi.fn() }),
 }))
+vi.mock('../ranking/useRanking', () => ({
+  usePlayerBoard: () => ({ data: [] }),
+}))
 
 import { PlayPage } from './PlayPage'
 

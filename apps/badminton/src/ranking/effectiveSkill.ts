@@ -42,3 +42,29 @@ export function effectiveSkill(
   const w = resultsWeight(games)
   return w * skillFromRating(rating) + (1 - w) * manual
 }
+
+/** Logistic scale (in team-average skill points) for the favoured-to-win odds.
+ *  A ~1-point team-skill edge reads ~64%, ~2 points ~76% — enough lean to be
+ *  visible without over-claiming certainty on a tightly-clustered club. */
+export const ODDS_SCALE = 4
+/** Win probabilities within this band of 50/50 are treated as a toss-up (no
+ *  favourite), so a hair's-width edge doesn't get crowned. */
+export const EVEN_BAND = 0.02
+
+export interface MatchOdds {
+  /** Team A win probability, 0–1 (teamB = 1 - probA). */
+  probA: number
+  /** Which side the odds favour, or null for an even match. */
+  favoured: 'a' | 'b' | null
+}
+
+/**
+ * Favoured-to-win odds for a doubles court from each team's average effective
+ * skill. Uses an Elo-style logistic on the skill gap, so it lines up with how
+ * the matchmaker balances teams (higher combined effective skill = favourite).
+ */
+export function matchOdds(teamSkillA: number, teamSkillB: number): MatchOdds {
+  const probA = 1 / (1 + Math.pow(10, (teamSkillB - teamSkillA) / ODDS_SCALE))
+  const favoured = probA > 0.5 + EVEN_BAND ? 'a' : probA < 0.5 - EVEN_BAND ? 'b' : null
+  return { probA, favoured }
+}
