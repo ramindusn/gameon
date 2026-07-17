@@ -51,9 +51,15 @@ export async function resolveClubId(): Promise<string | null> {
   const { data: admin } = await db.from('admins').select('club_id').limit(1).maybeSingle()
   if (admin) return admin.club_id
 
+  // Read the locally-cached session rather than getUser(): getUser() hits the
+  // auth server to re-validate the JWT and can transiently return no user, which
+  // would resolve clubId to null and get cached by the roster query — leaving
+  // "Create game day" stuck disabled after a background refetch. The caller is
+  // already past ProtectedRoute, so the session is present locally.
   const {
-    data: { user },
-  } = await db.auth.getUser()
+    data: { session },
+  } = await db.auth.getSession()
+  const user = session?.user
   if (!user) return null
   const { data: profile } = await db
     .from('player_profiles')
