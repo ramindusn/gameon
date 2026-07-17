@@ -69,7 +69,10 @@ function LiveNow() {
             No game day in progress. Generate a draw to start one.
           </p>
           <LinkButton to="/generate" data-testid="live-empty-generate">
-            🎲 Generate a draw
+            <span className="inline-flex items-center gap-1.5">
+              <Icon name="generate" className="h-4 w-4" />
+              Generate a draw
+            </span>
           </LinkButton>
         </div>
       )}
@@ -116,8 +119,9 @@ function LiveNow() {
 
 function TournamentTag() {
   return (
-    <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-strong">
-      🏆 Tournament
+    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-strong">
+      <Icon name="trophy" className="h-3 w-3" />
+      Tournament
     </span>
   )
 }

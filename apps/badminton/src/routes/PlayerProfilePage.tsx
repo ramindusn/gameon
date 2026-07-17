@@ -68,8 +68,8 @@ export function PlayerProfilePage() {
         {player && (
           <>
             <div className="mb-8 flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-accent/15 text-2xl">
-                🏸
+              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-accent/15 font-display text-2xl font-bold text-accent-strong">
+                {player.nickname.trim().charAt(0).toUpperCase() || '?'}
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">

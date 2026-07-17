@@ -200,7 +200,10 @@ export function GeneratePage() {
                       data-testid="generate-button"
                       className="w-full sm:w-auto"
                     >
-                      🎲 Random doubles
+                      <span className="inline-flex items-center gap-1.5">
+                        <Icon name="generate" className="h-4 w-4" />
+                        Random doubles
+                      </span>
                     </Button>
                     <Button
                       variant="secondary"
@@ -209,7 +212,10 @@ export function GeneratePage() {
                       data-testid="new-tournament"
                       className="w-full sm:w-auto"
                     >
-                      🏆 New tournament
+                      <span className="inline-flex items-center gap-1.5">
+                        <Icon name="tournament" className="h-4 w-4" />
+                        New tournament
+                      </span>
                     </Button>
                   </div>
                 </div>
@@ -294,9 +300,7 @@ function Draw({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
-              <span aria-hidden className="text-base">
-                📅
-              </span>
+              <Icon name="calendar" className="h-4 w-4 text-accent" />
               Create game day
             </h2>
             <p className="text-sm text-fg-muted">
