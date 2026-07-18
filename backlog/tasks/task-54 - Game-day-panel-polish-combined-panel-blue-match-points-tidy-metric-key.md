@@ -1,11 +1,11 @@
 ---
 id: TASK-54
 title: 'Game-day panel polish: combined panel, blue match points, tidy metric key'
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-07-18 17:10'
-updated_date: '2026-07-18 17:10'
+updated_date: '2026-07-18 17:16'
 labels: []
 dependencies: []
 ordinal: 108000
