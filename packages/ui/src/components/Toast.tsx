@@ -49,6 +49,9 @@ const variantIconColor: Record<ToastVariant, string> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
+  // Mirror of `toasts` for reads inside callbacks without re-subscribing them.
+  const toastsRef = useRef<Toast[]>([])
+  toastsRef.current = toasts
   const nextId = useRef(0)
   const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
 
@@ -63,6 +66,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const push = useCallback(
     (message: string, variant: ToastVariant) => {
+      // Coalesce repeats: rapid identical toasts (e.g. scoring several courts in
+      // a row) refresh the visible one instead of stacking a pile that covers
+      // the content underneath.
+      const existing = toastsRef.current.find(
+        (t) => t.message === message && t.variant === variant,
+      )
+      if (existing) {
+        const timer = timers.current[existing.id]
+        if (timer) clearTimeout(timer)
+        timers.current[existing.id] = setTimeout(() => dismiss(existing.id), AUTO_DISMISS_MS)
+        return
+      }
       const id = nextId.current++
       setToasts((list) => [...list, { id, message, variant }])
       timers.current[id] = setTimeout(() => dismiss(id), AUTO_DISMISS_MS)
@@ -89,8 +104,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
+      {/* bottom-20 on mobile clears the fixed bottom tab bar; sm+ has no tab bar. */}
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4 sm:bottom-6"
+        className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] flex flex-col items-center gap-2 px-4 sm:bottom-6"
         role="status"
         aria-live="polite"
       >

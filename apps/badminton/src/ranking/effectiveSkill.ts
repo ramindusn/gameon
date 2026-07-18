@@ -68,8 +68,18 @@ export interface MatchOdds {
  */
 export function matchOdds(teamSkillA: number, teamSkillB: number): MatchOdds {
   const probA = winProbability(teamSkillA, teamSkillB)
-  const favoured = probA > 0.5 ? 'a' : probA < 0.5 ? 'b' : null
+  // Tie "favoured" to the displayed percentage: when both sides round to 50%
+  // it reads as an even match — no favourite is shown and, since it's a
+  // toss-up, whoever wins gains equal points. (A skill gap that still rounds to
+  // 51/49 keeps its favourite.)
+  const pctA = Math.round(probA * 100)
+  const favoured = pctA > 50 ? 'a' : pctA < 50 ? 'b' : null
   return { probA, favoured }
+}
+
+/** True when the two teams are close enough to read as a 50/50 toss-up. */
+export function isEvenMatch(teamSkillA: number, teamSkillB: number): boolean {
+  return matchOdds(teamSkillA, teamSkillB).favoured === null
 }
 
 /** Points swing scale for a single decided match (indicative, Elo-style). */

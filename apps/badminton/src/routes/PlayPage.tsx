@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, cx, SkeletonCard } from '@gameon/ui'
 import { validateLineup, validateScores } from '@gameon/domain'
@@ -24,8 +24,16 @@ import {
   localInputToIso,
 } from '../play/datetime'
 import { usePlayerBoard } from '../ranking/useRanking'
-import { effectiveSkill, matchOdds, matchPoints, type MatchOdds } from '../ranking/effectiveSkill'
+import {
+  effectiveSkill,
+  isEvenMatch,
+  matchOdds,
+  matchPoints,
+  MATCH_POINTS_K,
+  type MatchOdds,
+} from '../ranking/effectiveSkill'
 import { buildGameDayBoard, type GameDayResultRow } from '../ranking/api'
+import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import type { MatchResult, MatchSession, Side } from '../play/api'
 
 /** A roster player reduced to what the live editors need. */
@@ -65,6 +73,7 @@ export function PlayPage() {
   const deleteMatch = useDeleteMatch(id)
 
   const [tab, setTab] = useState<Tab>('matches')
+  const [roundIdx, setRoundIdx] = useState(0)
   const [editingDate, setEditingDate] = useState(false)
   const [dateValue, setDateValue] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -101,12 +110,55 @@ export function PlayPage() {
 
   const rounds = useMemo(() => groupByRound(data?.results ?? []), [data])
 
+  // Which rounds are fully scored — drives the pager's progress dots.
+  const roundsDone = useMemo(
+    () => rounds.map((g) => g.results.every((r) => r.winner !== null)),
+    [rounds],
+  )
+
+  // On first load, open the first round that still has an unscored match (the
+  // one being played) instead of always Round 1. Runs once so it never fights
+  // the user's own paging afterwards.
+  const autoOpened = useRef(false)
+  useEffect(() => {
+    if (autoOpened.current || rounds.length === 0) return
+    autoOpened.current = true
+    const firstUnfinished = roundsDone.findIndex((done) => !done)
+    setRoundIdx(firstUnfinished === -1 ? rounds.length - 1 : firstUnfinished)
+  }, [rounds, roundsDone])
+
   // A game day can only be finished once every match is resolved (scored) or
   // deleted. An unscored match has no derived winner.
   const outstanding = useMemo(
     () => (data?.results ?? []).filter((r) => r.winner === null),
     [data],
   )
+
+  // Ranking points earned so far this game day: the per-match indicative swing
+  // (matchPoints) summed per player — winners gain, losers drop the same. This
+  // mirrors the +/- pills on the court cards. Keyed by player id.
+  const rankingPoints = useMemo(() => {
+    const pts: Record<string, number> = {}
+    const add = (id: string | null, v: number) => {
+      if (id) pts[id] = (pts[id] ?? 0) + v
+    }
+    for (const r of data?.results ?? []) {
+      if (r.winner === null) continue
+      const sa = [skillOf(r.teamA[0]), skillOf(r.teamA[1])]
+      const sb = [skillOf(r.teamB[0]), skillOf(r.teamB[1])]
+      if ([...sa, ...sb].some((s) => s == null)) continue
+      const teamA = (sa[0]! + sa[1]!) / 2
+      const teamB = (sb[0]! + sb[1]!) / 2
+      const aWon = r.winner === 'a'
+      const winnerSkill = aWon ? teamA : teamB
+      const loserSkill = aWon ? teamB : teamA
+      const swing = isEvenMatch(teamA, teamB) ? MATCH_POINTS_K / 2 : matchPoints(winnerSkill, loserSkill)
+      const [winners, losers] = aWon ? [r.teamA, r.teamB] : [r.teamB, r.teamA]
+      winners.forEach((id) => add(id, swing))
+      losers.forEach((id) => add(id, -swing))
+    }
+    return pts
+  }, [data, skillOf])
 
   // Game-day standings so far, from the scored courts — ranked by net point
   // differential then name (matching the public game-day page).
@@ -121,11 +173,35 @@ export function PlayPage() {
         winner: r.winner === 'b' ? 'b' : 'a',
       }))
     return buildGameDayBoard(rows)
-      .map((s) => ({ ...s, name: nameOf(s.playerId) }))
+      .map((s) => ({ ...s, name: nameOf(s.playerId), ranking: rankingPoints[s.playerId] ?? 0 }))
       .sort((a, b) => b.diff - a.diff || a.name.localeCompare(b.name))
-  }, [data, nameOf])
+  }, [data, nameOf, rankingPoints])
 
   const live = data?.session.status === 'live'
+
+  // Share a finished game day's results to the club chat: native share sheet on
+  // phones (WhatsApp etc.), wa.me fallback on desktop.
+  const shareResults = () => {
+    if (!data || standings.length === 0) return
+    const medals = ['🥇', '🥈', '🥉']
+    const lines = standings.map((s, i) => {
+      const tag = medals[i] ?? `${i + 1}.`
+      const pts = s.diff > 0 ? `+${s.diff}` : `${s.diff}`
+      return `${tag} ${s.name}  ${s.wins}–${s.played - s.wins}  (${pts})`
+    })
+    const text = [
+      `🏸 BadmintonDuo — ${formatPlayedAt(data.session.playedAt)}`,
+      '',
+      ...lines,
+      '',
+      `Full results: ${window.location.origin}/game-days/${data.session.id}`,
+    ].join('\n')
+    if (navigator.share) {
+      navigator.share({ text }).catch(() => {})
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener')
+    }
+  }
 
   return (
     <Frame staff={staff}>
@@ -147,6 +223,7 @@ export function PlayPage() {
               recorded={recordedCount(data.results)}
               total={data.results.length}
               canEdit={canEdit}
+              onShare={!live && standings.length > 0 ? shareResults : undefined}
               outstanding={outstanding.length}
               editingDate={editingDate}
               dateValue={dateValue}
@@ -188,24 +265,37 @@ export function PlayPage() {
               <div className="pt-4">
                 {tab === 'points' && <PointsTab standings={standings} />}
 
-                {/* Matches = schedule + scores in one view. Matchmakers edit
-                    inline; everyone else sees it read-only. */}
+                {/* Matches = one round at a time, paged with arrows so the page
+                    stays short. Same court card for everyone; matchmakers edit
+                    inline, players view read-only. */}
                 {tab === 'matches' &&
-                  (canEdit ? (
-                    <div className="space-y-4">
-                      {rounds.map(({ round, results }) => {
-                        const resting = restingInRound(sessionPlayers, results)
-                        return (
-                          <Card key={round} title={`Round ${round}`} icon={<Icon name="target" />}>
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {results.map((r) => (
+                  (() => {
+                    const idx = Math.min(roundIdx, Math.max(0, rounds.length - 1))
+                    const current = rounds[idx]
+                    const resting = current ? restingInRound(sessionPlayers, current.results) : []
+                    return (
+                      <div className="space-y-3" data-testid="matches-tab">
+                        {rounds.length === 0 ? (
+                          <p className="text-sm text-fg-muted">No matches yet.</p>
+                        ) : (
+                          <>
+                            <RoundPager
+                              round={current.round}
+                              index={idx}
+                              total={rounds.length}
+                              done={roundsDone}
+                              onPrev={() => setRoundIdx(Math.max(0, idx - 1))}
+                              onNext={() => setRoundIdx(Math.min(rounds.length - 1, idx + 1))}
+                            />
+                            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                              {current.results.map((r) => (
                                 <CourtScore
                                   key={r.id}
                                   result={r}
                                   nameOf={nameOf}
                                   skillOf={skillOf}
                                   present={sessionPlayers}
-                                  editable={live}
+                                  editable={canEdit && live}
                                   saving={setScore.isPending}
                                   editing={updateLineup.isPending}
                                   deleting={deleteMatch.isPending}
@@ -220,39 +310,32 @@ export function PlayPage() {
                               ))}
                             </div>
                             {resting.length > 0 && (
-                              <p className="mt-3 text-xs text-fg-muted" data-testid={`resting-${round}`}>
+                              <p className="text-xs text-fg-muted" data-testid={`resting-${current.round}`}>
                                 <span className="font-medium text-fg-subtle">Resting:</span>{' '}
                                 {resting.map((p) => p.nickname).join(', ')}
                               </p>
                             )}
-                          </Card>
-                        )
-                      })}
+                          </>
+                        )}
 
-                      {live && (
-                        <AddCustomMatch
-                          present={sessionPlayers}
-                          results={data.results}
-                          saving={addMatch.isPending}
-                          onAdd={(round, players) => {
-                            addMatch.mutate({
-                              clubId: data.session.clubId,
-                              round,
-                              court: nextCourtInRound(data.results, round),
-                              players,
-                            })
-                          }}
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <ScheduleTab
-                      rounds={rounds}
-                      sessionPlayers={sessionPlayers}
-                      nameOf={nameOf}
-                      skillOf={skillOf}
-                    />
-                  ))}
+                        {canEdit && live && (
+                          <AddCustomMatch
+                            present={sessionPlayers}
+                            results={data.results}
+                            saving={addMatch.isPending}
+                            onAdd={(round, players) => {
+                              addMatch.mutate({
+                                clubId: data.session.clubId,
+                                round,
+                                court: nextCourtInRound(data.results, round),
+                                players,
+                              })
+                            }}
+                          />
+                        )}
+                      </div>
+                    )
+                  })()}
               </div>
             </div>
           </>
@@ -309,6 +392,7 @@ function SessionHeader({
   onAskDelete,
   onCancelDelete,
   onConfirmDelete,
+  onShare,
 }: {
   session: MatchSession
   playerCount: number
@@ -331,10 +415,12 @@ function SessionHeader({
   onAskDelete: () => void
   onCancelDelete: () => void
   onConfirmDelete: () => void
+  /** Present once the game day is finished with results — shows the Share action. */
+  onShare?: () => void
 }) {
   const live = session.status === 'live'
   return (
-    <div className="rounded-t-xl border border-line border-b-0 bg-surface px-4 py-3">
+    <div className="mb-4 rounded-xl border border-line bg-surface px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
           <Icon name={session.kind === 'tournament' ? 'tournament' : 'shuttle'} className="h-4 w-4 text-accent" />
@@ -342,14 +428,42 @@ function SessionHeader({
             ? 'Tournament · Fixed pairs'
             : `Game day · ${session.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'}`}
         </h2>
-        <span
-          className={cx(
-            'shrink-0 rounded-full px-2.5 py-1 text-xs font-medium',
-            live ? 'bg-accent/15 text-accent-strong' : 'bg-surface-muted text-fg-muted',
+        <span className="flex shrink-0 items-center gap-2">
+          {onShare && (
+            <button
+              type="button"
+              onClick={onShare}
+              data-testid="share-results"
+              className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-2.5 py-1 text-xs font-medium text-accent-strong transition-colors hover:bg-accent/25"
+            >
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3.5 w-3.5"
+              >
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.6" y1="13.5" x2="15.4" y2="17.5" />
+                <line x1="15.4" y1="6.5" x2="8.6" y2="10.5" />
+              </svg>
+              Share
+            </button>
           )}
-          data-testid="session-status"
-        >
-          {live ? 'Live' : 'Finished'}
+          <span
+            className={cx(
+              'rounded-full px-2.5 py-1 text-xs font-medium',
+              live ? 'bg-accent/15 text-accent-strong' : 'bg-surface-muted text-fg-muted',
+            )}
+            data-testid="session-status"
+          >
+            {live ? 'Live' : 'Finished'}
+          </span>
         </span>
       </div>
 
@@ -452,17 +566,17 @@ function SessionHeader({
 
 const TABS: { id: Tab; label: string; icon: 'shuttle' | 'ranking' }[] = [
   { id: 'matches', label: 'Matches', icon: 'shuttle' },
-  { id: 'points', label: 'Points', icon: 'ranking' },
+  { id: 'points', label: 'Standings', icon: 'ranking' },
 ]
 
 /**
- * Sticky, centered tab bar. At rest it sits flush under the session summary
- * (shared border → the two read as one component); on scroll it pins just below
- * the top nav (top-14) while the tab content scrolls beneath it.
+ * Sticky, centered tab bar for the content below it (a standalone bar, separate
+ * from the session card above). Pins just under the top nav (top-14) as the
+ * tab content scrolls beneath it.
  */
 function Tabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
-    <div className="sticky top-14 z-[9] rounded-b-xl border border-t-0 border-line bg-surface/95 px-2 py-2 shadow-sm backdrop-blur">
+    <div className="sticky top-14 z-[9] rounded-xl border border-line bg-surface/95 px-2 py-2 shadow-sm backdrop-blur">
       <div
         role="tablist"
         aria-label="Game day views"
@@ -497,157 +611,87 @@ function Tabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void })
 
 // ---- Schedule tab (read-only matchups + odds/result) ----------------------
 
-function ScheduleTab({
-  rounds,
-  sessionPlayers,
-  nameOf,
-  skillOf,
-}: {
-  rounds: RoundGroup[]
-  sessionPlayers: PresentPlayer[]
-  nameOf: (id: string | null) => string
-  skillOf: SkillOf
-}) {
-  return (
-    <div className="space-y-4" data-testid="schedule-tab">
-      {rounds.map(({ round, results }) => {
-        const resting = restingInRound(sessionPlayers, results)
-        return (
-          <Card key={round} title={`Round ${round}`} icon={<Icon name="shuttle" />}>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {results.map((r) => (
-                <MatchCard key={r.id} result={r} nameOf={nameOf} skillOf={skillOf} />
-              ))}
-            </div>
-            {resting.length > 0 && (
-              <p className="mt-3 text-xs text-fg-muted">
-                <span className="font-medium text-fg-subtle">Resting:</span>{' '}
-                {resting.map((p) => p.nickname).join(', ')}
-              </p>
-            )}
-          </Card>
-        )
-      })}
-    </div>
-  )
-}
-
-/** Read-only matchup: names, then the odds bar (undecided) or the score +
- *  per-match points (decided). */
-function MatchCard({
-  result,
-  nameOf,
-  skillOf,
-}: {
-  result: MatchResult
-  nameOf: (id: string | null) => string
-  skillOf: SkillOf
-}) {
-  const info = useMatchInfo(result, skillOf)
-  const decided = result.winner !== null
-  const aWon = result.winner === 'a'
-  const bWon = result.winner === 'b'
-  return (
-    <div className="rounded-lg border border-line bg-surface-muted px-3 py-2.5 text-sm" data-testid={`schedule-${result.id}`}>
-      <div className="mb-1.5 flex items-center justify-between text-xs uppercase tracking-wide text-fg-subtle">
-        <span>Court {result.court}</span>
-      </div>
-      <TeamLine ids={result.teamA} nameOf={nameOf} won={aWon} score={decided ? result.scoreA : undefined} points={info?.side === 'a' ? info : undefined} />
-      {decided ? (
-        <div className="my-1 text-center text-[11px] font-medium uppercase tracking-wide text-fg-subtle">
-          {info?.upset ? 'Upset' : 'Result'}
-        </div>
-      ) : info?.odds ? (
-        <OddsBar odds={info.odds} />
-      ) : (
-        <div className="my-1 text-center text-xs text-fg-muted">vs</div>
-      )}
-      <TeamLine ids={result.teamB} nameOf={nameOf} won={bWon} score={decided ? result.scoreB : undefined} points={info?.side === 'b' ? info : undefined} />
-    </div>
-  )
-}
-
-function TeamLine({
-  ids,
-  nameOf,
-  won,
-  score,
-  points,
-}: {
-  ids: [string | null, string | null]
-  nameOf: (id: string | null) => string
-  won: boolean
-  score?: number | null
-  points?: { winnerPoints: number } | undefined
-}) {
-  return (
-    <div className={cx('flex items-center gap-2', won ? 'font-semibold text-accent-strong' : 'text-fg')}>
-      <span className="min-w-0 flex-1 leading-tight">
-        <span className="block break-words">{nameOf(ids[0])}</span>
-        <span className="block break-words">{nameOf(ids[1])}</span>
-      </span>
-      {points && <PointSwing value={won ? points.winnerPoints : -points.winnerPoints} />}
-      {score != null && <span className="shrink-0 font-display font-bold tabular-nums text-fg">{score}</span>}
-    </div>
-  )
-}
-
 // ---- Points tab -----------------------------------------------------------
 
 function PointsTab({
   standings,
 }: {
-  standings: { playerId: string; name: string; wins: number; played: number; diff: number }[]
+  standings: {
+    playerId: string
+    name: string
+    wins: number
+    played: number
+    diff: number
+    ranking: number
+  }[]
 }) {
+  const fmtSigned = (n: number) => (n > 0 ? `+${n}` : `${n}`)
+  const fmtRank = (n: number) => {
+    const r = Math.round(n * 10) / 10
+    return r > 0 ? `+${r.toFixed(1)}` : r.toFixed(1)
+  }
   return (
-    <Card title="Points table" icon={<Icon name="ranking" />}>
+    <Card>
       {standings.length === 0 ? (
         <p className="text-sm text-fg-muted">Standings appear once matches are scored.</p>
       ) : (
-        <table className="w-full text-sm" data-testid="points-table">
-          <thead>
-            <tr className="border-b border-line text-left text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
-              <th className="w-12 py-2 font-medium">Rank</th>
-              <th className="py-2 font-medium">Player</th>
-              <th className="py-2 text-right font-medium">W–L</th>
-              <th className="py-2 text-right font-medium" title="Net point differential">
-                +/-
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {standings.map((s, i) => (
-              <tr key={s.playerId} data-testid={`points-${s.playerId}`}>
-                <td className="py-2.5">
-                  <span
-                    className={cx(
-                      'grid h-6 w-6 place-items-center rounded-full font-display text-xs',
-                      i === 0 ? 'bg-accent/15 font-bold text-accent-strong' : 'font-medium text-fg-subtle',
-                    )}
-                  >
-                    {i + 1}
-                  </span>
-                </td>
-                <td className="py-2.5 font-medium text-fg">
-                  <Link to={`/players/${s.playerId}`} className="hover:text-accent-strong hover:underline">
-                    {s.name}
-                  </Link>
-                </td>
-                <td className="py-2.5 text-right tabular-nums text-fg-muted">
-                  {s.wins}–{s.played - s.wins}
-                </td>
-                <td
-                  className={cx(
-                    'py-2.5 text-right font-display font-bold tabular-nums',
-                    s.diff > 0 ? 'text-accent-strong' : s.diff < 0 ? 'text-fg-subtle' : 'text-fg',
-                  )}
-                >
-                  {s.diff > 0 ? `+${s.diff}` : s.diff}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          {/* Say up front which number is which — the colours then reinforce it
+              consistently across the app. */}
+          <p className="mb-3 text-xs text-fg-muted">
+            <span className={cx('font-semibold', POINTS_TEXT)}>Points</span> are from this game day
+            · <span className={cx('font-semibold', RANK_TEXT)}>Ranking</span> counts toward the
+            leaderboard (beating a stronger team is worth more)
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="points-table">
+              <thead>
+                <tr className="border-b border-line text-right text-[11px] font-semibold">
+                  <th className="w-8 py-2 text-left font-medium text-fg-subtle">#</th>
+                  <th className="py-2 text-left font-medium text-fg-subtle">Player</th>
+                  <th className="py-2 font-medium text-fg-subtle">Won–Lost</th>
+                  <th className={cx('py-2 font-medium', POINTS_TEXT)}>Points</th>
+                  <th className={cx('py-2 font-medium', RANK_TEXT)}>Ranking</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {standings.map((s, i) => (
+                  <tr key={s.playerId} data-testid={`points-${s.playerId}`} className="text-right">
+                    <td className="py-2.5 text-left">
+                      <span
+                        className={cx(
+                          'grid h-6 w-6 place-items-center rounded-full font-display text-xs',
+                          i === 0 ? 'bg-accent/15 font-bold text-accent-strong' : 'font-medium text-fg-subtle',
+                        )}
+                      >
+                        {i + 1}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-left font-medium text-fg">
+                      <Link to={`/players/${s.playerId}`} className="hover:text-accent-strong hover:underline">
+                        {s.name}
+                      </Link>
+                    </td>
+                    <td className="py-2.5 tabular-nums text-fg-muted">
+                      {s.wins}–{s.played - s.wins}
+                    </td>
+                    <td className={cx('py-2.5 font-display font-bold tabular-nums', POINTS_TEXT)}>
+                      {fmtSigned(s.diff)}
+                    </td>
+                    <td
+                      className={cx(
+                        'py-2.5 font-display font-bold tabular-nums',
+                        s.ranking > 0 ? RANK_TEXT : s.ranking < 0 ? 'text-negative' : 'text-fg-muted',
+                      )}
+                    >
+                      {fmtRank(s.ranking)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </Card>
   )
@@ -680,11 +724,14 @@ function useMatchInfo(result: MatchResult, skillOf: SkillOf): MatchInfo | null {
     const side = result.winner === 'b' ? 'b' : 'a'
     const winnerSkill = side === 'a' ? teamA : teamB
     const loserSkill = side === 'a' ? teamB : teamA
+    // An even (rounds-to-50/50) match is a toss-up: whoever wins gains the same
+    // baseline points, and it's never framed as an "upset".
+    const even = isEvenMatch(teamA, teamB)
     return {
       odds: null,
       side,
-      winnerPoints: matchPoints(winnerSkill, loserSkill),
-      upset: winnerSkill < loserSkill,
+      winnerPoints: even ? MATCH_POINTS_K / 2 : matchPoints(winnerSkill, loserSkill),
+      upset: !even && winnerSkill < loserSkill,
     }
   }, [result.teamA, result.teamB, result.winner, skillOf])
 }
@@ -708,45 +755,125 @@ function PointSwing({ value }: { value: number }) {
   )
 }
 
-/** A compact accent tag marking the favoured team's row. */
-function FavouredTag() {
+/** Arrow pager to step through rounds one at a time (‹ Round 2 of 5 ›), with a
+ *  progress dot per round — filled green once that round is fully scored. */
+function RoundPager({
+  round,
+  index,
+  total,
+  done,
+  onPrev,
+  onNext,
+}: {
+  round: number
+  index: number
+  total: number
+  /** done[i] = round i has every match scored. */
+  done: boolean[]
+  onPrev: () => void
+  onNext: () => void
+}) {
+  const arrow =
+    'grid h-8 w-8 place-items-center rounded-full text-xl font-bold leading-none text-accent-strong transition-colors hover:bg-accent/15 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent'
   return (
-    <span
-      className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-strong"
-      data-testid="favoured-tag"
-    >
-      <svg aria-hidden viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="currentColor">
-        <path d="M6 1.5 11 10H1z" />
-      </svg>
-      Favoured
-    </span>
+    <div className="flex items-center justify-between rounded-lg border border-line bg-surface px-2 py-1.5">
+      <button type="button" onClick={onPrev} disabled={index === 0} aria-label="Previous round" className={arrow}>
+        ‹
+      </button>
+      <span className="flex flex-col items-center gap-1">
+        <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
+          Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
+        </span>
+        <span className="flex items-center gap-1.5" aria-hidden data-testid="round-dots">
+          {done.map((d, i) => (
+            <span
+              key={i}
+              className={cx(
+                'rounded-full transition-colors',
+                i === index ? 'h-2 w-2' : 'h-1.5 w-1.5',
+                d ? 'bg-accent' : i === index ? 'bg-fg-subtle' : 'bg-fg-subtle/40',
+              )}
+            />
+          ))}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={index === total - 1}
+        aria-label="Next round"
+        className={arrow}
+      >
+        ›
+      </button>
+    </div>
   )
 }
 
 /**
- * Favoured-to-win meter: a single bar filling from the favourite's side (team A
- * = left, team B = right) in accent green, the underdog side faint, each team's
- * win % anchored to its end. The green mass sits on the favourite.
+ * Win-predictor bar under the two side-by-side teams: the left team (A) fills
+ * from the left, the right team (B) from the right — so the mapping is obvious.
+ * Favourite's side solid accent; both faint accent when even.
  */
-function OddsBar({ odds }: { odds: MatchOdds }) {
-  const pctA = Math.round(odds.probA * 100)
-  const pctB = 100 - pctA
-  const aFav = odds.favoured === 'a'
-  const bFav = odds.favoured === 'b'
+function Predictor({ pctA, favoured }: { pctA: number; favoured: 'a' | 'b' | null }) {
+  const even = favoured === null
   return (
-    <div className="px-0.5 py-1" data-testid="odds-bar" aria-label={`Win odds ${pctA}% vs ${pctB}%`}>
-      <div className="mb-1 flex items-center justify-between text-[11px] font-semibold tabular-nums">
-        <span className={aFav ? 'text-accent-strong' : 'text-fg-subtle'}>{pctA}%</span>
-        <span className="text-[10px] font-medium uppercase tracking-wide text-fg-subtle">
-          {odds.favoured === null ? 'Even match' : 'Favoured to win'}
+    <div
+      className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-surface-muted"
+      data-testid="odds-bar"
+      aria-label={`Win prediction ${pctA}% versus ${100 - pctA}%`}
+    >
+      <div
+        className={cx('h-full', favoured === 'a' ? 'bg-accent' : even ? 'bg-accent/40' : 'bg-fg-subtle/30')}
+        style={{ width: `${pctA}%` }}
+      />
+      <div className="w-px shrink-0 bg-surface" />
+      <div className={cx('h-full flex-1', favoured === 'b' ? 'bg-accent' : even ? 'bg-accent/40' : 'bg-fg-subtle/30')} />
+    </div>
+  )
+}
+
+/** One team column in a court card: its two players stacked, plus its win % (or
+ *  point swing once decided) beneath. Aligned left or right for a mirrored pair. */
+function TeamCol({
+  ids,
+  nameOf,
+  align,
+  won,
+  favoured,
+  pct,
+  swing,
+}: {
+  ids: [string | null, string | null]
+  nameOf: (id: string | null) => string
+  align: 'left' | 'right'
+  won: boolean
+  favoured: boolean
+  pct: number | null
+  swing: number | null
+}) {
+  return (
+    <div className={cx('min-w-0', align === 'right' && 'text-right')}>
+      <p className={cx('leading-tight', won ? 'font-semibold text-accent-strong' : 'text-fg')}>
+        <span className="block break-words">{nameOf(ids[0])}</span>
+        <span className="block break-words">{nameOf(ids[1])}</span>
+      </p>
+      {pct != null && (
+        <span
+          className={cx(
+            'mt-1 inline-block text-[11px] font-semibold tabular-nums',
+            favoured ? 'text-accent-strong' : 'text-fg-subtle',
+          )}
+          data-testid="win-pct"
+        >
+          {pct}%
         </span>
-        <span className={bFav ? 'text-accent-strong' : 'text-fg-subtle'}>{pctB}%</span>
-      </div>
-      <div className="flex h-1.5 overflow-hidden rounded-full bg-surface-muted">
-        <div className={cx('h-full', aFav ? 'bg-accent' : 'bg-fg-subtle/30')} style={{ width: `${pctA}%` }} />
-        <div className="w-px shrink-0 bg-surface" />
-        <div className={cx('h-full flex-1', bFav ? 'bg-accent' : 'bg-fg-subtle/30')} />
-      </div>
+      )}
+      {swing != null && (
+        <span className={cx('mt-1 flex', align === 'right' ? 'justify-end' : 'justify-start')}>
+          <PointSwing value={swing} />
+        </span>
+      )}
     </div>
   )
 }
@@ -799,52 +926,27 @@ function CourtScore({
     onSave(scoreA as number, scoreB as number)
   }
 
-  const teamRow = (side: Side, ids: [string | null, string | null]) => {
-    const won = result.winner === side
-    const favoured = !decided && info?.odds?.favoured === side
-    const value = side === 'a' ? a : b
-    const set = side === 'a' ? setA : setB
-    const score = side === 'a' ? result.scoreA : result.scoreB
-    return (
-      <div
-        className={cx(
-          'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm',
-          won
-            ? 'border-accent bg-accent/15 font-semibold text-fg'
-            : favoured
-              ? 'border-accent/40 bg-surface-muted text-fg'
-              : 'border-line bg-surface-muted text-fg',
-        )}
-      >
-        <span className="min-w-0 flex-1 leading-tight">
-          <span className="block break-words">{nameOf(ids[0])}</span>
-          <span className="block break-words">{nameOf(ids[1])}</span>
-          {favoured && <FavouredTag />}
-        </span>
-        {won && <span aria-label="winner">✓</span>}
-        {decided && info?.side && <PointSwing value={won ? info.winnerPoints : -info.winnerPoints} />}
-        {editable ? (
-          <input
-            type="number"
-            min={0}
-            inputMode="numeric"
-            value={value}
-            onChange={(e) => set(e.target.value)}
-            className="w-14 rounded-md border border-line bg-surface px-2 py-1 text-right text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            data-testid={`score-${result.id}-${side}`}
-            aria-label={`Score for ${side === 'a' ? 'team A' : 'team B'}`}
-          />
-        ) : (
-          <span className="w-8 shrink-0 text-right font-display font-bold tabular-nums text-fg">
-            {score ?? '–'}
-          </span>
-        )}
-      </div>
-    )
-  }
+  const aWon = result.winner === 'a'
+  const bWon = result.winner === 'b'
+  const favoured = info?.odds?.favoured ?? null
+  const pctA = !decided && info?.odds ? Math.round(info.odds.probA * 100) : null
+  const swingOf = (won: boolean) =>
+    decided && info?.side ? (won ? info.winnerPoints : -info.winnerPoints) : null
+  const scoreInput = (side: Side) => (
+    <input
+      type="number"
+      min={0}
+      inputMode="numeric"
+      value={side === 'a' ? a : b}
+      onChange={(e) => (side === 'a' ? setA : setB)(e.target.value)}
+      className="w-11 rounded-md border border-line bg-surface px-1.5 py-1 text-center text-sm text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+      data-testid={`score-${result.id}-${side}`}
+      aria-label={`Score for ${side === 'a' ? 'team A' : 'team B'}`}
+    />
+  )
 
   return (
-    <div className="rounded-lg border border-line bg-surface px-3 py-2" data-testid={`court-${result.id}`}>
+    <div className="rounded-lg border border-line bg-surface px-3 py-3" data-testid={`court-${result.id}`}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs uppercase tracking-wide text-fg-subtle">Court {result.court}</span>
         {editable && mode === 'score' && (
@@ -872,17 +974,48 @@ function CourtScore({
         />
       ) : (
         <>
-          <div className="space-y-1.5">
-            {teamRow('a', result.teamA)}
-            {!decided && info?.odds ? (
-              <OddsBar odds={info.odds} />
-            ) : (
-              <div className="text-center text-xs text-fg-muted">
-                {decided ? (info?.upset ? 'Upset' : 'Result') : 'vs'}
-              </div>
-            )}
-            {teamRow('b', result.teamB)}
+          {/* Teams side by side (left vs right); score/inputs in the middle. */}
+          <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 text-sm">
+            <TeamCol
+              ids={result.teamA}
+              nameOf={nameOf}
+              align="left"
+              won={aWon}
+              favoured={favoured === 'a'}
+              pct={pctA}
+              swing={swingOf(aWon)}
+            />
+            <div className="flex flex-col items-center gap-1 pt-0.5">
+              {editable ? (
+                <div className="flex items-center gap-1">
+                  {scoreInput('a')}
+                  <span className="text-fg-subtle">–</span>
+                  {scoreInput('b')}
+                </div>
+              ) : decided ? (
+                <span className="font-display text-base font-bold tabular-nums text-fg">
+                  {result.scoreA} <span className="text-fg-subtle">–</span> {result.scoreB}
+                </span>
+              ) : (
+                <span className="text-[11px] font-medium uppercase tracking-wide text-fg-subtle">vs</span>
+              )}
+            </div>
+            <TeamCol
+              ids={result.teamB}
+              nameOf={nameOf}
+              align="right"
+              won={bWon}
+              favoured={favoured === 'b'}
+              pct={pctA != null ? 100 - pctA : null}
+              swing={swingOf(bWon)}
+            />
           </div>
+          {!decided && info?.odds && <Predictor pctA={pctA ?? 50} favoured={favoured} />}
+          {decided && info?.upset && (
+            <div className="mt-2 text-center text-[10px] font-semibold uppercase tracking-wide text-accent-strong">
+              Upset
+            </div>
+          )}
           {error && (
             <p className="mt-2 text-xs text-negative" data-testid={`score-error-${result.id}`}>
               {error}

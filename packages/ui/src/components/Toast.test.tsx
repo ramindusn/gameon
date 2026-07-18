@@ -55,6 +55,36 @@ describe('Toast', () => {
     }
   })
 
+  it('coalesces rapid identical toasts into one, refreshing its timer', () => {
+    vi.useFakeTimers()
+    try {
+      render(
+        <ToastProvider>
+          <Trigger />
+        </ToastProvider>,
+      )
+      const fire = screen.getByRole('button', { name: 'fire' })
+      fireEvent.click(fire)
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+      fireEvent.click(fire) // same message again → refresh, don't stack
+      expect(screen.getAllByText('Score saved')).toHaveLength(1)
+      // The timer restarted on the repeat: still visible 3s after the refresh…
+      act(() => {
+        vi.advanceTimersByTime(3000)
+      })
+      expect(screen.getByText('Score saved')).toBeInTheDocument()
+      // …and gone once the refreshed 4s window elapses.
+      act(() => {
+        vi.advanceTimersByTime(1100)
+      })
+      expect(screen.queryByText('Score saved')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('throws if used outside a provider', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     function Bare() {

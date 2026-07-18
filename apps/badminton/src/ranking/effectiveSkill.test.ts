@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_SKILL,
   effectiveSkill,
+  isEvenMatch,
   matchOdds,
   matchPoints,
   resultsWeight,
@@ -46,10 +47,18 @@ describe('effectiveSkill', () => {
 })
 
 describe('matchOdds', () => {
-  it('is a 50/50 toss-up with no favourite only for exactly equal skill', () => {
+  it('is a 50/50 toss-up with no favourite for equal skill', () => {
     const o = matchOdds(6, 6)
     expect(o.probA).toBeCloseTo(0.5)
     expect(o.favoured).toBeNull()
+  })
+
+  it('treats a gap that still rounds to 50/50 as an even match (no favourite)', () => {
+    // ~0.01 skill gap → ~50.1% → rounds to 50/50, so no favourite is shown.
+    expect(matchOdds(6.01, 6).favoured).toBeNull()
+    expect(isEvenMatch(6.01, 6)).toBe(true)
+    expect(isEvenMatch(6, 6)).toBe(true)
+    expect(isEvenMatch(7, 6)).toBe(false)
   })
 
   it('favours the stronger team and leans harder with a bigger gap', () => {
@@ -69,7 +78,8 @@ describe('matchOdds', () => {
     expect(o.probA).toBeCloseTo(1 - matchOdds(7, 6).probA)
   })
 
-  it('names a favourite even for a hair-thin edge (only exact 50/50 is even)', () => {
+  it('still names a favourite for a small gap that rounds to 51/49', () => {
+    // ~0.05 skill gap → ~50.7% → rounds to 51/49, so a favourite is shown.
     expect(matchOdds(6.05, 6).favoured).toBe('a')
     expect(matchOdds(6, 6.05).favoured).toBe('b')
   })
