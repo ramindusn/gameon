@@ -260,33 +260,42 @@ export function PlayPage() {
               }
             />
 
-            <div>
-              <Tabs active={tab} onChange={setTab} />
-              <div className="pt-4">
-                {tab === 'points' && <PointsTab standings={standings} />}
+            {/* One combined panel: sticky header (tabs + round pager) with the
+                tab content attached below — not three separate cards. */}
+            {(() => {
+              const idx = Math.min(roundIdx, Math.max(0, rounds.length - 1))
+              const current = rounds[idx]
+              const resting = current ? restingInRound(sessionPlayers, current.results) : []
+              return (
+                <div className="rounded-xl border border-line bg-surface" data-testid="game-day-panel">
+                  {/* Divider lives on the sticky header (not the content) so the
+                      seam stays a single crisp hairline while pinned. */}
+                  <div className="sticky top-14 z-[9] rounded-t-xl border-b border-line bg-surface/95 px-2 pb-2 pt-2 shadow-sm backdrop-blur">
+                    <Tabs active={tab} onChange={setTab} />
+                    {tab === 'matches' && current && (
+                      <RoundPager
+                        round={current.round}
+                        index={idx}
+                        total={rounds.length}
+                        done={roundsDone}
+                        onPrev={() => setRoundIdx(Math.max(0, idx - 1))}
+                        onNext={() => setRoundIdx(Math.min(rounds.length - 1, idx + 1))}
+                      />
+                    )}
+                  </div>
 
-                {/* Matches = one round at a time, paged with arrows so the page
-                    stays short. Same court card for everyone; matchmakers edit
-                    inline, players view read-only. */}
-                {tab === 'matches' &&
-                  (() => {
-                    const idx = Math.min(roundIdx, Math.max(0, rounds.length - 1))
-                    const current = rounds[idx]
-                    const resting = current ? restingInRound(sessionPlayers, current.results) : []
-                    return (
+                  <div className="px-3 py-3 sm:px-4">
+                    <MetricKey />
+                    {tab === 'points' && <PointsTab standings={standings} />}
+
+                    {/* Matches = one round at a time. Same court card for everyone;
+                        matchmakers edit inline, players view read-only. */}
+                    {tab === 'matches' && (
                       <div className="space-y-3" data-testid="matches-tab">
-                        {rounds.length === 0 ? (
+                        {!current ? (
                           <p className="text-sm text-fg-muted">No matches yet.</p>
                         ) : (
                           <>
-                            <RoundPager
-                              round={current.round}
-                              index={idx}
-                              total={rounds.length}
-                              done={roundsDone}
-                              onPrev={() => setRoundIdx(Math.max(0, idx - 1))}
-                              onNext={() => setRoundIdx(Math.min(rounds.length - 1, idx + 1))}
-                            />
                             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                               {current.results.map((r) => (
                                 <CourtScore
@@ -334,10 +343,11 @@ export function PlayPage() {
                           />
                         )}
                       </div>
-                    )
-                  })()}
-              </div>
-            </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
           </>
         )}
       </div>
@@ -570,13 +580,12 @@ const TABS: { id: Tab; label: string; icon: 'shuttle' | 'ranking' }[] = [
 ]
 
 /**
- * Sticky, centered tab bar for the content below it (a standalone bar, separate
- * from the session card above). Pins just under the top nav (top-14) as the
- * tab content scrolls beneath it.
+ * Centered tab row. Chrome (border, sticky pinning) comes from the combined
+ * panel header that hosts it together with the round pager.
  */
 function Tabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
-    <div className="sticky top-14 z-[9] rounded-xl border border-line bg-surface/95 px-2 py-2 shadow-sm backdrop-blur">
+    <div className="px-1">
       <div
         role="tablist"
         aria-label="Game day views"
@@ -611,6 +620,26 @@ function Tabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void })
 
 // ---- Schedule tab (read-only matchups + odds/result) ----------------------
 
+/** The two point metrics, defined once at the top of the panel — the coloured
+ *  terms themselves carry the colour language used in the tables/cards. */
+function MetricKey() {
+  return (
+    <div
+      className="mb-3 space-y-1 rounded-lg bg-surface-muted/40 px-3 py-2 text-xs text-fg-muted"
+      data-testid="metric-key"
+    >
+      <p className="flex items-baseline gap-2">
+        <span className={cx('w-14 shrink-0 font-semibold', POINTS_TEXT)}>Points</span>
+        <span>match points won in this game day</span>
+      </p>
+      <p className="flex items-baseline gap-2">
+        <span className={cx('w-14 shrink-0 font-semibold', RANK_TEXT)}>Ranking</span>
+        <span>counts toward the leaderboard — beating a stronger team earns more</span>
+      </p>
+    </div>
+  )
+}
+
 // ---- Points tab -----------------------------------------------------------
 
 function PointsTab({
@@ -631,18 +660,11 @@ function PointsTab({
     return r > 0 ? `+${r.toFixed(1)}` : r.toFixed(1)
   }
   return (
-    <Card>
+    <div>
       {standings.length === 0 ? (
         <p className="text-sm text-fg-muted">Standings appear once matches are scored.</p>
       ) : (
         <>
-          {/* Say up front which number is which — the colours then reinforce it
-              consistently across the app. */}
-          <p className="mb-3 text-xs text-fg-muted">
-            <span className={cx('font-semibold', POINTS_TEXT)}>Points</span> are from this game day
-            · <span className={cx('font-semibold', RANK_TEXT)}>Ranking</span> counts toward the
-            leaderboard (beating a stronger team is worth more)
-          </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm" data-testid="points-table">
               <thead>
@@ -693,7 +715,7 @@ function PointsTab({
           </div>
         </>
       )}
-    </Card>
+    </div>
   )
 }
 
@@ -736,25 +758,6 @@ function useMatchInfo(result: MatchResult, skillOf: SkillOf): MatchInfo | null {
   }, [result.teamA, result.teamB, result.winner, skillOf])
 }
 
-/** Signed per-match point swing pill (green up / red down). */
-function PointSwing({ value }: { value: number }) {
-  const r = Math.round(value * 10) / 10
-  const positive = r >= 0
-  return (
-    <span
-      className={cx(
-        'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
-        positive ? 'bg-accent/15 text-accent-strong' : 'bg-negative/15 text-negative',
-      )}
-      title="Indicative ranking points from this match (settles when the game day finishes)"
-      data-testid="point-swing"
-    >
-      {positive ? '+' : ''}
-      {r.toFixed(1)}
-    </span>
-  )
-}
-
 /** Arrow pager to step through rounds one at a time (‹ Round 2 of 5 ›), with a
  *  progress dot per round — filled green once that round is fully scored. */
 function RoundPager({
@@ -776,7 +779,7 @@ function RoundPager({
   const arrow =
     'grid h-8 w-8 place-items-center rounded-full text-xl font-bold leading-none text-accent-strong transition-colors hover:bg-accent/15 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent'
   return (
-    <div className="flex items-center justify-between rounded-lg border border-line bg-surface px-2 py-1.5">
+    <div className="mt-2 flex items-center justify-between rounded-lg bg-surface-muted px-2 py-1.5">
       <button type="button" onClick={onPrev} disabled={index === 0} aria-label="Previous round" className={arrow}>
         ‹
       </button>
@@ -784,14 +787,16 @@ function RoundPager({
         <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
           Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
         </span>
+        {/* Colour = progress only (green when the round is fully scored); the
+            round being viewed is marked by a ring, so the two never mix. */}
         <span className="flex items-center gap-1.5" aria-hidden data-testid="round-dots">
           {done.map((d, i) => (
             <span
               key={i}
               className={cx(
-                'rounded-full transition-colors',
-                i === index ? 'h-2 w-2' : 'h-1.5 w-1.5',
-                d ? 'bg-accent' : i === index ? 'bg-fg-subtle' : 'bg-fg-subtle/40',
+                'h-1.5 w-1.5 rounded-full transition-all',
+                d ? 'bg-accent' : 'bg-fg-subtle/40',
+                i === index && 'ring-2 ring-fg-subtle/50 ring-offset-2 ring-offset-surface-muted',
               )}
             />
           ))}
@@ -834,7 +839,7 @@ function Predictor({ pctA, favoured }: { pctA: number; favoured: 'a' | 'b' | nul
 }
 
 /** One team column in a court card: its two players stacked, plus its win % (or
- *  point swing once decided) beneath. Aligned left or right for a mirrored pair. */
+ *  match points once decided) beneath. Aligned left or right for a mirrored pair. */
 function TeamCol({
   ids,
   nameOf,
@@ -842,7 +847,7 @@ function TeamCol({
   won,
   favoured,
   pct,
-  swing,
+  pts,
 }: {
   ids: [string | null, string | null]
   nameOf: (id: string | null) => string
@@ -850,7 +855,8 @@ function TeamCol({
   won: boolean
   favoured: boolean
   pct: number | null
-  swing: number | null
+  /** Signed match points won/lost by this team once decided (game-day Points). */
+  pts: number | null
 }) {
   return (
     <div className={cx('min-w-0', align === 'right' && 'text-right')}>
@@ -869,9 +875,19 @@ function TeamCol({
           {pct}%
         </span>
       )}
-      {swing != null && (
+      {pts != null && (
         <span className={cx('mt-1 flex', align === 'right' ? 'justify-end' : 'justify-start')}>
-          <PointSwing value={swing} />
+          <span
+            className={cx(
+              'shrink-0 rounded bg-sky-400/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+              POINTS_TEXT,
+            )}
+            title="Match points won/lost — counted in this game day's Points"
+            data-testid="match-points"
+          >
+            {pts > 0 ? '+' : ''}
+            {pts}
+          </span>
         </span>
       )}
     </div>
@@ -930,8 +946,13 @@ function CourtScore({
   const bWon = result.winner === 'b'
   const favoured = info?.odds?.favoured ?? null
   const pctA = !decided && info?.odds ? Math.round(info.odds.probA * 100) : null
-  const swingOf = (won: boolean) =>
-    decided && info?.side ? (won ? info.winnerPoints : -info.winnerPoints) : null
+  // Game-day match points for a decided court: the winner gains the score
+  // margin, the loser drops it — the same currency as the Standings' Points.
+  const margin =
+    decided && result.scoreA != null && result.scoreB != null
+      ? Math.abs(result.scoreA - result.scoreB)
+      : null
+  const ptsOf = (won: boolean) => (margin != null ? (won ? margin : -margin) : null)
   const scoreInput = (side: Side) => (
     <input
       type="number"
@@ -946,18 +967,64 @@ function CourtScore({
   )
 
   return (
-    <div className="rounded-lg border border-line bg-surface px-3 py-3" data-testid={`court-${result.id}`}>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs uppercase tracking-wide text-fg-subtle">Court {result.court}</span>
+    // Slightly tinted vs the hosting panel so the court reads as a section, not
+    // another nested card of the same colour.
+    <div
+      className="rounded-lg border border-line/70 bg-surface-muted/40 px-3 py-3"
+      data-testid={`court-${result.id}`}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-fg-subtle">
+          Court {result.court}
+          {decided && (
+            <span className="text-accent-strong" aria-label="scored">
+              ✓
+            </span>
+          )}
+        </span>
         {editable && mode === 'score' && (
-          <button
-            type="button"
-            className="text-xs font-medium text-accent-strong hover:underline"
-            onClick={() => setMode('edit')}
-            data-testid={`edit-lineup-${result.id}`}
-          >
-            Edit line-up
-          </button>
+          <span className="flex items-center gap-3 text-xs font-medium">
+            {/* Delete is a rare action: a small header control (two-step), not a
+                full-width button eating a row on every card. */}
+            {confirmingDelete ? (
+              <>
+                <button
+                  type="button"
+                  className="text-negative hover:underline disabled:opacity-50"
+                  onClick={onDelete}
+                  disabled={deleting}
+                  data-testid={`confirm-delete-match-${result.id}`}
+                >
+                  Delete?
+                </button>
+                <button
+                  type="button"
+                  className="text-fg-muted hover:underline"
+                  onClick={() => setConfirmingDelete(false)}
+                  data-testid={`cancel-delete-match-${result.id}`}
+                >
+                  Keep
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="text-fg-subtle hover:text-negative hover:underline"
+                onClick={() => setConfirmingDelete(true)}
+                data-testid={`delete-match-${result.id}`}
+              >
+                Delete
+              </button>
+            )}
+            <button
+              type="button"
+              className="text-accent-strong hover:underline"
+              onClick={() => setMode('edit')}
+              data-testid={`edit-lineup-${result.id}`}
+            >
+              Edit line-up
+            </button>
+          </span>
         )}
       </div>
 
@@ -983,7 +1050,7 @@ function CourtScore({
               won={aWon}
               favoured={favoured === 'a'}
               pct={pctA}
-              swing={swingOf(aWon)}
+              pts={ptsOf(aWon)}
             />
             <div className="flex flex-col items-center gap-1 pt-0.5">
               {editable ? (
@@ -1007,7 +1074,7 @@ function CourtScore({
               won={bWon}
               favoured={favoured === 'b'}
               pct={pctA != null ? 100 - pctA : null}
-              swing={swingOf(bWon)}
+              pts={ptsOf(bWon)}
             />
           </div>
           {!decided && info?.odds && <Predictor pctA={pctA ?? 50} favoured={favoured} />}
@@ -1022,7 +1089,7 @@ function CourtScore({
             </p>
           )}
           {editable && (
-            <div className="mt-2 space-y-2">
+            <div className="mt-2.5">
               <Button
                 className="w-full"
                 variant="secondary"
@@ -1032,36 +1099,6 @@ function CourtScore({
               >
                 {result.winner ? 'Update score' : 'Save score'}
               </Button>
-              {confirmingDelete ? (
-                <div className="flex gap-2">
-                  <Button
-                    className="flex-1"
-                    variant="danger"
-                    onClick={onDelete}
-                    disabled={deleting}
-                    data-testid={`confirm-delete-match-${result.id}`}
-                  >
-                    Confirm
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    variant="ghost"
-                    onClick={() => setConfirmingDelete(false)}
-                    data-testid={`cancel-delete-match-${result.id}`}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  className="w-full"
-                  variant="ghost"
-                  onClick={() => setConfirmingDelete(true)}
-                  data-testid={`delete-match-${result.id}`}
-                >
-                  Delete match
-                </Button>
-              )}
             </div>
           )}
         </>
