@@ -5,6 +5,7 @@ import { Icon } from '../app/Icon'
 import { useSession } from '../play/useMatchPlay'
 import { usePlayerNames, useGameDayRatingDeltas } from '../ranking/useRanking'
 import { buildGameDayBoard, type GameDayResultRow } from '../ranking/api'
+import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import type { MatchResult } from '../play/api'
 
 // Public, read-only per-game-day page (TASK-37). Anyone can open it from the
@@ -74,14 +75,22 @@ export function GameDayPage() {
                 {standings.length === 0 ? (
                   <p className="text-sm text-fg-muted">No scored matches on this game day.</p>
                 ) : (
+                  <>
+                  <p className="mb-3 text-xs text-fg-muted">
+                    <span className={cx('font-semibold', POINTS_TEXT)}>Points</span> are from this
+                    game day · <span className={cx('font-semibold', RANK_TEXT)}>Ranking</span> counts
+                    toward the leaderboard
+                  </p>
                   <table className="w-full text-sm" data-testid="game-day-standings">
                     <thead>
-                      <tr className="border-b border-line text-left text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
-                        <th className="w-14 py-2 font-medium">Rank</th>
-                        <th className="py-2 font-medium">Player Name</th>
-                        <th className="py-2 text-right font-medium">W–L</th>
-                        <th className="py-2 text-right font-medium">+/-</th>
-                        <th className="py-2 text-right font-medium" title="Ranking points gained/lost this game day">
+                      <tr className="border-b border-line text-left text-[10px] font-semibold uppercase tracking-wide">
+                        <th className="w-14 py-2 font-medium text-fg-subtle">Rank</th>
+                        <th className="py-2 font-medium text-fg-subtle">Player Name</th>
+                        <th className="py-2 text-right font-medium text-fg-subtle">W–L</th>
+                        <th className={cx('py-2 text-right font-medium', POINTS_TEXT)} title="Rally points scored minus conceded, this game day">
+                          Points
+                        </th>
+                        <th className={cx('py-2 text-right font-medium', RANK_TEXT)} title="Points counted toward the leaderboard">
                           Ranking
                         </th>
                       </tr>
@@ -103,16 +112,7 @@ export function GameDayPage() {
                           <td className="py-3 text-right tabular-nums text-fg-muted">
                             {s.wins}–{s.played - s.wins}
                           </td>
-                          <td
-                            className={cx(
-                              'py-3 text-right font-display font-bold tabular-nums',
-                              s.diff > 0
-                                ? 'text-accent-strong'
-                                : s.diff < 0
-                                  ? 'text-fg-subtle'
-                                  : 'text-fg',
-                            )}
-                          >
+                          <td className={cx('py-3 text-right font-display font-bold tabular-nums', POINTS_TEXT)}>
                             {fmtDiff(s.diff)}
                           </td>
                           <td className="py-3 text-right tabular-nums" data-testid={`rating-delta-${s.playerId}`}>
@@ -122,6 +122,7 @@ export function GameDayPage() {
                       ))}
                     </tbody>
                   </table>
+                  </>
                 )}
               </Card>
             </div>

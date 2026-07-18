@@ -113,13 +113,16 @@ describe('PlayPage', () => {
     authRole.current = 'matchmaker'
   })
 
-  it('switches to the Points tab and ranks the scored players by point differential', () => {
-    // r2 (21–15, team A won): p5/p6 at +6, p7/p8 at -6.
+  it('switches to the Points tab, showing point diff + ranking gain per player', () => {
+    // r2 (21–15, team A won): p5/p6 at +6 points, p7/p8 at -6. All roster skills
+    // are equal (5), so every match is even → ±8.0 ranking points per result.
     renderPage()
     fireEvent.click(screen.getByTestId('tab-points'))
     expect(screen.getByTestId('points-table')).toBeInTheDocument()
     expect(screen.getByTestId('points-p5')).toHaveTextContent('+6')
+    expect(screen.getByTestId('points-p5')).toHaveTextContent('+8.0')
     expect(screen.getByTestId('points-p7')).toHaveTextContent('-6')
+    expect(screen.getByTestId('points-p7')).toHaveTextContent('-8.0')
   })
 
   it('has two tabs (Matches + Points), not separate Schedule/Score', () => {
@@ -130,12 +133,12 @@ describe('PlayPage', () => {
     expect(screen.queryByTestId('tab-score')).toBeNull()
   })
 
-  it('gives a signed-out viewer a read-only Matches tab (no editing controls)', () => {
+  it('gives a signed-out viewer the same court cards, read-only (no editing)', () => {
     authRole.current = null
     renderPage()
-    // Matches is the default tab; players see the read-only schedule view.
-    expect(screen.getByTestId('schedule-tab')).toBeInTheDocument()
-    expect(screen.getByTestId('schedule-r1')).toBeInTheDocument()
+    // Players see the identical Matches layout (same court cards as matchmakers).
+    expect(screen.getByTestId('matches-tab')).toBeInTheDocument()
+    expect(screen.getByTestId('court-r1')).toBeInTheDocument()
     // Session controls + inline editing are matchmaker-only.
     expect(screen.queryByTestId('finish-session')).toBeNull()
     expect(screen.queryByTestId('delete-game-day')).toBeNull()
@@ -157,9 +160,9 @@ describe('PlayPage', () => {
     renderPage()
     expect(screen.getByTestId('play')).toBeInTheDocument()
     expect(screen.getByText('Round 1')).toBeInTheDocument()
-    // Names resolved from the roster (shown on the court cards).
-    expect(screen.getAllByText('Player 1').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Player 2').length).toBeGreaterThan(0)
+    // Names resolved from the roster (shown side by side on the court cards).
+    expect(screen.getAllByText(/Player 1/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Player 2/).length).toBeGreaterThan(0)
     // Court 2 already has team A as winner.
     expect(screen.getByTestId('session-status')).toHaveTextContent('Live')
     // Only this game day's players (p1–p8) are counted, not the 12-strong roster.
@@ -337,16 +340,19 @@ describe('PlayPage', () => {
       winner: null,
     }
     sessionData.results.push(extra)
-    renderPage()
-    // Round 1: p1–p8 play, p9–p12 rest.
-    const resting1 = screen.getByTestId('resting-1')
-    expect(resting1).toHaveTextContent('Resting:')
-    expect(resting1).toHaveTextContent('Player 9')
-    expect(resting1).toHaveTextContent('Player 12')
-    // Round 2: everyone present (only p9–p12 are game-day players once summed)…
-    // p1–p8 also play round 1, so they rest round 2.
-    expect(screen.getByTestId('resting-2')).toHaveTextContent('Player 1')
-    sessionData.results.pop()
+    try {
+      renderPage()
+      // Round 1 (the default page): p1–p8 play, p9–p12 rest.
+      const resting1 = screen.getByTestId('resting-1')
+      expect(resting1).toHaveTextContent('Resting:')
+      expect(resting1).toHaveTextContent('Player 9')
+      expect(resting1).toHaveTextContent('Player 12')
+      // Page to round 2 (rounds are paged): p1–p8 rest there.
+      fireEvent.click(screen.getByLabelText('Next round'))
+      expect(screen.getByTestId('resting-2')).toHaveTextContent('Player 1')
+    } finally {
+      sessionData.results.pop()
+    }
   })
 
   it('shows no resting label when every game-day player is booked in the round', () => {

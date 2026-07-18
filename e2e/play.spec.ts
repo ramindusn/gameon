@@ -123,9 +123,9 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
   await editor.locator('[data-testid^="save-lineup-"]').click()
   await expect(page.locator('[data-testid^="lineup-editor-"]')).toHaveCount(0)
 
-  // Add a custom match → a third court appears (2 → 3 matches). The add-match
-  // picker is scoped to this game day's players (TASK-32), and round 1 is full,
-  // so target a new round where those players are free again.
+  // Add a custom match → it lands in a new round 2 (3 matches total). The
+  // add-match picker is scoped to this game day's players (TASK-32), and round 1
+  // is full, so target a new round where those players are free again.
   await page.getByTestId('add-custom-match').click()
   await page.getByTestId('custom-round').selectOption('2')
   await page.getByTestId('custom-a1').selectOption({ index: 1 })
@@ -133,14 +133,17 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
   await page.getByTestId('custom-b1').selectOption({ index: 3 })
   await page.getByTestId('custom-b2').selectOption({ index: 4 })
   await page.getByTestId('save-custom-match').click()
-  await expect(page.locator('[data-testid^="court-"]')).toHaveCount(3)
   await expect(page.getByText(/0 \/ 3 recorded/)).toBeVisible()
 
-  // Delete the custom match (two-step) → back to 2 courts.
-  const lastCourt = page.locator('[data-testid^="court-"]').last()
-  await lastCourt.locator('[data-testid^="delete-match-"]').click()
-  await lastCourt.locator('[data-testid^="confirm-delete-match-"]').click()
-  await expect(page.locator('[data-testid^="court-"]')).toHaveCount(2)
+  // Rounds are paged: page to round 2 to see the custom court, then delete it
+  // (two-step) → back to round 1's 2 courts.
+  await page.locator('[aria-label="Next round"]').click()
+  await expect(page.getByTestId('round-label')).toContainText('Round 2')
+  await expect(page.locator('[data-testid^="court-"]')).toHaveCount(1)
+  const customCourt = page.locator('[data-testid^="court-"]').first()
+  await customCourt.locator('[data-testid^="delete-match-"]').click()
+  await customCourt.locator('[data-testid^="confirm-delete-match-"]').click()
+  await expect(page.getByText(/0 \/ 2 recorded/)).toBeVisible()
 
   // Finishing is blocked until every remaining match is scored.
   await expect(page.getByTestId('finish-session')).toBeDisabled()
