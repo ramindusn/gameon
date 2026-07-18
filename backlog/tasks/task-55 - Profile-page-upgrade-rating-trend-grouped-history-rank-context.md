@@ -1,11 +1,11 @@
 ---
 id: TASK-55
 title: 'Profile page upgrade: rating trend, grouped history, rank context'
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-07-18 17:51'
-updated_date: '2026-07-18 17:51'
+updated_date: '2026-07-18 19:52'
 labels: []
 dependencies: []
 ordinal: 109000
