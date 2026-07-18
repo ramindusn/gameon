@@ -1,12 +1,19 @@
+import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, cx } from '@gameon/ui'
 import { Icon } from '../app/Icon'
 import { getPlayer } from '../roster/api'
 import { loadPlayerHistory, type PlayerMatch } from '../play/api'
-import { usePlayerBoard, usePlayerNames, useRecentForm } from '../ranking/useRanking'
+import {
+  usePlayerBoard,
+  usePlayerNames,
+  useRatingHistory,
+  useRecentForm,
+} from '../ranking/useRanking'
 import { FormStrip } from '../ranking/Leaderboard'
 import { effectiveSkill } from '../ranking/effectiveSkill'
+import { POINTS_TEXT } from '../ranking/metricColors'
 import { PerformanceChart } from '../profile/PerformanceChart'
 import { useAuth } from '../auth/useAuth'
 
@@ -43,6 +50,25 @@ export function PlayerProfilePage() {
   const recentWins = recentForm.filter((r) => r === 'W').length
   const recentLosses = recentForm.filter((r) => r === 'L').length
   const improving = recentForm.length >= 3 && recentWins > recentLosses
+
+  // Leaderboard context: rating-over-time + current rank and movement (TASK-55).
+  const ratingCtx = useRatingHistory(id)
+  const rank = ratingCtx.data?.rank ?? null
+  const rankMove =
+    rank != null && ratingCtx.data?.prevRank != null ? ratingCtx.data.prevRank - rank : null
+
+  // Match history grouped by game day, newest first (history arrives sorted).
+  const days = useMemo(() => {
+    const map = new Map<string, PlayerMatch[]>()
+    for (const m of history) {
+      ;(map.get(m.sessionId) ?? map.set(m.sessionId, []).get(m.sessionId)!).push(m)
+    }
+    return [...map.entries()].map(([sessionId, matches]) => {
+      const dayWins = matches.filter((m) => m.won).length
+      const diff = matches.reduce((s, m) => s + (m.scoreFor - m.scoreAgainst), 0)
+      return { sessionId, date: matches[0].date, matches, wins: dayWins, losses: matches.length - dayWins, diff }
+    })
+  }, [history])
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="player-profile">
@@ -98,6 +124,30 @@ export function PlayerProfilePage() {
                       Improving
                     </span>
                   )}
+                  {rank != null && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-fg"
+                      title="Leaderboard rank (movement vs the previous game day)"
+                      data-testid="rank-chip"
+                    >
+                      #{rank}
+                      {rankMove != null && rankMove !== 0 && (
+                        <span className={rankMove > 0 ? 'text-accent-strong' : 'text-negative'}>
+                          {rankMove > 0 ? '▲' : '▼'}
+                          {Math.abs(rankMove)}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {rank == null && ratingCtx.data?.provisional && history.length > 0 && (
+                    <span
+                      className="inline-flex items-center rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-fg-muted"
+                      title="Rating still settling — keep playing to enter the leaderboard"
+                      data-testid="provisional-chip"
+                    >
+                      Provisional
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-fg-muted">
                   {/* Public sees the live (results-aware) skill; base is staff-only. */}
@@ -111,7 +161,7 @@ export function PlayerProfilePage() {
             {history.length >= 2 && (
               <div className="mb-6">
                 <Card title="Performance trend" icon={<Icon name="ranking" />}>
-                  <PerformanceChart matches={history} />
+                  <PerformanceChart matches={history} ratingHistory={ratingCtx.data?.points} />
                 </Card>
               </div>
             )}
@@ -147,11 +197,33 @@ export function PlayerProfilePage() {
                       No matches played yet.
                     </p>
                   ) : (
-                    <ul className="space-y-2" data-testid="profile-history">
-                      {history.map((m) => (
-                        <HistoryRow key={m.id} m={m} nameOf={nameOf} />
+                    <div className="space-y-5" data-testid="profile-history">
+                      {days.map((day) => (
+                        <div key={day.sessionId} data-testid={`history-day-${day.sessionId}`}>
+                          <div className="mb-2 flex items-baseline justify-between gap-3">
+                            <Link
+                              to={`/game-days/${day.sessionId}`}
+                              className="text-xs font-semibold uppercase tracking-wide text-fg-subtle hover:text-accent-strong hover:underline"
+                            >
+                              {formatDay(day.date)}
+                            </Link>
+                            <span className="text-xs tabular-nums">
+                              <span className="text-fg-muted">
+                                {day.wins}–{day.losses}
+                              </span>{' '}
+                              <span className={cx('font-semibold', POINTS_TEXT)}>
+                                {day.diff > 0 ? `+${day.diff}` : day.diff}
+                              </span>
+                            </span>
+                          </div>
+                          <ul className="space-y-2">
+                            {day.matches.map((m) => (
+                              <HistoryRow key={m.id} m={m} nameOf={nameOf} />
+                            ))}
+                          </ul>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   )}
                 </Card>
               </div>
@@ -179,10 +251,7 @@ function HistoryRow({
   m: PlayerMatch
   nameOf: (id: string | null) => string
 }) {
-  const date = new Date(m.date)
-  const when = Number.isNaN(date.getTime())
-    ? m.date
-    : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  // The date lives on the game-day group header, so rows stay one line.
   return (
     <li className="flex items-center gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm">
       <span
@@ -193,17 +262,26 @@ function HistoryRow({
       >
         {m.won ? 'W' : 'L'}
       </span>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-fg">
-          with <span className="font-medium">{nameOf(m.partnerId)}</span> vs{' '}
-          <span className="font-medium">{nameOf(m.opponentIds[0])}</span> &amp;{' '}
-          <span className="font-medium">{nameOf(m.opponentIds[1])}</span>
-        </div>
-        <div className="text-xs text-fg-subtle">{when}</div>
+      <div className="min-w-0 flex-1 truncate text-fg">
+        with <span className="font-medium">{nameOf(m.partnerId)}</span> vs{' '}
+        <span className="font-medium">{nameOf(m.opponentIds[0])}</span> &amp;{' '}
+        <span className="font-medium">{nameOf(m.opponentIds[1])}</span>
       </div>
       <span className="shrink-0 font-semibold tabular-nums text-fg">
         {m.scoreFor}–{m.scoreAgainst}
       </span>
     </li>
   )
+}
+
+/** "Wed, 8 Jul 2026" — the game-day group header label. */
+function formatDay(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
 }

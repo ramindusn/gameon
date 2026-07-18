@@ -434,6 +434,138 @@ export async function loadGameDayRatingDeltas(
   return deltas
 }
 
+// ---- Rating history (profile trend + rank context, TASK-55) ---------------
+
+/** The player's rating after one finished game day. */
+export interface RatingHistoryPoint {
+  sessionId: string
+  playedAt: string
+  rating: number
+}
+
+export interface RatingContext {
+  /** Rating after each finished game day since the player first appeared. */
+  points: RatingHistoryPoint[]
+  /** Leaderboard rank among established players (null while provisional). */
+  rank: number | null
+  /** Rank after the previous game day (null if unranked then). */
+  prevRank: number | null
+  /** True while the rating is still settling (high RD). */
+  provisional: boolean
+}
+
+const EMPTY_RATING_CONTEXT: RatingContext = {
+  points: [],
+  rank: null,
+  prevRank: null,
+  provisional: true,
+}
+
+/**
+ * Replay every finished game day through the rating engine (same maths as the
+ * leaderboard) and extract one player's rating after each day, plus their
+ * current rank and the rank they held after the previous day. Mirrors
+ * loadGameDayRatingDeltas' replay so the profile agrees with the boards.
+ */
+export async function loadRatingHistory(playerId: string): Promise<RatingContext> {
+  if (isE2E()) {
+    const row = E2E_PLAYER_BOARD.find((p) => p.playerId === playerId)
+    if (!row || row.rd >= PROVISIONAL_RD) return EMPTY_RATING_CONTEXT
+    const rank = E2E_PLAYER_BOARD.filter(
+      (p) => p.rd < PROVISIONAL_RD && p.rating > row.rating,
+    ).length
+    return { points: [], rank: rank + 1, prevRank: rank + 1, provisional: false }
+  }
+  const db = client()
+  const { data: sessions } = await db
+    .from('match_sessions')
+    .select('id, created_at, played_at')
+    .eq('status', 'finished')
+    .order('created_at', { ascending: true })
+  const sRows = (sessions ?? []) as { id: string; created_at: string; played_at: string }[]
+  if (sRows.length === 0) return EMPTY_RATING_CONTEXT
+
+  const { data: results } = await db
+    .from('match_results')
+    .select('session_id, team_a1, team_a2, team_b1, team_b2, winner, score_a, score_b')
+  const { data: attendance } = await db
+    .from('session_attendance')
+    .select('session_id, player_id, present')
+
+  type R = {
+    session_id: string
+    team_a1: string | null
+    team_a2: string | null
+    team_b1: string | null
+    team_b2: string | null
+    winner: string | null
+    score_a: number | null
+    score_b: number | null
+  }
+  const toRecord = (r: R): MatchRecord | null => {
+    if (!r.team_a1 || !r.team_a2 || !r.team_b1 || !r.team_b2) return null
+    let a = r.score_a
+    let b = r.score_b
+    if (a == null || b == null) {
+      if (r.winner === 'a') [a, b] = [1, 0]
+      else if (r.winner === 'b') [a, b] = [0, 1]
+      else return null
+    }
+    return { teamA: [r.team_a1, r.team_a2], teamB: [r.team_b1, r.team_b2], scoreA: a, scoreB: b }
+  }
+  const bySession = new Map<string, MatchRecord[]>()
+  for (const r of (results ?? []) as R[]) {
+    const rec = toRecord(r)
+    if (!rec) continue
+    ;(bySession.get(r.session_id) ?? bySession.set(r.session_id, []).get(r.session_id)!).push(rec)
+  }
+  const absBySession = new Map<string, string[]>()
+  for (const a of (attendance ?? []) as { session_id: string; player_id: string; present: boolean }[]) {
+    if (a.present) continue
+    ;(absBySession.get(a.session_id) ?? absBySession.set(a.session_id, []).get(a.session_id)!).push(
+      a.player_id,
+    )
+  }
+
+  const periods: RatingPeriod[] = sRows.map((s) => ({
+    matches: bySession.get(s.id) ?? [],
+    absentees: absBySession.get(s.id) ?? [],
+  }))
+
+  // First game day the player actually appears in — the trend starts there.
+  const firstIdx = sRows.findIndex((s) =>
+    (bySession.get(s.id) ?? []).some((m) => [...m.teamA, ...m.teamB].includes(playerId)),
+  )
+  if (firstIdx === -1) return EMPTY_RATING_CONTEXT
+
+  // Rank among established players from one replay result.
+  const rankOf = (players: { id: string; rating: number; rd: number }[]): number | null => {
+    const me = players.find((p) => p.id === playerId)
+    if (!me || me.rd >= PROVISIONAL_RD) return null
+    return players.filter((p) => p.rd < PROVISIONAL_RD && p.rating > me.rating).length + 1
+  }
+
+  const points: RatingHistoryPoint[] = []
+  let rank: number | null = null
+  let prevRank: number | null = null
+  let provisional = true
+  for (let i = firstIdx; i < sRows.length; i++) {
+    const out = computeRatings(periods.slice(0, i + 1))
+    const me = out.players.find((p) => p.id === playerId)
+    points.push({
+      sessionId: sRows[i].id,
+      playedAt: sRows[i].played_at,
+      rating: me?.rating ?? DEFAULT_RATING,
+    })
+    if (i === sRows.length - 2) prevRank = rankOf(out.players)
+    if (i === sRows.length - 1) {
+      rank = rankOf(out.players)
+      provisional = !me || me.rd >= PROVISIONAL_RD
+    }
+  }
+  return { points, rank, prevRank, provisional }
+}
+
 // ---- E2E seed -------------------------------------------------------------
 // E2E builds run with VITE_E2E=1 and no Supabase env (the client is null), so —
 // mirroring the roster's fixed 8-player club (e2e-1…e2e-8) — the boards resolve

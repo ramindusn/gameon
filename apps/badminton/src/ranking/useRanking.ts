@@ -7,6 +7,7 @@ import {
   loadGameDayRatingDeltas,
   loadPairBoard,
   loadPlayerBoard,
+  loadRatingHistory,
   loadRecentForm,
 } from './api'
 
@@ -48,6 +49,15 @@ export function useGameDayRatingDeltas(sessionId: string | undefined) {
     queryKey: ['ratings', 'game-day-deltas', sessionId],
     queryFn: () => loadGameDayRatingDeltas(sessionId as string),
     enabled: !!sessionId,
+  })
+}
+
+/** One player's rating-over-game-days trend + rank context (TASK-55). */
+export function useRatingHistory(playerId: string | undefined) {
+  return useQuery({
+    queryKey: ['ratings', 'history', playerId],
+    queryFn: () => loadRatingHistory(playerId as string),
+    enabled: !!playerId,
   })
 }
 
