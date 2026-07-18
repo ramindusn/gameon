@@ -616,6 +616,8 @@ export async function loadRecentResults(limit = 5): Promise<RecentResult[]> {
 /** One played match from a player's perspective. */
 export interface PlayerMatch {
   id: string
+  /** Game day (session) this match belongs to — groups the history view. */
+  sessionId: string
   date: string
   mode: Mode
   partnerId: string | null
@@ -635,6 +637,7 @@ function toPlayerMatch(
   const theirs = onA ? r.teamB : r.teamA
   return {
     id: r.id,
+    sessionId: r.sessionId,
     date: session.played_at,
     mode: session.mode as Mode,
     partnerId: mine.find((x) => x !== playerId) ?? null,

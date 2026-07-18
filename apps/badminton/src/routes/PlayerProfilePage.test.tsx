@@ -17,6 +17,7 @@ const { player, history } = vi.hoisted(() => ({
   history: [
     {
       id: 'm1',
+      sessionId: 's1',
       date: '2026-06-20',
       mode: 'open',
       partnerId: 'p2',
@@ -27,6 +28,7 @@ const { player, history } = vi.hoisted(() => ({
     },
     {
       id: 'm2',
+      sessionId: 's2',
       date: '2026-06-18',
       mode: 'mixed',
       partnerId: 'p3',
@@ -51,6 +53,17 @@ vi.mock('../ranking/useRanking', () => ({
     data: [{ playerId: 'p1', rating: 1632, rd: 60, games: 2 }],
   }),
   useRecentForm: () => ({ data: { p1: ['W', 'L'] } }),
+  useRatingHistory: () => ({
+    data: {
+      points: [
+        { sessionId: 's2', playedAt: '2026-06-18', rating: 1610 },
+        { sessionId: 's1', playedAt: '2026-06-20', rating: 1632 },
+      ],
+      rank: 2,
+      prevRank: 4,
+      provisional: false,
+    },
+  }),
   usePlayerNames: () => (id: string | null) =>
     ({ p2: 'Bob', p3: 'Cara', p4: 'Dan' })[id ?? ''] ?? '—',
 }))
@@ -98,6 +111,33 @@ describe('PlayerProfilePage', () => {
     expect(list).toHaveTextContent('Cara')
     expect(list).toHaveTextContent('21–15')
     expect(list).toHaveTextContent('18–21')
+  })
+
+  it('shows the leaderboard rank with movement vs the previous game day (TASK-55)', async () => {
+    renderProfile()
+    const chip = await screen.findByTestId('rank-chip')
+    // rank 2, previous rank 4 → moved up 2.
+    expect(chip).toHaveTextContent('#2')
+    expect(chip).toHaveTextContent('▲2')
+  })
+
+  it('groups match history by game day, headers linking to the game-day page (TASK-55)', async () => {
+    renderProfile()
+    await screen.findByTestId('profile-history')
+    // Two matches on two different game days → two groups with day summaries.
+    const day1 = screen.getByTestId('history-day-s1')
+    expect(day1).toHaveTextContent('20 Jun 2026')
+    expect(day1).toHaveTextContent('1–0')
+    expect(day1).toHaveTextContent('+6')
+    expect(day1.querySelector('a')).toHaveAttribute('href', '/game-days/s1')
+    expect(screen.getByTestId('history-day-s2')).toHaveTextContent('-3')
+  })
+
+  it('offers a Points/Rating chart toggle when rating history exists (TASK-55)', async () => {
+    renderProfile()
+    await screen.findByTestId('performance-chart')
+    expect(screen.getByTestId('chart-mode-points')).toBeInTheDocument()
+    expect(screen.getByTestId('chart-mode-rating')).toBeInTheDocument()
   })
 
   it('renders a not-found message for an unknown player', async () => {
