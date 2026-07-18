@@ -3,11 +3,11 @@ id: TASK-53
 title: >-
   Live game-day UX overhaul: win predictor, paged rounds, standings colours,
   toasts, share
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-07-18 16:25'
-updated_date: '2026-07-18 16:25'
+updated_date: '2026-07-18 16:32'
 labels: []
 dependencies: []
 ordinal: 107000
