@@ -38,7 +38,7 @@ export type FormResult = 'W' | 'L' | 'D'
 export type FormMap = Record<string, FormResult[]>
 
 /** How many recent game days the "recent form" strip shows. */
-export const FORM_LIMIT = 10
+export const FORM_LIMIT = 5
 
 /** A high RD means few games — the rating is still provisional (Glicko-2). */
 export const PROVISIONAL_RD = 150
