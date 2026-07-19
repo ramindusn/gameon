@@ -15,7 +15,6 @@ import { FormStrip } from '../ranking/Leaderboard'
 import { effectiveSkill } from '../ranking/effectiveSkill'
 import { POINTS_TEXT } from '../ranking/metricColors'
 import { PerformanceChart } from '../profile/PerformanceChart'
-import { useAuth } from '../auth/useAuth'
 
 // Public, read-only player profile (E02/E08, TASK-3.3 + 9.3). Anyone can view it
 // without logging in: rating + record + recent form, and full match history.
@@ -33,9 +32,6 @@ export function PlayerProfilePage() {
   const board = usePlayerBoard()
   const form = useRecentForm()
   const nameOf = usePlayerNames()
-  const { role } = useAuth()
-  // The manual (base) skill is staff-only; everyone sees the live skill.
-  const isStaff = role === 'admin' || role === 'matchmaker'
 
   const rated = board.data?.find((p) => p.playerId === id)
   const wins = history.filter((m) => m.won).length
@@ -170,15 +166,9 @@ export function PlayerProfilePage() {
               <Card title="Performance" icon={<Icon name="stats" />}>
                 <dl className="space-y-3 text-sm" data-testid="profile-performance">
                   <Stat label="Rating" value={rated ? String(Math.round(rated.rating)) : '—'} />
-                  {/* Base skill is the manual seed — staff-only; public sees live. */}
-                  {isStaff ? (
-                    <Stat
-                      label="Skill (base → now)"
-                      value={`${player.skill ?? '—'} → ${liveSkill != null ? liveSkill.toFixed(1) : '—'}`}
-                    />
-                  ) : (
-                    <Stat label="Skill" value={liveSkill != null ? liveSkill.toFixed(1) : '—'} />
-                  )}
+                  {/* Base skill is a manual matchmaking seed — never shown here;
+                      everyone sees the live (results-aware) skill only. */}
+                  <Stat label="Skill" value={liveSkill != null ? liveSkill.toFixed(1) : '—'} />
                   <Stat label="Record" value={`${wins}W – ${losses}L`} />
                   <Stat label="Games" value={String(history.length)} />
                   <div className="flex items-center justify-between gap-3">
