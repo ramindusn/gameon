@@ -311,16 +311,21 @@ export async function loadGameDayBoards(): Promise<GameDayBoard[]> {
  * streak has reached the grace period and their rating is about to decay
  * (TASK-6.5 / TASK-36 / TASK-45). A single missed game day is NOT inactive.
  * The UI adds an "inactive" tag so the drift is explained.
+ *
+ * Sessions of every kind count here (casual + tournaments), matching the set
+ * recompute-ratings/applyAbsenceDecay actually replays (TASK-39 folded
+ * tournaments into the same decay streak) — otherwise a player's tournament
+ * attendance can reset their real decay streak while this tag, looking only
+ * at casual game days, still flags them inactive (TASK-57).
  */
 export async function loadInactivePlayers(): Promise<string[]> {
   if (isE2E()) return E2E_INACTIVE
   const db = client()
-  // The most recent finished casual game days (one attendance snapshot each).
+  // The most recent finished game days of any kind (one attendance snapshot each).
   const { data: sessions } = await db
     .from('match_sessions')
     .select('id')
     .eq('status', 'finished')
-    .eq('kind', 'casual')
     .order('created_at', { ascending: false })
     .limit(ABSENCE_GRACE_PERIOD)
   const ids = (sessions ?? []).map((s) => s.id)
@@ -332,18 +337,32 @@ export async function loadInactivePlayers(): Promise<string[]> {
     .select('player_id, present')
     .in('session_id', ids)
 
-  // A player is inactive only if they have an attendance record for every one of
-  // these game days AND was absent from all of them (a full 5-day miss streak;
-  // playing any of them would have reset it).
+  return computeInactivePlayers(
+    (data ?? []) as AttendanceRow[],
+    ABSENCE_GRACE_PERIOD,
+  )
+}
+
+type AttendanceRow = { player_id: string; present: boolean }
+
+/**
+ * A player is inactive only if they have an attendance record for every one
+ * of the last `gracePeriod` finished sessions AND was absent from all of
+ * them (a full miss streak; playing any of them would have reset it).
+ */
+export function computeInactivePlayers(
+  rows: AttendanceRow[],
+  gracePeriod: number,
+): string[] {
   const seen = new Map<string, number>()
   const present = new Set<string>()
-  for (const r of (data ?? []) as { player_id: string; present: boolean }[]) {
+  for (const r of rows) {
     seen.set(r.player_id, (seen.get(r.player_id) ?? 0) + 1)
     if (r.present) present.add(r.player_id)
   }
   const inactive: string[] = []
   for (const [pid, count] of seen) {
-    if (count >= ABSENCE_GRACE_PERIOD && !present.has(pid)) inactive.push(pid)
+    if (count >= gracePeriod && !present.has(pid)) inactive.push(pid)
   }
   return inactive
 }
