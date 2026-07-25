@@ -98,10 +98,8 @@ export function LeaderboardLegend() {
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-fg-muted">
         <span className="inline-flex items-center gap-1.5">
-          <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-fg-subtle">
-            inactive
-          </span>
-          no games in 5+ game days
+          <span className="font-medium text-fg-subtle">Inactive</span>
+          no games in 5+ game days — moved out of the ranking while the rating decays
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="font-medium text-fg-subtle">Needs more games</span>
@@ -172,14 +170,12 @@ function PlayerRow({
   rank,
   nameOf,
   form,
-  inactive,
   muted,
 }: {
   p: RatedPlayer
   rank: number | null
   nameOf: NameOf
   form: FormMap
-  inactive?: Set<string>
   muted?: boolean
 }) {
   return (
@@ -188,19 +184,8 @@ function PlayerRow({
       data-testid={`player-row-${p.playerId}`}
     >
       <Rank n={rank} />
-      <span className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="truncate text-sm font-medium">
-          <ProfileLink id={p.playerId} nameOf={nameOf} />
-        </span>
-        {inactive?.has(p.playerId) && (
-          <span
-            className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-fg-muted"
-            title="Missed the last 5 game days — rating is decaying"
-            data-testid="inactive-tag"
-          >
-            inactive
-          </span>
-        )}
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        <ProfileLink id={p.playerId} nameOf={nameOf} />
       </span>
       <FormStrip results={form[p.playerId]} />
       <Rating rating={p.rating} />
@@ -208,7 +193,49 @@ function PlayerRow({
   )
 }
 
-/** Individual board: established players ranked, provisional ones collapsed. */
+/**
+ * A collapsible "Inactive" group for players who missed the last
+ * ABSENCE_GRACE_PERIOD game days — pulled out of the ranking entirely (not
+ * just tagged) while their rating decays (TASK-58).
+ */
+function InactiveGroup({
+  count,
+  defaultOpen,
+  children,
+}: {
+  count: number
+  defaultOpen: boolean
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  if (count === 0) return null
+  return (
+    <div className="mt-3 border-t border-line pt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        data-testid="player-board-inactive-toggle"
+        className="flex w-full items-center gap-1.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg"
+      >
+        <span className="text-fg-subtle">{open ? '▾' : '▸'}</span>
+        Inactive ({count})
+      </button>
+      {open && (
+        <ul className="divide-y divide-line/60" data-testid="player-board-inactive">
+          {children}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Individual board: established players ranked, provisional ones collapsed
+ * under "Needs more games", inactive ones (missed the last 5 game days) pulled
+ * out entirely into their own "Inactive" section (TASK-58). A player who is
+ * both provisional and inactive counts only as inactive.
+ */
 export function PlayerBoardList({
   players,
   nameOf,
@@ -220,20 +247,16 @@ export function PlayerBoardList({
   form: FormMap
   inactive?: Set<string>
 }) {
-  const established = players.filter((p) => isEstablished(p.rd))
-  const provisional = players.filter((p) => !isEstablished(p.rd))
+  const isInactive = (p: RatedPlayer) => inactive?.has(p.playerId) ?? false
+  const ranked = players.filter((p) => !isInactive(p))
+  const inactivePlayers = players.filter(isInactive)
+  const established = ranked.filter((p) => isEstablished(p.rd))
+  const provisional = ranked.filter((p) => !isEstablished(p.rd))
   return (
     <div>
       <ul className="divide-y divide-line" data-testid="player-board">
         {established.map((p, i) => (
-          <PlayerRow
-            key={p.playerId}
-            p={p}
-            rank={i + 1}
-            nameOf={nameOf}
-            form={form}
-            inactive={inactive}
-          />
+          <PlayerRow key={p.playerId} p={p} rank={i + 1} nameOf={nameOf} form={form} />
         ))}
       </ul>
       <NeedsMoreGames
@@ -242,17 +265,17 @@ export function PlayerBoardList({
         defaultOpen={established.length === 0}
       >
         {provisional.map((p) => (
-          <PlayerRow
-            key={p.playerId}
-            p={p}
-            rank={null}
-            nameOf={nameOf}
-            form={form}
-            inactive={inactive}
-            muted
-          />
+          <PlayerRow key={p.playerId} p={p} rank={null} nameOf={nameOf} form={form} muted />
         ))}
       </NeedsMoreGames>
+      <InactiveGroup
+        count={inactivePlayers.length}
+        defaultOpen={established.length === 0 && provisional.length === 0}
+      >
+        {inactivePlayers.map((p) => (
+          <PlayerRow key={p.playerId} p={p} rank={null} nameOf={nameOf} form={form} muted />
+        ))}
+      </InactiveGroup>
     </div>
   )
 }

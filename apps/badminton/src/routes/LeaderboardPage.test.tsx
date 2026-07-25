@@ -7,14 +7,15 @@ const { players, pairs, form, inactive } = vi.hoisted(() => ({
   players: [
     { playerId: 'p1', rating: 1600, rd: 50, games: 10 }, // established, has form
     { playerId: 'p3', rating: 1550, rd: 60, games: 9 }, // established, inactive
-    { playerId: 'p2', rating: 1500, rd: 200, games: 1 }, // provisional (high RD)
+    { playerId: 'p2', rating: 1500, rd: 200, games: 1 }, // provisional, NOT inactive
+    { playerId: 'p4', rating: 1500, rd: 220, games: 1 }, // provisional AND inactive
   ] satisfies RatedPlayer[],
   pairs: [
     { player1Id: 'p1', player2Id: 'p3', rating: 1620, rd: 55, games: 6 }, // established
     { player1Id: 'p2', player2Id: 'p3', rating: 1580, rd: 210, games: 1 }, // provisional
   ] satisfies RatedPair[],
   form: { p1: ['W', 'L', 'W'] } satisfies FormMap,
-  inactive: new Set(['p3']),
+  inactive: new Set(['p3', 'p4']),
 }))
 
 vi.mock('../ranking/useRanking', () => ({
@@ -23,7 +24,7 @@ vi.mock('../ranking/useRanking', () => ({
   useRecentForm: () => ({ data: form, isLoading: false, isError: false }),
   useInactivePlayers: () => ({ data: inactive, isLoading: false, isError: false }),
   usePlayerNames: () => (id: string | null) =>
-    id === 'p1' ? 'Alice' : id === 'p2' ? 'Bob' : id === 'p3' ? 'Cara' : '—',
+    id === 'p1' ? 'Alice' : id === 'p2' ? 'Bob' : id === 'p3' ? 'Cara' : id === 'p4' ? 'Dave' : '—',
 }))
 
 import { LeaderboardPage } from './LeaderboardPage'
@@ -86,7 +87,7 @@ describe('LeaderboardPage', () => {
     expect(legend).toHaveTextContent('Won the day')
     expect(legend).toHaveTextContent('Lost the day')
     expect(legend).toHaveTextContent('Even')
-    expect(legend).toHaveTextContent('inactive')
+    expect(legend).toHaveTextContent('Inactive')
     expect(legend).toHaveTextContent('Needs more games')
   })
 
@@ -97,12 +98,39 @@ describe('LeaderboardPage', () => {
     expect(strip).toHaveTextContent('WLW')
   })
 
-  it('tags a player absent from the latest game day as inactive', () => {
+  it('moves an established but inactive player into a collapsible Inactive section (TASK-58)', () => {
     renderPage()
-    const p3 = screen.getByTestId('player-row-p3')
-    expect(p3.querySelector('[data-testid="inactive-tag"]')).toBeTruthy()
-    expect(
-      screen.getByTestId('player-row-p1').querySelector('[data-testid="inactive-tag"]'),
-    ).toBeNull()
+    // Cara (p3) is established (low RD) but inactive — not in the main ranked list.
+    expect(screen.queryByTestId('player-row-p3')).toBeNull()
+    const toggle = screen.getByTestId('player-board-inactive-toggle')
+    expect(toggle).toHaveTextContent('Inactive (2)')
+    fireEvent.click(toggle)
+    expect(screen.getByTestId('player-row-p3')).toHaveTextContent('Cara')
+  })
+
+  it('counts a player who is both provisional and inactive only under Inactive (TASK-58)', () => {
+    renderPage()
+    // Dave (p4) is provisional (high RD) AND inactive. He must appear only in
+    // the Inactive section, not also under "Needs more games" — that count
+    // stays 1 (Bob only), even though two players are non-established.
+    expect(screen.getByTestId('player-board-prov-toggle')).toHaveTextContent(
+      'Needs more games (1)',
+    )
+    fireEvent.click(screen.getByTestId('player-board-prov-toggle'))
+    expect(screen.queryByTestId('player-row-p4')).toBeNull()
+
+    expect(screen.getByTestId('player-board-inactive-toggle')).toHaveTextContent('Inactive (2)')
+    fireEvent.click(screen.getByTestId('player-board-inactive-toggle'))
+    expect(screen.getByTestId('player-row-p4')).toHaveTextContent('Dave')
+  })
+
+  it('auto-expands the Inactive section when it is the only content', () => {
+    renderPage()
+    // Not the case in the base fixture (established + provisional rows exist),
+    // so the section starts collapsed.
+    expect(screen.getByTestId('player-board-inactive-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
   })
 })
