@@ -156,3 +156,79 @@ describe('generateRounds — mixed mode', () => {
     expect(generateRounds(ps, 3, { mode: 'mixed', rng: seededRng(2) })).toBeNull()
   })
 })
+
+describe('generateRounds — open mode, excludeWomensPairs', () => {
+  const M: Gender = 'male'
+  const F: Gender = 'female'
+  const hasFemalePair = (m: Round['matches'][number]) =>
+    m.some((team) => team.every((p) => p.gender === 'female'))
+
+  it('flag off: allows a women+women pair when it is the best skill match', () => {
+    const ps = players([10, 1, 9, 2], [M, M, F, F])
+    const res = generateRounds(ps, 1, { rng: seededRng(1) })!
+    expect(res).not.toBeNull()
+    expect(hasFemalePair(res.rounds[0].matches[0])).toBe(true)
+  })
+
+  it('flag on: avoids a women+women pair when a valid alternative exists', () => {
+    const ps = players([10, 1, 9, 2], [M, M, F, F])
+    const res = generateRounds(ps, 1, { excludeWomensPairs: true, rng: seededRng(1) })!
+    expect(res).not.toBeNull()
+    expect(hasFemalePair(res.rounds[0].matches[0])).toBe(false)
+  })
+
+  it('flag on: still returns a full draw (no bench, no failure) when a women+women pair is unavoidable', () => {
+    // 1 male + 3 females on a single court: every possible split leaves two
+    // women on one team, no matter which combo is chosen.
+    const ps = players([9, 8, 7, 6], [M, F, F, F])
+    const res = generateRounds(ps, 1, { excludeWomensPairs: true, rng: seededRng(2) })!
+    expect(res).not.toBeNull()
+    expect(res.sittingCount).toBe(0)
+    expect(res.rounds[0].matches).toHaveLength(1)
+    expect(hasFemalePair(res.rounds[0].matches[0])).toBe(true)
+    assertPlayOrSit(
+      res.rounds[0],
+      ps.map((p) => p.id),
+    )
+  })
+
+  it('applies to the sequential fallback used for courts >= 4', () => {
+    // 16 players -> 4 courts, which only the sequential fallback handles
+    // (searchCourts2/3 only cover 2-3 courts). Quartet 1 (skills 16-13) is
+    // 1 male + 3 females: a women+women pair is unavoidable there. Quartet 2
+    // (skills 12-9) is 2 females + 2 males where the default sequential split
+    // pairs the two women together, but an alternative split doesn't.
+    const skills = [16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+    const genders: Gender[] = [
+      M, F, F, F, // quartet 1: unavoidable
+      F, F, M, M, // quartet 2: avoidable
+      M, M, M, M, // quartet 3
+      M, M, M, M, // quartet 4
+    ]
+    const ps = players(skills, genders)
+    const res = generateRounds(ps, 1, { excludeWomensPairs: true, rng: seededRng(3) })!
+    expect(res).not.toBeNull()
+    expect(res.courts).toBe(4)
+    expect(res.sittingCount).toBe(0)
+    expect(hasFemalePair(res.rounds[0].matches[0])).toBe(true) // unavoidable
+    expect(hasFemalePair(res.rounds[0].matches[1])).toBe(false) // avoided
+    assertPlayOrSit(
+      res.rounds[0],
+      ps.map((p) => p.id),
+    )
+  })
+
+  it('flag off: the fallback keeps its default split (no gender awareness)', () => {
+    const skills = [16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+    const genders: Gender[] = [
+      M, M, M, M,
+      F, F, M, M, // quartet 2: default split pairs the two women together
+      M, M, M, M,
+      M, M, M, M,
+    ]
+    const ps = players(skills, genders)
+    const res = generateRounds(ps, 1, { rng: seededRng(3) })!
+    expect(res.courts).toBe(4)
+    expect(hasFemalePair(res.rounds[0].matches[1])).toBe(true)
+  })
+})

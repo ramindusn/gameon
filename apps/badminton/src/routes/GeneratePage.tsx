@@ -68,6 +68,7 @@ export function GeneratePage() {
   // follows it until the matchmaker edits the field; then their value is clamped.
   const [courtsText, setCourtsText] = useState('')
   const [courtsEdited, setCourtsEdited] = useState(false)
+  const [excludeWomensPairs, setExcludeWomensPairs] = useState(false)
   const mode: Mode = 'open'
   const [result, setResult] = useState<GeneratedMatches | null>(null)
   const [generated, setGenerated] = useState(false)
@@ -108,7 +109,7 @@ export function GeneratePage() {
           gender: p.gender,
         }
       })
-    setResult(generateRounds(present, rounds, { mode, courts }))
+    setResult(generateRounds(present, rounds, { mode, courts, excludeWomensPairs }))
     setGenerated(true)
   }
 
@@ -215,6 +216,15 @@ export function GeneratePage() {
                       data-testid="courts-input"
                     />
                   </div>
+                  <label className="flex w-fit items-center gap-2 text-sm text-fg">
+                    <input
+                      type="checkbox"
+                      checked={excludeWomensPairs}
+                      onChange={(e) => setExcludeWomensPairs(e.target.checked)}
+                      data-testid="exclude-womens-pairs"
+                    />
+                    Avoid women+women pairs
+                  </label>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       onClick={generate}

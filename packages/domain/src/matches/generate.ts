@@ -77,6 +77,21 @@ function recordMatch(state: EngineState, t1: Team, t2: Team): void {
 
 // ---- open mode (port of matchEngine.js) -----------------------------------
 
+const isFemalePair = (t: Team): boolean =>
+  t[0].gender === 'female' && t[1].gender === 'female'
+
+// Soft preference, not a hard block: a huge finite penalty (rather than
+// Infinity) so a woman+woman team is strongly avoided but a court can still
+// resolve to one when a round's gender mix makes it unavoidable, without
+// blowing up the whole court group (which would also lose the skill/partner
+// balancing on unrelated courts).
+const WOMENS_PAIR_PENALTY = 100_000
+
+function womensPairPenalty(excludeWomensPairs: boolean | undefined, t1: Team, t2: Team): number {
+  if (!excludeWomensPairs) return 0
+  return (isFemalePair(t1) ? WOMENS_PAIR_PENALTY : 0) + (isFemalePair(t2) ? WOMENS_PAIR_PENALTY : 0)
+}
+
 function scoreMatch(
   state: EngineState,
   t1: Team,
@@ -84,6 +99,7 @@ function scoreMatch(
   top2: Record<string, boolean>,
   bot2: Record<string, boolean>,
   relax: number,
+  excludeWomensPairs?: boolean,
 ): number {
   const { partnerCounts, opponentCounts, lastPartnerKeys, matchHistory } = state
   if (top2[t1[0].id] && top2[t1[1].id]) return Infinity
@@ -101,8 +117,9 @@ function scoreMatch(
   if (relax < 3) {
     if ((matchHistory[matchKey(t1, t2)] || 0) > 0) return Infinity
   }
+  const penalty = womensPairPenalty(excludeWomensPairs, t1, t2)
   if (relax >= 4) {
-    return Math.abs(t1[0].skill + t1[1].skill - (t2[0].skill + t2[1].skill))
+    return Math.abs(t1[0].skill + t1[1].skill - (t2[0].skill + t2[1].skill)) + penalty
   }
   const sd = Math.abs(t1[0].skill + t1[1].skill - (t2[0].skill + t2[1].skill))
   let contactScore = 0
@@ -121,7 +138,8 @@ function scoreMatch(
       getOC(opponentCounts, t1[1], t2[0]) +
       getOC(opponentCounts, t1[1], t2[1])) +
     contactScore +
-    (matchHistory[matchKey(t1, t2)] || 0) * 20
+    (matchHistory[matchKey(t1, t2)] || 0) * 20 +
+    penalty
   )
 }
 
@@ -131,6 +149,7 @@ function scoreCourt(
   top2: Record<string, boolean>,
   bot2: Record<string, boolean>,
   relax: number,
+  excludeWomensPairs?: boolean,
 ): { pair: Match | null; score: number } {
   const combos: Match[] = [
     [
@@ -149,7 +168,7 @@ function scoreCourt(
   let best: Match | null = null
   let bestSc = Infinity
   for (const combo of combos) {
-    const sc = scoreMatch(state, combo[0], combo[1], top2, bot2, relax)
+    const sc = scoreMatch(state, combo[0], combo[1], top2, bot2, relax, excludeWomensPairs)
     if (sc < bestSc) {
       bestSc = sc
       best = combo
@@ -185,6 +204,7 @@ function searchCourts2(
   bot2: Record<string, boolean>,
   relax: number,
   highIds: Record<string, boolean> | null,
+  excludeWomensPairs?: boolean,
 ): Match[] | null {
   let bestTotal = Infinity
   let bestResult: Match[] | null = null
@@ -193,8 +213,8 @@ function searchCourts2(
     const g1map: Record<string, boolean> = {}
     g1.forEach((p) => (g1map[p.id] = true))
     const g2 = pool.filter((p) => !g1map[p.id])
-    const r1 = scoreCourt(state, g1, top2, bot2, relax)
-    const r2 = scoreCourt(state, g2, top2, bot2, relax)
+    const r1 = scoreCourt(state, g1, top2, bot2, relax, excludeWomensPairs)
+    const r2 = scoreCourt(state, g2, top2, bot2, relax, excludeWomensPairs)
     if (!r1.pair || !r2.pair || r1.score === Infinity || r2.score === Infinity) continue
     const tier = Math.max(0, avgSkill(g2) - avgSkill(g1)) * 5
     const tot = r1.score + r2.score + tier
@@ -213,6 +233,7 @@ function searchCourts3(
   bot2: Record<string, boolean>,
   relax: number,
   highIds: Record<string, boolean> | null,
+  excludeWomensPairs?: boolean,
 ): Match[] | null {
   let bestTotal = Infinity
   let bestResult: Match[] | null = null
@@ -225,9 +246,9 @@ function searchCourts3(
       const g2map: Record<string, boolean> = {}
       g2.forEach((p) => (g2map[p.id] = true))
       const g3 = rest.filter((p) => !g2map[p.id])
-      const r1 = scoreCourt(state, g1, top2, bot2, relax)
-      const r2 = scoreCourt(state, g2, top2, bot2, relax)
-      const r3 = scoreCourt(state, g3, top2, bot2, relax)
+      const r1 = scoreCourt(state, g1, top2, bot2, relax, excludeWomensPairs)
+      const r2 = scoreCourt(state, g2, top2, bot2, relax, excludeWomensPairs)
+      const r3 = scoreCourt(state, g3, top2, bot2, relax, excludeWomensPairs)
       if (
         !r1.pair ||
         !r2.pair ||
@@ -250,6 +271,29 @@ function searchCourts3(
   return bestResult
 }
 
+// Split a 4-player group into two teams, preferring a split with no
+// woman+woman team when `excludeWomensPairs` is set and one exists. Used by
+// the sequential fallback below, which (unlike scoreCourt) doesn't otherwise
+// consider gender at all.
+function splitFour(group: MatchPlayer[], excludeWomensPairs?: boolean): Match {
+  const combos: Match[] = [
+    [
+      [group[0], group[1]],
+      [group[2], group[3]],
+    ],
+    [
+      [group[0], group[2]],
+      [group[1], group[3]],
+    ],
+    [
+      [group[0], group[3]],
+      [group[1], group[2]],
+    ],
+  ]
+  if (!excludeWomensPairs) return combos[0]
+  return combos.find((m) => !isFemalePair(m[0]) && !isFemalePair(m[1])) ?? combos[0]
+}
+
 function assignCourts(
   state: EngineState,
   active: MatchPlayer[],
@@ -258,6 +302,7 @@ function assignCourts(
   bot2: Record<string, boolean>,
   allAvgSkill: number,
   forceHighCourt: boolean,
+  excludeWomensPairs?: boolean,
 ): Match[] {
   const sorted = active.slice().sort((a, b) => b.skill - a.skill)
   const maxOff = Math.max(courts * 2, 1)
@@ -278,14 +323,16 @@ function assignCourts(
   for (let relax = 0; relax <= 4; relax++) {
     let result: Match[] | null = null
     if (courts === 1) {
-      const r = scoreCourt(state, pool, top2, bot2, relax)
+      const r = scoreCourt(state, pool, top2, bot2, relax, excludeWomensPairs)
       if (r.pair && r.score < Infinity) result = [r.pair]
     } else if (courts === 2) {
-      if (highIds) result = searchCourts2(state, pool, top2, bot2, relax, highIds)
-      if (!result) result = searchCourts2(state, pool, top2, bot2, relax, null)
+      if (highIds)
+        result = searchCourts2(state, pool, top2, bot2, relax, highIds, excludeWomensPairs)
+      if (!result) result = searchCourts2(state, pool, top2, bot2, relax, null, excludeWomensPairs)
     } else if (courts === 3) {
-      if (highIds) result = searchCourts3(state, pool, top2, bot2, relax, highIds)
-      if (!result) result = searchCourts3(state, pool, top2, bot2, relax, null)
+      if (highIds)
+        result = searchCourts3(state, pool, top2, bot2, relax, highIds, excludeWomensPairs)
+      if (!result) result = searchCourts3(state, pool, top2, bot2, relax, null, excludeWomensPairs)
     }
     if (result) return result
   }
@@ -294,10 +341,7 @@ function assignCourts(
   const fb: Match[] = []
   for (let c = 0; c < courts; c++) {
     const g = pool.slice(c * 4, c * 4 + 4)
-    fb.push([
-      [g[0], g[1]],
-      [g[2], g[3]],
-    ])
+    fb.push(splitFour(g, excludeWomensPairs))
   }
   return fb
 }
@@ -326,6 +370,7 @@ function generateOpen(
   numRounds: number,
   rng: Rng,
   maxCourts?: number,
+  excludeWomensPairs?: boolean,
 ): GeneratedMatches | null {
   if (pp.length < 4) return null
   const autoCourts = Math.floor(pp.length / 4)
@@ -388,6 +433,7 @@ function generateOpen(
       bot2,
       allAvgSkill,
       forceHighCourt,
+      excludeWomensPairs,
     )
 
     const thisRoundKeys: Record<string, boolean> = {}
@@ -505,5 +551,5 @@ export function generateRounds(
   const present = players.filter((p) => !p.absent)
   return opts.mode === 'mixed'
     ? generateMixed(present, numRounds, rng, opts.courts)
-    : generateOpen(present, numRounds, rng, opts.courts)
+    : generateOpen(present, numRounds, rng, opts.courts, opts.excludeWomensPairs)
 }

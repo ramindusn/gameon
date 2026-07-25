@@ -44,4 +44,10 @@ export interface GenerateOptions {
   courts?: number
   /** Injectable RNG (0..1) for deterministic tests. Defaults to Math.random. */
   rng?: () => number
+  /**
+   * Open mode only. Best-effort: strongly prefer teams that aren't two
+   * 'female' players, but still return a full draw (rather than benching a
+   * player or failing) if a round's gender mix makes one unavoidable.
+   */
+  excludeWomensPairs?: boolean
 }
