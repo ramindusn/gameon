@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFormMap,
   buildGameDayBoard,
+  computeInactivePlayers,
   mapPairRatingRow,
   mapPlayerRatingRow,
   type FormResultRow,
@@ -146,5 +147,46 @@ describe('buildGameDayBoard', () => {
   it('ignores null player slots', () => {
     const board = buildGameDayBoard([row(['p1', null], ['p3', 'p4'], 21, 15)])
     expect(board.map((s) => s.playerId)).toEqual(['p1', 'p3', 'p4'])
+  })
+})
+
+describe('computeInactivePlayers (TASK-57)', () => {
+  const gracePeriod = 5
+  // One attendance row per player per one of the last `gracePeriod` finished
+  // sessions (of any kind — the caller no longer filters to casual only).
+  const absentAll = (playerId: string) =>
+    Array.from({ length: gracePeriod }, () => ({ player_id: playerId, present: false }))
+
+  it('flags a player absent from every one of the last gracePeriod sessions', () => {
+    expect(computeInactivePlayers(absentAll('p1'), gracePeriod)).toEqual(['p1'])
+  })
+
+  it('does not flag a player who was present in any one of those sessions', () => {
+    // Represents attendance at e.g. a tournament session that a casual-only
+    // query would previously have missed entirely (the TASK-57 bug): being
+    // seen at all resets the streak, matching the decay engine.
+    const rows = [
+      { player_id: 'p1', present: false },
+      { player_id: 'p1', present: false },
+      { player_id: 'p1', present: true },
+      { player_id: 'p1', present: false },
+      { player_id: 'p1', present: false },
+    ]
+    expect(computeInactivePlayers(rows, gracePeriod)).toEqual([])
+  })
+
+  it('does not flag a player with fewer than gracePeriod attendance records', () => {
+    // e.g. a player who joined the club after some of the last 5 sessions.
+    const rows = [
+      { player_id: 'p1', present: false },
+      { player_id: 'p1', present: false },
+    ]
+    expect(computeInactivePlayers(rows, gracePeriod)).toEqual([])
+  })
+
+  it('flags only the players who meet the streak, ignoring the rest', () => {
+    const rows = [...absentAll('p1'), ...absentAll('p2').slice(0, 4)]
+    rows.push({ player_id: 'p2', present: true }) // p2's 5th record is a play
+    expect(computeInactivePlayers(rows, gracePeriod)).toEqual(['p1'])
   })
 })
