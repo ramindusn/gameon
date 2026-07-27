@@ -10,3 +10,17 @@
 export const POINTS_TEXT = 'text-sky-400'
 /** Text colour for a leaderboard Ranking value/label (positive). */
 export const RANK_TEXT = 'text-accent-strong'
+
+// Frame variants of the game-day blue, for containers that hold game-day
+// content (e.g. the Home Game Day Podium card) so the whole card — not just its
+// numbers — reads as "game day". Ranking/leaderboard surfaces keep the green
+// brand accent, so a blue frame is an unambiguous "this is a game day" cue.
+
+/** Card border + subtle fill for a game-day container. */
+export const POINTS_FRAME = 'border-sky-400/40 bg-sky-400/5'
+/** Hover border for a tappable game-day container. */
+export const POINTS_FRAME_HOVER = 'hover:border-sky-400'
+/** Focus ring for a tappable game-day container. */
+export const POINTS_RING = 'focus:ring-sky-400'
+/** Highlight for the winner's pedestal on a game-day podium. */
+export const POINTS_HILITE = 'border-sky-400 bg-sky-400/15'

@@ -15,7 +15,14 @@ import {
 } from '../ranking/useRanking'
 import { BoardState } from '../ranking/Leaderboard'
 import { PROVISIONAL_RD } from '../ranking/api'
-import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
+import {
+  POINTS_FRAME,
+  POINTS_FRAME_HOVER,
+  POINTS_HILITE,
+  POINTS_RING,
+  POINTS_TEXT,
+  RANK_TEXT,
+} from '../ranking/metricColors'
 import { SearchBox } from '../search/SearchBox'
 import { useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
@@ -157,7 +164,7 @@ function PodiumSpot({ row, place }: { row: StandingRow; place: 1 | 2 | 3 }) {
         className={cx(
           'flex w-full items-start justify-center rounded-t-xl border pt-1.5',
           height,
-          place === 1 ? 'border-accent bg-accent/15' : 'border-line bg-surface-muted',
+          place === 1 ? POINTS_HILITE : 'border-line bg-surface-muted',
         )}
       >
         <span aria-hidden className="text-xl leading-none">
@@ -297,7 +304,12 @@ function GameDayRank() {
     >
       <Link
         to={`/game-days/${board.sessionId}`}
-        className="block rounded-2xl border border-accent/40 bg-accent/5 p-5 shadow-sm transition-colors hover:border-accent focus:outline-none focus:ring-2 focus:ring-accent sm:p-6"
+        className={cx(
+          'block rounded-2xl border p-5 shadow-sm transition-colors focus:outline-none focus:ring-2 sm:p-6',
+          POINTS_FRAME,
+          POINTS_FRAME_HOVER,
+          POINTS_RING,
+        )}
         data-testid="game-day-card"
       >
         <div data-testid="game-day-board">
@@ -322,7 +334,7 @@ function GameDayRank() {
             </ul>
           )}
         </div>
-        <div className="mt-4 text-right text-sm font-medium text-accent-strong">
+        <div className={cx('mt-4 text-right text-sm font-medium', POINTS_TEXT)}>
           View game day scores →
         </div>
       </Link>
