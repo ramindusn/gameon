@@ -198,7 +198,7 @@ function TeamName({
       className={cx(
         'min-w-0 leading-tight',
         align === 'right' ? 'text-right' : 'text-left',
-        won ? 'font-semibold text-accent-strong' : 'text-fg',
+        won ? cx('font-semibold', POINTS_TEXT) : 'text-fg',
       )}
     >
       <span className="block break-words">{nameOf(ids[0])}</span>

@@ -864,7 +864,7 @@ function TeamCol({
 }) {
   return (
     <div className={cx('min-w-0', align === 'right' && 'text-right')}>
-      <p className={cx('leading-tight', won ? 'font-semibold text-accent-strong' : 'text-fg')}>
+      <p className={cx('leading-tight', won ? cx('font-semibold', POINTS_TEXT) : 'text-fg')}>
         <span className="block break-words">{nameOf(ids[0])}</span>
         <span className="block break-words">{nameOf(ids[1])}</span>
       </p>
