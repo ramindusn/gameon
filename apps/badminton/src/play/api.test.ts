@@ -13,6 +13,7 @@ describe('mapSessionRow', () => {
         status: 'live',
         mode: 'mixed',
         rounds: 5,
+        played_at: '2026-06-22T09:00:00Z',
         created_at: '2026-06-22T10:00:00Z',
       }),
     ).toEqual({
@@ -23,6 +24,7 @@ describe('mapSessionRow', () => {
       kind: 'casual',
       rounds: 5,
       hidden: false,
+      playedAt: '2026-06-22T09:00:00Z',
       createdAt: '2026-06-22T10:00:00Z',
     })
   })
@@ -40,6 +42,8 @@ describe('mapResultRow', () => {
         team_a2: 'p2',
         team_b1: 'p3',
         team_b2: 'p4',
+        score_a: 21,
+        score_b: 15,
         winner: 'b',
       }),
     ).toEqual({
@@ -49,6 +53,8 @@ describe('mapResultRow', () => {
       court: 1,
       teamA: ['p1', 'p2'],
       teamB: ['p3', 'p4'],
+      scoreA: 21,
+      scoreB: 15,
       winner: 'b',
     })
   })
@@ -63,6 +69,8 @@ describe('mapResultRow', () => {
       team_a2: 'p2',
       team_b1: 'p3',
       team_b2: 'p4',
+      score_a: null,
+      score_b: null,
       winner: null,
     })
     expect(r.winner).toBeNull()

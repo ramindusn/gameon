@@ -1,0 +1,27 @@
+{
+  // Comprehensive typecheck-only config (TASK-59): unlike apps/badminton/tsconfig.json
+  // (the production build config, which excludes tests so vite's build doesn't pull in
+  // test-only deps) and the root tsconfig.json (editor support for e2e specs only), this
+  // config's sole job is `npm run typecheck` — it covers every .ts/.tsx in the repo,
+  // test files included, so a type error in a *.test.ts(x) can't silently ship. It emits
+  // nothing and isn't part of the production build.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "types": ["vite/client", "node", "@playwright/test"],
+    "paths": {
+      "@gameon/ui": ["./packages/ui/src/index.tsx"],
+      "@gameon/domain": ["./packages/domain/src/index.ts"],
+      "@gameon/supabase": ["./packages/supabase/src/index.ts"]
+    }
+  },
+  "include": [
+    "apps/**/src/**/*.ts",
+    "apps/**/src/**/*.tsx",
+    "packages/**/src/**/*.ts",
+    "packages/**/src/**/*.tsx",
+    "e2e/**/*.ts",
+    "playwright.config.ts",
+    "vitest.setup.ts"
+  ]
+}
