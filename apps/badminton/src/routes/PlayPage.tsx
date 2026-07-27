@@ -822,7 +822,7 @@ function RoundPager({
 /**
  * Win-predictor bar under the two side-by-side teams: the left team (A) fills
  * from the left, the right team (B) from the right — so the mapping is obvious.
- * Favourite's side solid accent; both faint accent when even.
+ * Favourite's side solid game-day blue; both faint blue when even.
  */
 function Predictor({ pctA, favoured }: { pctA: number; favoured: 'a' | 'b' | null }) {
   const even = favoured === null
@@ -833,11 +833,11 @@ function Predictor({ pctA, favoured }: { pctA: number; favoured: 'a' | 'b' | nul
       aria-label={`Win prediction ${pctA}% versus ${100 - pctA}%`}
     >
       <div
-        className={cx('h-full', favoured === 'a' ? 'bg-accent' : even ? 'bg-accent/40' : 'bg-fg-subtle/30')}
+        className={cx('h-full', favoured === 'a' ? 'bg-sky-400' : even ? 'bg-sky-400/40' : 'bg-fg-subtle/30')}
         style={{ width: `${pctA}%` }}
       />
       <div className="w-px shrink-0 bg-surface" />
-      <div className={cx('h-full flex-1', favoured === 'b' ? 'bg-accent' : even ? 'bg-accent/40' : 'bg-fg-subtle/30')} />
+      <div className={cx('h-full flex-1', favoured === 'b' ? 'bg-sky-400' : even ? 'bg-sky-400/40' : 'bg-fg-subtle/30')} />
     </div>
   )
 }
@@ -872,7 +872,7 @@ function TeamCol({
         <span
           className={cx(
             'mt-1 inline-block text-[11px] font-semibold tabular-nums',
-            favoured ? 'text-accent-strong' : 'text-fg-subtle',
+            favoured ? POINTS_TEXT : 'text-fg-subtle',
           )}
           data-testid="win-pct"
         >
@@ -981,7 +981,7 @@ function CourtScore({
         <span className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-fg-subtle">
           Court {result.court}
           {decided && (
-            <span className="text-accent-strong" aria-label="scored">
+            <span className={POINTS_TEXT} aria-label="scored">
               ✓
             </span>
           )}
@@ -1022,7 +1022,7 @@ function CourtScore({
             )}
             <button
               type="button"
-              className="text-accent-strong hover:underline"
+              className={cx(POINTS_TEXT, 'hover:underline')}
               onClick={() => setMode('edit')}
               data-testid={`edit-lineup-${result.id}`}
             >
@@ -1083,7 +1083,12 @@ function CourtScore({
           </div>
           {!decided && info?.odds && <Predictor pctA={pctA ?? 50} favoured={favoured} />}
           {decided && info?.upset && (
-            <div className="mt-2 text-center text-[10px] font-semibold uppercase tracking-wide text-accent-strong">
+            <div
+              className={cx(
+                'mt-2 text-center text-[10px] font-semibold uppercase tracking-wide',
+                POINTS_TEXT,
+              )}
+            >
               Upset
             </div>
           )}
