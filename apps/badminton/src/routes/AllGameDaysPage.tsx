@@ -5,6 +5,7 @@ import { Icon } from '../app/Icon'
 import { useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 import type { MatchSession } from '../play/api'
+import { POINTS_PILL, POINTS_TEXT } from '../ranking/metricColors'
 
 // All game days for matchmakers/admins (TASK-38). Lists every game day (incl.
 // ones hidden from the public home) and links each to its /game-days/:id scores
@@ -16,7 +17,7 @@ export function AllGameDaysPage() {
   return (
     <AppShell title="Game Days">
       <div data-testid="all-game-days">
-        <Card title="All game days" icon={<Icon name="schedule" />}>
+        <Card title="All game days" icon={<Icon name="schedule" />} iconTone={POINTS_TEXT}>
           {isLoading && <SkeletonCard rows={5} />}
           {isError && (
             <p className="text-sm text-negative">Could not load game days.</p>
@@ -46,7 +47,7 @@ function GameDayRow({ session: s }: { session: MatchSession }) {
     <li>
       <Link
         to={`/game-days/${s.id}`}
-        className="flex items-center justify-between gap-3 py-3 hover:text-accent-strong"
+        className="flex items-center justify-between gap-3 py-3 hover:text-sky-400"
         data-testid={`game-day-${s.id}`}
       >
         <span className="flex min-w-0 flex-col">
@@ -65,9 +66,7 @@ function GameDayRow({ session: s }: { session: MatchSession }) {
           <span
             className={cx(
               'rounded-full px-2 py-0.5 text-[10px] font-medium',
-              s.status === 'live'
-                ? 'bg-accent/15 text-accent-strong'
-                : 'bg-surface-muted text-fg-muted',
+              s.status === 'live' ? POINTS_PILL : 'bg-surface-muted text-fg-muted',
             )}
           >
             {s.status === 'live' ? 'Live' : 'Finished'}

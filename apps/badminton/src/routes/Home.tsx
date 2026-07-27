@@ -16,9 +16,11 @@ import {
 import { BoardState } from '../ranking/Leaderboard'
 import { PROVISIONAL_RD } from '../ranking/api'
 import {
+  POINTS_DOT,
   POINTS_FRAME,
   POINTS_FRAME_HOVER,
   POINTS_HILITE,
+  POINTS_PILL,
   POINTS_RING,
   POINTS_TEXT,
   RANK_TEXT,
@@ -109,12 +111,22 @@ function LiveNow() {
             key={s.id}
             to={`/play/${s.id}`}
             data-testid={`live-now-${s.id}`}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent/5 p-5 shadow-sm transition-colors hover:border-accent focus:outline-none focus:ring-2 focus:ring-accent sm:p-6"
+            className={cx(
+              'flex items-center justify-between gap-3 rounded-2xl border p-5 shadow-sm transition-colors focus:outline-none focus:ring-2 sm:p-6',
+              POINTS_FRAME,
+              POINTS_FRAME_HOVER,
+              POINTS_RING,
+            )}
           >
             <span className="flex min-w-0 flex-col">
               <span className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent-strong">
-                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                <span
+                  className={cx(
+                    'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+                    POINTS_PILL,
+                  )}
+                >
+                  <span className={cx('h-1.5 w-1.5 rounded-full', POINTS_DOT)} />
                   Live
                 </span>
                 <span className="truncate font-display text-lg font-semibold text-fg">
@@ -126,7 +138,7 @@ function LiveNow() {
                 the schedule, points &amp; live scores
               </span>
             </span>
-            <span className="shrink-0 text-sm font-medium text-accent-strong">View →</span>
+            <span className={cx('shrink-0 text-sm font-medium', POINTS_TEXT)}>View →</span>
           </Link>
         ))}
       </div>
@@ -228,7 +240,10 @@ function PagerArrow({
       disabled={disabled}
       data-testid={testid}
       aria-label={dir === 'next' ? 'Older game day' : 'Newer game day'}
-      className="grid h-7 w-7 place-items-center rounded-full text-lg font-bold leading-none text-accent-strong transition-colors hover:bg-accent/20 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent"
+      className={cx(
+        'grid h-7 w-7 place-items-center rounded-full text-lg font-bold leading-none transition-colors hover:bg-sky-400/20 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent',
+        POINTS_TEXT,
+      )}
     >
       {dir === 'next' ? '›' : '‹'}
     </button>
@@ -612,8 +627,10 @@ function Section({
   return (
     <section className="mb-12">
       <div className="mb-4 flex items-center justify-between gap-3">
+        {/* Both sections on the public home are game-day content (Live now +
+            Game Day Podium), so the section icon uses the game-day blue. */}
         <h2 className="flex min-w-0 items-center gap-2 font-display text-xl font-bold">
-          <Icon name={icon} className="text-accent" />
+          <Icon name={icon} className={POINTS_TEXT} />
           <span className="truncate">{title}</span>
         </h2>
         {action}

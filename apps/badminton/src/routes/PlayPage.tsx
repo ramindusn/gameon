@@ -33,7 +33,7 @@ import {
   type MatchOdds,
 } from '../ranking/effectiveSkill'
 import { buildGameDayBoard, type GameDayResultRow } from '../ranking/api'
-import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
+import { POINTS_DOT, POINTS_PILL, POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import type { MatchResult, MatchSession, Side } from '../play/api'
 
 /** A roster player reduced to what the live editors need. */
@@ -433,7 +433,10 @@ function SessionHeader({
     <div className="mb-4 rounded-xl border border-line bg-surface px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
-          <Icon name={session.kind === 'tournament' ? 'tournament' : 'shuttle'} className="h-4 w-4 text-accent" />
+          <Icon
+            name={session.kind === 'tournament' ? 'tournament' : 'shuttle'}
+            className={cx('h-4 w-4', POINTS_TEXT)}
+          />
           {session.kind === 'tournament'
             ? 'Tournament · Fixed pairs'
             : `Game day · ${session.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'}`}
@@ -468,7 +471,7 @@ function SessionHeader({
           <span
             className={cx(
               'rounded-full px-2.5 py-1 text-xs font-medium',
-              live ? 'bg-accent/15 text-accent-strong' : 'bg-surface-muted text-fg-muted',
+              live ? POINTS_PILL : 'bg-surface-muted text-fg-muted',
             )}
             data-testid="session-status"
           >
@@ -603,9 +606,7 @@ function Tabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void })
               data-testid={`tab-${t.id}`}
               className={cx(
                 'inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 font-medium transition-colors',
-                on
-                  ? 'bg-accent/15 text-accent-strong'
-                  : 'text-fg-muted hover:bg-surface-muted hover:text-fg',
+                on ? POINTS_PILL : 'text-fg-muted hover:bg-surface-muted hover:text-fg',
               )}
             >
               <Icon name={t.icon} className="h-4 w-4" />
@@ -683,7 +684,7 @@ function PointsTab({
                       <span
                         className={cx(
                           'grid h-6 w-6 place-items-center rounded-full font-display text-xs',
-                          i === 0 ? 'bg-accent/15 font-bold text-accent-strong' : 'font-medium text-fg-subtle',
+                          i === 0 ? cx('font-bold', POINTS_PILL) : 'font-medium text-fg-subtle',
                         )}
                       >
                         {i + 1}
@@ -776,8 +777,10 @@ function RoundPager({
   onPrev: () => void
   onNext: () => void
 }) {
-  const arrow =
-    'grid h-8 w-8 place-items-center rounded-full text-xl font-bold leading-none text-accent-strong transition-colors hover:bg-accent/15 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent'
+  const arrow = cx(
+    'grid h-8 w-8 place-items-center rounded-full text-xl font-bold leading-none transition-colors hover:bg-sky-400/15 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent',
+    POINTS_TEXT,
+  )
   return (
     <div className="mt-2 flex items-center justify-between rounded-lg bg-surface-muted px-2 py-1.5">
       <button type="button" onClick={onPrev} disabled={index === 0} aria-label="Previous round" className={arrow}>
@@ -787,15 +790,16 @@ function RoundPager({
         <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
           Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
         </span>
-        {/* Colour = progress only (green when the round is fully scored); the
-            round being viewed is marked by a ring, so the two never mix. */}
+        {/* Colour = progress only (game-day blue when the round is fully
+            scored); the round being viewed is marked by a ring, so the two
+            never mix. */}
         <span className="flex items-center gap-1.5" aria-hidden data-testid="round-dots">
           {done.map((d, i) => (
             <span
               key={i}
               className={cx(
                 'h-1.5 w-1.5 rounded-full transition-all',
-                d ? 'bg-accent' : 'bg-fg-subtle/40',
+                d ? POINTS_DOT : 'bg-fg-subtle/40',
                 i === index && 'ring-2 ring-fg-subtle/50 ring-offset-2 ring-offset-surface-muted',
               )}
             />

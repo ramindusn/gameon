@@ -5,7 +5,7 @@ import { Icon } from '../app/Icon'
 import { useSession } from '../play/useMatchPlay'
 import { usePlayerNames, useGameDayRatingDeltas } from '../ranking/useRanking'
 import { buildGameDayBoard, type GameDayResultRow } from '../ranking/api'
-import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
+import { POINTS_PILL, POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import type { MatchResult } from '../play/api'
 
 // Public, read-only per-game-day page (TASK-37). Anyone can open it from the
@@ -64,14 +64,14 @@ export function GameDayPage() {
         {session && (
           <>
             <div className="mb-8">
-              <p className="text-sm font-medium text-accent-strong">Game Day</p>
+              <p className={cx('text-sm font-medium', POINTS_TEXT)}>Game Day</p>
               <h1 className="font-display text-2xl font-bold" data-testid="game-day-title">
                 {formatDay(session.playedAt)}
               </h1>
             </div>
 
             <div className="mb-6">
-              <Card title="Game Day Rank" icon={<Icon name="trophy" />}>
+              <Card title="Game Day Rank" icon={<Icon name="trophy" />} iconTone={POINTS_TEXT}>
                 {standings.length === 0 ? (
                   <p className="text-sm text-fg-muted">No scored matches on this game day.</p>
                 ) : (
@@ -127,7 +127,7 @@ export function GameDayPage() {
               </Card>
             </div>
 
-            <Card title="Match scores" icon={<Icon name="finish" />}>
+            <Card title="Match scores" icon={<Icon name="finish" />} iconTone={POINTS_TEXT}>
               {rounds.length === 0 ? (
                 <p className="text-sm text-fg-muted">No matches recorded.</p>
               ) : (
@@ -212,7 +212,7 @@ function RankBadge({ n }: { n: number }) {
     <span
       className={cx(
         'grid h-7 w-7 place-items-center rounded-full font-display text-sm',
-        n === 1 ? 'bg-accent/15 font-bold text-accent-strong' : 'font-medium text-fg-subtle',
+        n === 1 ? cx('font-bold', POINTS_PILL) : 'font-medium text-fg-subtle',
       )}
     >
       {n}

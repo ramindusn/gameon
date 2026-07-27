@@ -24,3 +24,7 @@ export const POINTS_FRAME_HOVER = 'hover:border-sky-400'
 export const POINTS_RING = 'focus:ring-sky-400'
 /** Highlight for the winner's pedestal on a game-day podium. */
 export const POINTS_HILITE = 'border-sky-400 bg-sky-400/15'
+/** Filled pill / #1 rank badge on a game-day surface (bg + text). */
+export const POINTS_PILL = 'bg-sky-400/15 text-sky-400'
+/** Solid blue mark (a live dot, a round-progress dot). */
+export const POINTS_DOT = 'bg-sky-400'
