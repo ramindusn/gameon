@@ -285,8 +285,14 @@ export function PlayPage() {
                   </div>
 
                   <div className="px-3 py-3 sm:px-4">
-                    <MetricKey />
-                    {tab === 'points' && <PointsTab standings={standings} />}
+                    {/* The Points/Ranking key only belongs on Standings, where
+                        both columns appear; the Matches cards don't need it. */}
+                    {tab === 'points' && (
+                      <>
+                        <MetricKey />
+                        <PointsTab standings={standings} />
+                      </>
+                    )}
 
                     {/* Matches = one round at a time. Same court card for everyone;
                         matchmakers edit inline, players view read-only. */}
