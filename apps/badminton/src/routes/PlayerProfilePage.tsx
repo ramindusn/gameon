@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, cx } from '@gameon/ui'
@@ -15,6 +15,12 @@ import { FormStrip } from '../ranking/Leaderboard'
 import { effectiveSkill } from '../ranking/effectiveSkill'
 import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import { PerformanceChart } from '../profile/PerformanceChart'
+import { computePartnerStats, toughestOpponents, type DuoStat } from '../profile/headToHead'
+
+/** How many recent game days the match history shows before "Show all". */
+const HISTORY_PREVIEW_DAYS = 5
+/** How many partners/opponents the insights card lists. */
+const INSIGHT_LIMIT = 4
 
 // Public, read-only player profile (E02/E08, TASK-3.3 + 9.3). Anyone can view it
 // without logging in: rating + record + recent form, and full match history.
@@ -65,6 +71,16 @@ export function PlayerProfilePage() {
       return { sessionId, date: matches[0].date, matches, wins: dayWins, losses: matches.length - dayWins, diff }
     })
   }, [history])
+
+  // Head-to-head insights (TASK-65): most-played partners + toughest opponents.
+  const partners = useMemo(() => computePartnerStats(history).slice(0, INSIGHT_LIMIT), [history])
+  const rivals = useMemo(() => toughestOpponents(history).slice(0, INSIGHT_LIMIT), [history])
+  // Enough of a sample to be worth showing (avoids a near-empty card for newcomers).
+  const showInsights = history.length >= 4 && partners.length > 0
+
+  // Long histories: show the most recent game days, reveal the rest on demand.
+  const [showAllHistory, setShowAllHistory] = useState(false)
+  const visibleDays = showAllHistory ? days : days.slice(0, HISTORY_PREVIEW_DAYS)
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="player-profile">
@@ -162,6 +178,28 @@ export function PlayerProfilePage() {
               </div>
             )}
 
+            {showInsights && (
+              <div className="mb-6">
+                <Card title="Partners & rivals" icon={<Icon name="pairs" />}>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2" data-testid="profile-insights">
+                    <DuoList
+                      heading="Most-played partners"
+                      caption="record together"
+                      stats={partners}
+                      nameOf={nameOf}
+                    />
+                    <DuoList
+                      heading="Toughest opponents"
+                      caption="your record vs them"
+                      stats={rivals}
+                      nameOf={nameOf}
+                      empty="Not enough repeat opponents yet."
+                    />
+                  </div>
+                </Card>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <Card title="Performance" icon={<Icon name="stats" />}>
                 <dl className="space-y-3 text-sm" data-testid="profile-performance">
@@ -192,7 +230,7 @@ export function PlayerProfilePage() {
                     </p>
                   ) : (
                     <div className="space-y-5" data-testid="profile-history">
-                      {days.map((day) => (
+                      {visibleDays.map((day) => (
                         <div key={day.sessionId} data-testid={`history-day-${day.sessionId}`}>
                           <div className="mb-2 flex items-baseline justify-between gap-3">
                             <Link
@@ -217,6 +255,18 @@ export function PlayerProfilePage() {
                           </ul>
                         </div>
                       ))}
+                      {days.length > HISTORY_PREVIEW_DAYS && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllHistory((s) => !s)}
+                          className="w-full rounded-lg border border-line py-2 text-xs font-medium text-fg-muted transition-colors hover:text-fg"
+                          data-testid="history-toggle"
+                        >
+                          {showAllHistory
+                            ? 'Show fewer'
+                            : `Show all ${days.length} game days`}
+                        </button>
+                      )}
                     </div>
                   )}
                 </Card>
@@ -244,6 +294,61 @@ function Stat({
     <div className="flex items-center justify-between gap-3">
       <dt className="text-fg-muted">{label}</dt>
       <dd className={cx('font-semibold', valueTone ?? 'text-fg')}>{value}</dd>
+    </div>
+  )
+}
+
+/** A partners / opponents list on the insights card: name, record, win%. */
+function DuoList({
+  heading,
+  caption,
+  stats,
+  nameOf,
+  empty = 'No games yet.',
+}: {
+  heading: string
+  caption: string
+  stats: DuoStat[]
+  nameOf: (id: string | null) => string
+  empty?: string
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
+          {heading}
+        </h3>
+        <span className="text-[10px] uppercase tracking-wide text-fg-subtle">{caption}</span>
+      </div>
+      {stats.length === 0 ? (
+        <p className="text-sm text-fg-muted">{empty}</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {stats.map((s) => {
+            const pct = Math.round((s.wins / s.games) * 100)
+            return (
+              <li
+                key={s.playerId}
+                className="flex items-center gap-3 text-sm"
+                data-testid={`duo-${s.playerId}`}
+              >
+                <Link
+                  to={`/players/${s.playerId}`}
+                  className="min-w-0 flex-1 truncate font-medium text-fg hover:text-accent-strong hover:underline"
+                >
+                  {nameOf(s.playerId)}
+                </Link>
+                <span className="shrink-0 tabular-nums text-fg-muted">
+                  {s.wins}–{s.games - s.wins}
+                </span>
+                <span className="w-9 shrink-0 text-right text-xs font-semibold tabular-nums text-fg-subtle">
+                  {pct}%
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </div>
   )
 }
