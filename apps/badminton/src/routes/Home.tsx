@@ -8,6 +8,7 @@ import { AdminLogin } from '../auth/AdminLogin'
 import { MatchmakerLogin } from '../auth/MatchmakerLogin'
 import {
   useGameDayBoards,
+  useInactivePlayers,
   usePairBoard,
   usePlayerBoard,
   usePlayerNames,
@@ -341,12 +342,16 @@ function GameDayRank() {
 function RankingPreview() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
+  const inactive = useInactivePlayers()
   const nameOf = usePlayerNames()
 
   // The home preview shows only established leaders (low RD) — provisional
   // entries with few games live in the full leaderboard's "Needs more games"
-  // section, not the headline top 5 (TASK-40).
-  const topPlayers = (players.data ?? []).filter((p) => p.rd < PROVISIONAL_RD)
+  // section, not the headline top 5 (TASK-40). Inactive players are likewise
+  // excluded, matching the full leaderboard's "Inactive" section (TASK-58).
+  const topPlayers = (players.data ?? []).filter(
+    (p) => p.rd < PROVISIONAL_RD && !inactive.data?.has(p.playerId),
+  )
   const topPairs = (pairs.data ?? []).filter((p) => p.rd < PROVISIONAL_RD)
 
   return (

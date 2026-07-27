@@ -10,6 +10,7 @@ const { state } = vi.hoisted(() => ({
     pairs: [] as RatedPair[],
     gameDays: [] as GameDayBoard[],
     sessions: [] as MatchSession[],
+    inactive: new Set<string>(),
   },
 }))
 
@@ -18,6 +19,7 @@ vi.mock('../ranking/useRanking', () => ({
   usePlayerBoard: () => ({ data: state.players, isLoading: false, isError: false }),
   usePairBoard: () => ({ data: state.pairs, isLoading: false, isError: false }),
   useGameDayBoards: () => ({ data: state.gameDays, isLoading: false, isError: false }),
+  useInactivePlayers: () => ({ data: state.inactive, isLoading: false, isError: false }),
   usePlayerNames: () => (id: string | null) =>
     id ? ({ p1: 'Siti', p2: 'Maya', p3: 'Alex', p4: 'Ryan' }[id] ?? id) : '—',
 }))
@@ -165,10 +167,24 @@ describe('Home (TASK-9.5)', () => {
 
   it('renders ranking tables with rank, name and rating', () => {
     state.gameDays = []
+    state.inactive = new Set()
     state.pairs = [{ player1Id: 'p1', player2Id: 'p2', rating: 1450, rd: 50, games: 8 }]
     state.players = [{ playerId: 'p1', rating: 2450, rd: 40, games: 12 }]
     renderHome()
     expect(screen.getByTestId('doubles-ranking')).toHaveTextContent('1,450')
     expect(screen.getByTestId('individual-ranking')).toHaveTextContent('2,450')
+  })
+
+  it('excludes inactive players from the individual ranking preview (TASK-58 follow-up)', () => {
+    state.gameDays = []
+    state.pairs = []
+    state.players = [
+      { playerId: 'p1', rating: 2450, rd: 40, games: 12 }, // established, active
+      { playerId: 'p2', rating: 2400, rd: 40, games: 12 }, // established, inactive
+    ]
+    state.inactive = new Set(['p2'])
+    renderHome()
+    expect(screen.getByTestId('individual-ranking')).toHaveTextContent('Siti')
+    expect(screen.getByTestId('individual-ranking')).not.toHaveTextContent('Maya')
   })
 })
