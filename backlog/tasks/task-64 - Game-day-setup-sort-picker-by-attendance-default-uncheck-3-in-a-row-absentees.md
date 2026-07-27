@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-07-27 21:13'
-updated_date: '2026-07-27 21:20'
+updated_date: '2026-07-27 21:32'
 labels:
   - feature
   - frontend
@@ -35,6 +35,10 @@ On the Generate Draw setup page (apps/badminton/src/routes/GeneratePage.tsx) the
 
 <!-- SECTION:NOTES:BEGIN -->
 Added computeAttendance() (pure) + loadPlayerAttendance() + usePlayerAttendance() over the last ATTENDANCE_WINDOW (5) finished sessions of any kind; constants ATTENDANCE_WINDOW=5, RECENT_ABSENCE_LIMIT=3 in ranking/api.ts. GeneratePage now sorts the picker (away absentees last, then most-attended, then nickname), default-selects only players with missStreak < 3, and shows a muted 'away' badge (with a title naming the streak) on the unchecked absentees. E2E/empty-attendance path keeps roster order + all selected. Verified: 5 new computeAttendance unit tests + a GeneratePage component test feeding attendance data (asserts 6/8 selected, p6/p7 unchecked + away badge + sorted last); full unit suite (bar the pre-existing PlayerProfilePage timezone failure), comprehensive typecheck, lint, 40/40 e2e, and build all pass. /generate is matchmaker-auth-gated so not screenshot-verified against the live dev DB, but a dev SQL check of the last 5 game days confirms the intended unchecked set (e.g. Kimmo ---P streak 3, Bevin/Kavini/Nishadi/Samath/Tharindu/Wudith streak 5, Nilusha streak 4).
+
+UI refinement: the per-cell 'away' badge was cutting player names in the narrow 2-col mobile grid. Replaced it with a grouped layout — regulars in the top grid, then a labelled 'Away · missed the last 3+ game days — unchecked by default' sub-group below (muted cells). No element competes with the name for width at any breakpoint, and the heading explains the unchecked state on mobile where tooltips don't work. Extracted a shared renderCell helper; component test still green (7/7).
+
+Per user: dropped the 'away' heading/group and all away-specific styling — the picker is one uniform grid sorted by attendance, and frequent absentees simply start unchecked (no badge, label, or muted tone). Sort + default-uncheck logic unchanged. Component test updated (removed away-badge assertions); 7/7 pass.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
