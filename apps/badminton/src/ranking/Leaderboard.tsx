@@ -8,6 +8,7 @@ import {
   type RatedPair,
   type RatedPlayer,
 } from './api'
+import { RANK_TEXT } from './metricColors'
 
 // Leaderboard presentational components (E05 / TASK-6.4). Pure rendering — the
 // caller supplies the boards, a player-id -> name resolver, and the form map.
@@ -120,7 +121,12 @@ function Rank({ n }: { n: number | null }) {
 
 function Rating({ rating }: { rating: number }) {
   return (
-    <span className="w-[3.25rem] shrink-0 text-right font-display text-sm font-bold tabular-nums text-fg">
+    <span
+      className={cx(
+        'w-[3.25rem] shrink-0 text-right font-display text-sm font-bold tabular-nums',
+        RANK_TEXT,
+      )}
+    >
       {Math.round(rating)}
     </span>
   )

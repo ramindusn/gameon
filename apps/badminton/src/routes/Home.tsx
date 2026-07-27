@@ -15,6 +15,7 @@ import {
 } from '../ranking/useRanking'
 import { BoardState } from '../ranking/Leaderboard'
 import { PROVISIONAL_RD } from '../ranking/api'
+import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import { SearchBox } from '../search/SearchBox'
 import { useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
@@ -131,10 +132,6 @@ function LiveNow() {
 /** "+38" / "-12" / "0" — a signed net point differential. */
 const fmtDiff = (n: number) => (n > 0 ? `+${n}` : String(n))
 
-/** Accent for a positive diff, muted for negative, plain for zero. */
-const diffColor = (n: number) =>
-  n > 0 ? 'text-accent-strong' : n < 0 ? 'text-fg-subtle' : 'text-fg'
-
 interface StandingRow {
   playerId: string
   name: string
@@ -153,9 +150,7 @@ function PodiumSpot({ row, place }: { row: StandingRow; place: 1 | 2 | 3 }) {
       <span className="mb-0.5 break-words text-center text-sm font-semibold leading-tight text-fg">
         {row.name}
       </span>
-      <span
-        className={cx('mb-2 font-display text-sm font-bold tabular-nums', diffColor(row.diff))}
-      >
+      <span className={cx('mb-2 font-display text-sm font-bold tabular-nums', POINTS_TEXT)}>
         {fmtDiff(row.diff)}
       </span>
       <div
@@ -319,9 +314,7 @@ function GameDayRank() {
                     {i + 4}
                   </span>
                   <span className="flex-1 font-medium text-fg">{r.name}</span>
-                  <span
-                    className={cx('font-display font-bold tabular-nums', diffColor(r.diff))}
-                  >
+                  <span className={cx('font-display font-bold tabular-nums', POINTS_TEXT)}>
                     {fmtDiff(r.diff)}
                   </span>
                 </li>
@@ -430,7 +423,7 @@ function RankTable({
         <tr className="border-b border-line text-left text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
           <th className="w-14 py-2 font-medium">Rank</th>
           <th className="py-2 font-medium">{head}</th>
-          <th className="py-2 text-right font-medium">Rating</th>
+          <th className={cx('py-2 text-right font-medium', RANK_TEXT)}>Rating</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-line">
@@ -440,7 +433,7 @@ function RankTable({
               <RankBadge n={r.rank} />
             </td>
             <td className="py-3 font-medium text-fg">{r.name}</td>
-            <td className="py-3 text-right font-display font-bold tabular-nums text-fg">
+            <td className={cx('py-3 text-right font-display font-bold tabular-nums', RANK_TEXT)}>
               {fmtRating(r.rating)}
             </td>
           </tr>

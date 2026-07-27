@@ -13,7 +13,7 @@ import {
 } from '../ranking/useRanking'
 import { FormStrip } from '../ranking/Leaderboard'
 import { effectiveSkill } from '../ranking/effectiveSkill'
-import { POINTS_TEXT } from '../ranking/metricColors'
+import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import { PerformanceChart } from '../profile/PerformanceChart'
 
 // Public, read-only player profile (E02/E08, TASK-3.3 + 9.3). Anyone can view it
@@ -165,7 +165,11 @@ export function PlayerProfilePage() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <Card title="Performance" icon={<Icon name="stats" />}>
                 <dl className="space-y-3 text-sm" data-testid="profile-performance">
-                  <Stat label="Rating" value={rated ? String(Math.round(rated.rating)) : '—'} />
+                  <Stat
+                    label="Rating"
+                    value={rated ? String(Math.round(rated.rating)) : '—'}
+                    valueTone={RANK_TEXT}
+                  />
                   {/* Base skill is a manual matchmaking seed — never shown here;
                       everyone sees the live (results-aware) skill only. */}
                   <Stat label="Skill" value={liveSkill != null ? liveSkill.toFixed(1) : '—'} />
@@ -225,11 +229,21 @@ export function PlayerProfilePage() {
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  valueTone,
+}: {
+  label: string
+  value: string
+  /** Optional metric colour for the value (e.g. RANK_TEXT for the rating); the
+   *  other stats stay neutral so only the ranking number reads as green. */
+  valueTone?: string
+}) {
   return (
     <div className="flex items-center justify-between gap-3">
       <dt className="text-fg-muted">{label}</dt>
-      <dd className="font-semibold text-fg">{value}</dd>
+      <dd className={cx('font-semibold', valueTone ?? 'text-fg')}>{value}</dd>
     </div>
   )
 }

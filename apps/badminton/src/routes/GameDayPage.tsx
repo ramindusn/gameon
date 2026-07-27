@@ -234,7 +234,7 @@ function RatingDelta({ value }: { value?: number }) {
     <span
       className={cx(
         'font-display font-semibold',
-        positive ? 'text-accent-strong' : negative ? 'text-negative' : 'text-fg-muted',
+        positive ? RANK_TEXT : negative ? 'text-negative' : 'text-fg-muted',
       )}
     >
       {positive ? '+' : ''}
