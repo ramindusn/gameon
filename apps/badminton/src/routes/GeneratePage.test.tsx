@@ -146,17 +146,12 @@ describe('GeneratePage', () => {
     }
     renderPage()
 
-    // 6 of 8 selected by default (p6 + p7 start unchecked).
+    // 6 of 8 selected by default (p6 + p7 start unchecked; 2 misses is fine).
     expect(screen.getByText('Selected: 6 / 8')).toBeInTheDocument()
     expect((screen.getByTestId('present-p1') as HTMLInputElement).checked).toBe(true)
     expect((screen.getByTestId('present-p4') as HTMLInputElement).checked).toBe(true)
     expect((screen.getByTestId('present-p6') as HTMLInputElement).checked).toBe(false)
     expect((screen.getByTestId('present-p7') as HTMLInputElement).checked).toBe(false)
-
-    // Only the away players carry the 'away' hint.
-    expect(screen.getByTestId('away-p6')).toBeInTheDocument()
-    expect(screen.getByTestId('away-p7')).toBeInTheDocument()
-    expect(screen.queryByTestId('away-p4')).toBeNull()
 
     // The two absentees sort to the very bottom of the picker.
     const order = screen

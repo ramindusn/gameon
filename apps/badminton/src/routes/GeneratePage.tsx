@@ -123,47 +123,6 @@ export function GeneratePage() {
   const courtsValue = courtsEdited ? courtsText : String(maxCourts)
   const courts = Math.max(1, Math.min(maxCourts, Number(courtsValue) || maxCourts))
 
-  // Split the picker into regulars and "away" players (missed the last few game
-  // days). The away group gets its own heading instead of a per-cell badge, so
-  // the reason is clear on mobile without stealing width from the name (TASK-64).
-  const isAway = (p: Player) => (attendanceOf(p.id)?.missStreak ?? 0) >= RECENT_ABSENCE_LIMIT
-  const regulars = active.filter((p) => !isAway(p))
-  const awayPlayers = active.filter(isAway)
-
-  const renderCell = (p: Player) => {
-    const r = strengthOf(p.id)
-    const eff = effectiveSkill(p.skill, r?.rating, r?.games ?? 0)
-    const away = isAway(p)
-    const missStreak = attendanceOf(p.id)?.missStreak ?? 0
-    return (
-      <label
-        key={p.id}
-        className={cx(
-          'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm',
-          away ? 'border-line/60 bg-surface-muted' : 'border-line bg-surface',
-        )}
-        title={away ? `Missed the last ${missStreak} game days` : undefined}
-        data-testid={away ? `away-${p.id}` : undefined}
-      >
-        <input
-          type="checkbox"
-          checked={selected.has(p.id)}
-          onChange={() => toggle(p.id)}
-          data-testid={`present-${p.id}`}
-        />
-        <span className={cx('min-w-0 flex-1 truncate', away ? 'text-fg-muted' : 'text-fg')}>
-          {p.nickname}
-        </span>
-        <span
-          className="shrink-0 text-xs font-medium tabular-nums text-fg-subtle"
-          title={`Manual skill ${p.skill ?? '—'} · results-aware ${eff.toFixed(1)}`}
-        >
-          {eff.toFixed(1)}
-        </span>
-      </label>
-    )
-  }
-
   return (
     <AppShell title="Generate draw">
       <div data-testid="generate">
@@ -189,20 +148,35 @@ export function GeneratePage() {
                   the draw): their manual skill blended with how they've been
                   playing.
                 </p>
+                {/* One uniform grid, sorted by recent attendance (regulars
+                    first, frequent absentees last). Absentees simply start
+                    unchecked — no badge or label (TASK-64). */}
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {regulars.map(renderCell)}
+                  {active.map((p) => {
+                    const r = strengthOf(p.id)
+                    const eff = effectiveSkill(p.skill, r?.rating, r?.games ?? 0)
+                    return (
+                      <label
+                        key={p.id}
+                        className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected.has(p.id)}
+                          onChange={() => toggle(p.id)}
+                          data-testid={`present-${p.id}`}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-fg">{p.nickname}</span>
+                        <span
+                          className="shrink-0 text-xs font-medium tabular-nums text-fg-subtle"
+                          title={`Manual skill ${p.skill ?? '—'} · results-aware ${eff.toFixed(1)}`}
+                        >
+                          {eff.toFixed(1)}
+                        </span>
+                      </label>
+                    )
+                  })}
                 </div>
-                {awayPlayers.length > 0 && (
-                  <div className="mt-4">
-                    <p className="mb-2 text-xs font-medium text-fg-muted">
-                      Away · missed the last {RECENT_ABSENCE_LIMIT}+ game days — unchecked by
-                      default
-                    </p>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                      {awayPlayers.map(renderCell)}
-                    </div>
-                  </div>
-                )}
 
                 <div className="mt-5 space-y-3 border-t border-line pt-4">
                   <div className="flex flex-wrap gap-4">
