@@ -23,13 +23,15 @@ test('View all opens the full leaderboard with both boards', async ({ page }) =>
   await expect(page.getByTestId('pair-board')).toBeVisible()
   // A seeded partnership row renders both partners' names.
   await expect(page.getByTestId('pair-row-e2e-1-e2e-2')).toContainText('E2E Player 2')
-  // A seeded absentee (e2e-8) carries the inactive tag; an active player doesn't.
-  await expect(
-    page.getByTestId('player-row-e2e-8').getByTestId('inactive-tag'),
-  ).toBeVisible()
-  await expect(
-    page.getByTestId('player-row-e2e-1').getByTestId('inactive-tag'),
-  ).toHaveCount(0)
+  // An active player ranks in the main board; the two seeded absentees
+  // (e2e-7/e2e-8) are pulled out of the ranking into a collapsible "Inactive"
+  // section, not shown until it's expanded (TASK-58).
+  await expect(page.getByTestId('player-row-e2e-1')).toBeVisible()
+  const inactiveToggle = page.getByTestId('player-board-inactive-toggle')
+  await expect(inactiveToggle).toContainText('Inactive (2)')
+  await expect(page.getByTestId('player-row-e2e-8')).toHaveCount(0)
+  await inactiveToggle.click()
+  await expect(page.getByTestId('player-row-e2e-8')).toBeVisible()
 })
 
 test('Leaderboards nav link routes to the leaderboard', async ({ page }) => {
