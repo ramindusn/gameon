@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { PlayerAttendance } from '../ranking/api'
 
-const { players } = vi.hoisted(() => ({
+const { players, attendance } = vi.hoisted(() => ({
   players: Array.from({ length: 8 }, (_, i) => ({
     id: `p${i + 1}`,
     nickname: `Player ${i + 1}`,
@@ -12,6 +13,8 @@ const { players } = vi.hoisted(() => ({
     isMatchmaker: false,
     hasLogin: false,
   })),
+  // Mutable per-test attendance; empty by default (no history → all selected).
+  attendance: { current: {} as Record<string, PlayerAttendance> },
 }))
 
 vi.mock('../roster/useRoster', () => ({
@@ -32,9 +35,16 @@ vi.mock('../auth/useAuth', () => ({
 // No ratings in this test → the balancer falls back to the manual skills above.
 vi.mock('../ranking/useRanking', () => ({
   usePlayerBoard: () => ({ data: [], isLoading: false, isError: false }),
+  // Attendance drives the picker's sort + default selection (TASK-64); empty by
+  // default so the picker keeps roster order and selects everyone.
+  usePlayerAttendance: () => ({ data: attendance.current, isLoading: false, isError: false }),
 }))
 
 import { GeneratePage } from './GeneratePage'
+
+beforeEach(() => {
+  attendance.current = {}
+})
 
 function renderPage() {
   return render(
@@ -120,5 +130,38 @@ describe('GeneratePage', () => {
       teamA: ['p1', 'p2'],
       teamB: ['p3', 'p4'],
     })
+  })
+
+  it('unchecks 3-in-a-row absentees by default and sorts them last (TASK-64)', () => {
+    // p6 and p7 missed the last 3+ game days; everyone else has come recently.
+    attendance.current = {
+      p1: { attended: 5, missStreak: 0 },
+      p2: { attended: 4, missStreak: 0 },
+      p3: { attended: 3, missStreak: 1 },
+      p4: { attended: 2, missStreak: 2 }, // 2 misses is still within the limit
+      p5: { attended: 1, missStreak: 0 },
+      p6: { attended: 0, missStreak: 3 }, // away → unchecked
+      p7: { attended: 0, missStreak: 5 }, // away → unchecked
+      p8: { attended: 2, missStreak: 0 },
+    }
+    renderPage()
+
+    // 6 of 8 selected by default (p6 + p7 start unchecked).
+    expect(screen.getByText('Selected: 6 / 8')).toBeInTheDocument()
+    expect((screen.getByTestId('present-p1') as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByTestId('present-p4') as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByTestId('present-p6') as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByTestId('present-p7') as HTMLInputElement).checked).toBe(false)
+
+    // Only the away players carry the 'away' hint.
+    expect(screen.getByTestId('away-p6')).toBeInTheDocument()
+    expect(screen.getByTestId('away-p7')).toBeInTheDocument()
+    expect(screen.queryByTestId('away-p4')).toBeNull()
+
+    // The two absentees sort to the very bottom of the picker.
+    const order = screen
+      .getAllByTestId(/^present-p\d$/)
+      .map((el) => el.getAttribute('data-testid'))
+    expect(order.slice(-2).sort()).toEqual(['present-p6', 'present-p7'])
   })
 })

@@ -10,7 +10,8 @@ import {
 import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import { useRoster } from '../roster/useRoster'
-import { usePlayerBoard } from '../ranking/useRanking'
+import { usePlayerBoard, usePlayerAttendance } from '../ranking/useRanking'
+import { RECENT_ABSENCE_LIMIT, type PlayerAttendance } from '../ranking/api'
 import { effectiveSkill } from '../ranking/effectiveSkill'
 import { useCreateSession, useCreateTournamentWithMatches } from '../play/useMatchPlay'
 import type { TournamentFixture } from '../play/api'
@@ -30,12 +31,25 @@ type Mode = 'open' | 'mixed'
 export function GeneratePage() {
   const navigate = useNavigate()
   const { data, isLoading } = useRoster()
+  // Recent attendance drives the picker's sort + default selection (TASK-64):
+  // regulars first + pre-selected, frequent absentees at the bottom + unchecked.
+  const attendance = usePlayerAttendance()
+  const attendanceOf = (id: string): PlayerAttendance | undefined => attendance.data?.[id]
   // Only active players (not excluded from draws) are eligible for a game day,
-  // so the picker lists exactly them.
-  const active = useMemo<Player[]>(
-    () => (data?.players ?? []).filter((p) => !p.absent),
-    [data],
-  )
+  // so the picker lists exactly them — sorted by recent attendance once we have
+  // it (otherwise roster order, e.g. before any game days exist).
+  const active = useMemo<Player[]>(() => {
+    const arr = (data?.players ?? []).filter((p) => !p.absent)
+    const att = attendance.data
+    if (!att || Object.keys(att).length === 0) return arr
+    const away = (p: Player) => ((att[p.id]?.missStreak ?? 0) >= RECENT_ABSENCE_LIMIT ? 1 : 0)
+    return arr.slice().sort(
+      (a, b) =>
+        away(a) - away(b) || // default-unchecked absentees sink to the bottom
+        (att[b.id]?.attended ?? 0) - (att[a.id]?.attended ?? 0) || // then most-attended
+        a.nickname.localeCompare(b.nickname),
+    )
+  }, [data, attendance.data])
   // Results-based strength per player (rating + games), used to blend the manual
   // skill into the effective skill the balancer sees (TASK-44).
   const board = usePlayerBoard()
@@ -62,9 +76,14 @@ export function GeneratePage() {
   // Game-day date/time the matchmaker confirms on "Create game day" (default now).
   const [playedAt, setPlayedAt] = useState(nowLocalInput())
 
-  // Default selection = all active players (once the roster loads).
-  if (!initialised && active.length > 0) {
-    setSelected(new Set(active.map((p) => p.id)))
+  // Default selection (once the roster + attendance have loaded): everyone
+  // except players who missed the last RECENT_ABSENCE_LIMIT game days in a row,
+  // so regulars are pre-selected (TASK-64). Absentees can still be ticked back.
+  if (!initialised && active.length > 0 && !attendance.isLoading) {
+    const defaults = active.filter(
+      (p) => (attendanceOf(p.id)?.missStreak ?? 0) < RECENT_ABSENCE_LIMIT,
+    )
+    setSelected(new Set(defaults.map((p) => p.id)))
     setInitialised(true)
   }
 
@@ -133,6 +152,8 @@ export function GeneratePage() {
                   {active.map((p) => {
                     const r = strengthOf(p.id)
                     const eff = effectiveSkill(p.skill, r?.rating, r?.games ?? 0)
+                    const missStreak = attendanceOf(p.id)?.missStreak ?? 0
+                    const away = missStreak >= RECENT_ABSENCE_LIMIT
                     return (
                       <label
                         key={p.id}
@@ -144,9 +165,18 @@ export function GeneratePage() {
                           onChange={() => toggle(p.id)}
                           data-testid={`present-${p.id}`}
                         />
-                        <span className="truncate text-fg">{p.nickname}</span>
+                        <span className="min-w-0 flex-1 truncate text-fg">{p.nickname}</span>
+                        {away && (
+                          <span
+                            className="shrink-0 rounded bg-surface-muted px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide text-fg-muted"
+                            title={`Missed the last ${missStreak} game days — unchecked by default`}
+                            data-testid={`away-${p.id}`}
+                          >
+                            away
+                          </span>
+                        )}
                         <span
-                          className="ml-auto text-xs font-medium tabular-nums text-fg-subtle"
+                          className="shrink-0 text-xs font-medium tabular-nums text-fg-subtle"
                           title={`Manual skill ${p.skill ?? '—'} · results-aware ${eff.toFixed(1)}`}
                         >
                           {eff.toFixed(1)}

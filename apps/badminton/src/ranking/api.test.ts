@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFormMap,
   buildGameDayBoard,
+  computeAttendance,
   computeInactivePlayers,
   mapPairRatingRow,
   mapPlayerRatingRow,
@@ -188,5 +189,56 @@ describe('computeInactivePlayers (TASK-57)', () => {
     const rows = [...absentAll('p1'), ...absentAll('p2').slice(0, 4)]
     rows.push({ player_id: 'p2', present: true }) // p2's 5th record is a play
     expect(computeInactivePlayers(rows, gracePeriod)).toEqual(['p1'])
+  })
+})
+
+describe('computeAttendance (TASK-64)', () => {
+  // Sessions newest-first.
+  const order = ['s1', 's2', 's3', 's4', 's5']
+  const row = (player_id: string, session_id: string, present: boolean) => ({
+    player_id,
+    session_id,
+    present,
+  })
+
+  it('counts attended games and reports a zero streak when present in the newest', () => {
+    const att = computeAttendance(
+      [
+        row('p1', 's1', true),
+        row('p1', 's2', false),
+        row('p1', 's3', true),
+        row('p1', 's4', false),
+      ],
+      order,
+    )
+    expect(att.p1).toEqual({ attended: 2, missStreak: 0 })
+  })
+
+  it('counts the leading run of misses, stopping at the first present game day', () => {
+    const att = computeAttendance(
+      [row('p2', 's1', false), row('p2', 's2', false), row('p2', 's3', true)],
+      order,
+    )
+    expect(att.p2).toEqual({ attended: 1, missStreak: 2 })
+  })
+
+  it('a full miss run gives a streak equal to the games they were rostered for', () => {
+    const att = computeAttendance(
+      [row('p3', 's1', false), row('p3', 's2', false), row('p3', 's3', false)],
+      order,
+    )
+    expect(att.p3).toEqual({ attended: 0, missStreak: 3 })
+  })
+
+  it('skips sessions before a player joined — they neither count nor break the streak', () => {
+    // No rows for s1/s2 (joined later): present s3, absent s4 → streak stays 0.
+    const att = computeAttendance([row('p4', 's3', true), row('p4', 's4', false)], order)
+    expect(att.p4).toEqual({ attended: 1, missStreak: 0 })
+  })
+
+  it('ignores session order in the input; the ordered ids define recency', () => {
+    // Rows out of order; still: absent newest (s1), present s2 → streak 1.
+    const att = computeAttendance([row('p5', 's2', true), row('p5', 's1', false)], order)
+    expect(att.p5).toEqual({ attended: 1, missStreak: 1 })
   })
 })

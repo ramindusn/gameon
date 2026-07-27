@@ -367,6 +367,87 @@ export function computeInactivePlayers(
   return inactive
 }
 
+// ---- recent attendance (setup picker, TASK-64) ----------------------------
+
+/** How many recent finished game days feed the setup picker's attendance sort. */
+export const ATTENDANCE_WINDOW = 5
+/** Missing this many recent game days in a row leaves a player unchecked by
+ *  default on the game-day setup picker, so regulars are pre-selected. */
+export const RECENT_ABSENCE_LIMIT = 3
+
+export interface PlayerAttendance {
+  /** Present count across the recent window (higher = comes more often). */
+  attended: number
+  /** Consecutive misses counting back from the most recent rostered game day. */
+  missStreak: number
+}
+
+type OrderedAttendanceRow = { session_id: string; player_id: string; present: boolean }
+
+/**
+ * Per-player recent attendance for the game-day setup picker: how often they've
+ * come lately (for sorting) and their current consecutive-miss streak (for the
+ * default-unchecked rule). `orderedSessionIds` are the recent finished game days
+ * newest-first; a player with no row for a session (joined after it) is skipped
+ * for that session, so it neither counts against them nor breaks their streak.
+ */
+export function computeAttendance(
+  rows: OrderedAttendanceRow[],
+  orderedSessionIds: string[],
+): Record<string, PlayerAttendance> {
+  const byPlayer = new Map<string, Map<string, boolean>>()
+  for (const r of rows) {
+    let m = byPlayer.get(r.player_id)
+    if (!m) {
+      m = new Map()
+      byPlayer.set(r.player_id, m)
+    }
+    m.set(r.session_id, r.present)
+  }
+  const out: Record<string, PlayerAttendance> = {}
+  for (const [pid, m] of byPlayer) {
+    let attended = 0
+    let missStreak = 0
+    let streakOpen = true // still counting the leading run of misses
+    for (const sid of orderedSessionIds) {
+      const present = m.get(sid)
+      if (present === undefined) continue // not rostered for that game day
+      if (present) {
+        attended++
+        streakOpen = false
+      } else if (streakOpen) {
+        missStreak++
+      }
+    }
+    out[pid] = { attended, missStreak }
+  }
+  return out
+}
+
+/**
+ * Recent attendance for every player who has an attendance record, from the last
+ * ATTENDANCE_WINDOW finished game days (any kind). Drives the setup picker's sort
+ * and default selection (TASK-64). Empty when there are no finished game days.
+ */
+export async function loadPlayerAttendance(): Promise<Record<string, PlayerAttendance>> {
+  if (isE2E()) return {}
+  const db = client()
+  const { data: sessions } = await db
+    .from('match_sessions')
+    .select('id')
+    .eq('status', 'finished')
+    .order('created_at', { ascending: false })
+    .limit(ATTENDANCE_WINDOW)
+  const ids = (sessions ?? []).map((s) => s.id) // newest-first
+  if (ids.length === 0) return {}
+
+  const { data } = await db
+    .from('session_attendance')
+    .select('session_id, player_id, present')
+    .in('session_id', ids)
+  return computeAttendance((data ?? []) as OrderedAttendanceRow[], ids)
+}
+
 // ---- per-game-day rating change (TASK-46) ---------------------------------
 
 /**

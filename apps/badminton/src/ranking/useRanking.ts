@@ -6,6 +6,7 @@ import {
   loadGameDayBoards,
   loadGameDayRatingDeltas,
   loadPairBoard,
+  loadPlayerAttendance,
   loadPlayerBoard,
   loadRatingHistory,
   loadRecentForm,
@@ -36,6 +37,11 @@ export function useInactivePlayers() {
     queryFn: loadInactivePlayers,
     select: (ids) => new Set(ids),
   })
+}
+
+/** Per-player recent attendance for the game-day setup picker (TASK-64). */
+export function usePlayerAttendance() {
+  return useQuery({ queryKey: ['ratings', 'attendance'], queryFn: loadPlayerAttendance })
 }
 
 /** Every scored casual game day's standings, newest first (TASK-33 / TASK-37). */
