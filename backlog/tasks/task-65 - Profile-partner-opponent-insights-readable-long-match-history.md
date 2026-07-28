@@ -4,7 +4,7 @@ title: 'Profile: partner & opponent insights + readable long match history'
 status: Done
 assignee: []
 created_date: '2026-07-27 21:48'
-updated_date: '2026-07-28 02:37'
+updated_date: '2026-07-28 23:21'
 labels:
   - feature
   - frontend
@@ -37,6 +37,8 @@ Added pure headToHead module (computePartnerStats, computeOpponentStats, toughes
 Simplified the insights display per feedback: the win% column was unclear (and '21–13' could be misread as a game score). Replaced it with an explicit W–L record ('8W – 20L'), matching the Performance card's 'record' style — wins emphasised, losses muted, no percentage. Column headers ('RECORD TOGETHER' / 'YOUR RECORD VS THEM') carry the meaning; ordering still conveys most-played / toughest. Verified at mobile width.
 
 Per feedback, show the record as an explicit win rate + loss rate ('29% won · 71% lost') instead of the W–L count — win emphasised, loss muted, hover shows the raw counts. Verified at mobile width.
+
+Added the match count to each insight row: '28 games · 29% won · 71% lost' (singular 'game' at 1). Makes the most-played / toughest ordering self-evident. Verified one-line fit at both mobile (420) and desktop 2-col (900) widths.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

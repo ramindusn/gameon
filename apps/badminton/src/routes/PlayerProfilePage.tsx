@@ -342,6 +342,7 @@ function DuoList({
                   className="shrink-0 text-xs tabular-nums text-fg-subtle"
                   title={`${s.wins} won, ${s.games - s.wins} lost of ${s.games}`}
                 >
+                  {s.games} {s.games === 1 ? 'game' : 'games'} ·{' '}
                   <span className="font-semibold text-fg">{winPct}% won</span> · {100 - winPct}%
                   lost
                 </span>
