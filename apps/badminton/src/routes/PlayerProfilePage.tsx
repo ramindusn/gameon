@@ -324,23 +324,30 @@ function DuoList({
         <p className="text-sm text-fg-muted">{empty}</p>
       ) : (
         <ul className="space-y-1.5">
-          {stats.map((s) => (
-            <li
-              key={s.playerId}
-              className="flex items-center gap-3 text-sm"
-              data-testid={`duo-${s.playerId}`}
-            >
-              <Link
-                to={`/players/${s.playerId}`}
-                className="min-w-0 flex-1 truncate font-medium text-fg hover:text-accent-strong hover:underline"
+          {stats.map((s) => {
+            const winPct = Math.round((s.wins / s.games) * 100)
+            return (
+              <li
+                key={s.playerId}
+                className="flex items-center gap-3 text-sm"
+                data-testid={`duo-${s.playerId}`}
               >
-                {nameOf(s.playerId)}
-              </Link>
-              <span className="shrink-0 tabular-nums text-fg-muted">
-                <span className="font-semibold text-fg">{s.wins}W</span> – {s.games - s.wins}L
-              </span>
-            </li>
-          ))}
+                <Link
+                  to={`/players/${s.playerId}`}
+                  className="min-w-0 flex-1 truncate font-medium text-fg hover:text-accent-strong hover:underline"
+                >
+                  {nameOf(s.playerId)}
+                </Link>
+                <span
+                  className="shrink-0 text-xs tabular-nums text-fg-subtle"
+                  title={`${s.wins} won, ${s.games - s.wins} lost of ${s.games}`}
+                >
+                  <span className="font-semibold text-fg">{winPct}% won</span> · {100 - winPct}%
+                  lost
+                </span>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
