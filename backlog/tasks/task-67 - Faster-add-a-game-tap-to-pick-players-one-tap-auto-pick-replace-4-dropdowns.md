@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-07-29 14:33'
-updated_date: '2026-07-29 14:45'
+updated_date: '2026-07-29 15:05'
 labels:
   - feature
   - frontend
@@ -34,6 +34,8 @@ Matchmakers complained that adding a game mid-round takes too many steps: the 'A
 
 <!-- SECTION:NOTES:BEGIN -->
 Follow-up per feedback: the round dropdown (which let you pick a previous round) was the confusing part. Removed it — the 'Add a game' form now targets the round you're viewing in the pager. Added a 'new round' slot: matchmakers step the right arrow past the last round into an empty new round (labelled 'New round N', hint shown) where the picker opens ready; adding a game there creates the round. Read-only viewers don't get the extra slot. RoundPager gained round-prev/round-next testids + an isNew label; dots iterate over total rounds. PlayPage tests updated to navigate via the pager (no more custom-round dropdown). 23/23 PlayPage tests pass.
+
+Reworked per feedback into a whole-round builder: (1) removed adding games to existing rounds — the round pager just navigates; (2) made 'add round' a clear, full-width 'Add round N' button on the last round (matchmaker+live) instead of a hidden arrow gesture; (3) the new round now mirrors the busiest existing round's court count as empty court slots — RoundBuilder shows N 'Court i' cards with empty A/B slots, a shared tray of the game-day players that fills courts in order on tap (tap a name to remove), a one-tap 'Auto-fill balanced' (generateRounds with N courts), and 'Create round' that saves every filled court at once (one addCustomMatch per court). Removed the old AddCustomMatch/PlayerSelect-dropdown path, nextCourtInRound, and the unused Card import. PlayPage tests rewritten to the builder flow (template slots, scoping, tap-to-fill+create, auto-fill+create, cancel) — 24/24 pass. Not screenshot-verified (needs a live matchmaker session).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

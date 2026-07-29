@@ -145,7 +145,7 @@ describe('PlayPage', () => {
     expect(screen.queryByTestId('score-r1-a')).toBeNull()
     expect(screen.queryByTestId('save-score-r1')).toBeNull()
     expect(screen.queryByTestId('edit-lineup-r1')).toBeNull()
-    expect(screen.queryByTestId('add-custom-match')).toBeNull()
+    expect(screen.queryByTestId('add-round')).toBeNull()
   })
 
   it('lets a matchmaker edit scores inline on the Matches tab', () => {
@@ -153,7 +153,7 @@ describe('PlayPage', () => {
     // Matches is the default tab and shows editable court cards for matchmakers.
     expect(screen.getByTestId('score-r1-a')).toBeInTheDocument()
     expect(screen.getByTestId('save-score-r1')).toBeInTheDocument()
-    expect(screen.getByTestId('add-custom-match')).toBeInTheDocument()
+    expect(screen.getByTestId('add-round')).toBeInTheDocument()
   })
 
   it('renders the session with player names and an existing winner', () => {
@@ -258,40 +258,48 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('lineup-error-r1')).toBeInTheDocument()
   })
 
-  it('scopes the add-match picker to this game day’s players, not the whole roster (TASK-32)', () => {
+  it('the round builder shows the template court count as empty slots', () => {
+    // Round 1 has 2 courts, so a new round opens with 2 empty court slots.
     renderPage()
-    // Step into the new round (right arrow): everyone's free and the picker
-    // opens. Only p1–p8 (this game day) get chips; p9–p12 aren't at the venue.
-    fireEvent.click(screen.getByTestId('round-next'))
+    fireEvent.click(screen.getByTestId('add-round'))
+    expect(screen.getByTestId('round-builder')).toBeInTheDocument()
+    expect(screen.getByTestId('court-slot-1')).toBeInTheDocument()
+    expect(screen.getByTestId('court-slot-2')).toBeInTheDocument()
+    expect(screen.queryByTestId('court-slot-3')).toBeNull()
+  })
+
+  it('scopes the round builder to this game day’s players, not the whole roster (TASK-32)', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-round'))
+    // Only p1–p8 (this game day) are in the tray; p9–p12 aren't at the venue.
     expect(screen.getByTestId('pick-p8')).toBeInTheDocument()
     expect(screen.queryByTestId('pick-p9')).toBeNull()
   })
 
-  it('derives the add-match player set from the (edited) line-ups (TASK-32 AC#3)', () => {
+  it('derives the round builder’s player set from the (edited) line-ups (TASK-32 AC#3)', () => {
     // Court 2's line-up was edited to bring in p9 & p10 in place of p7 & p8, so
-    // this game day's players are now p1–p6, p9, p10. The picker follows the
-    // live line-ups: p9 becomes selectable and p7 drops out.
+    // this game day's players are now p1–p6, p9, p10 — the tray follows.
     const original = sessionData.results[1]
     sessionData.results[1] = { ...original, teamB: ['p9', 'p10'] }
     renderPage()
-    fireEvent.click(screen.getByTestId('round-next'))
+    fireEvent.click(screen.getByTestId('add-round'))
     expect(screen.getByTestId('pick-p9')).toBeInTheDocument()
     expect(screen.queryByTestId('pick-p7')).toBeNull()
     sessionData.results[1] = original
   })
 
-  it('adds a game to the new round via the right arrow (no round dropdown)', () => {
+  it('fills a court by tapping players, then creates the round', () => {
     addMatch.mockClear()
     renderPage()
-    // Right arrow → the new round (2), where p1–p8 are all free again and the
-    // picker opens ready. Tapping order fills the teams: first two = Team A.
-    fireEvent.click(screen.getByTestId('round-next'))
-    expect(screen.getByTestId('new-round-hint')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('add-round'))
+    // Tapping fills the courts in order (first court's slots first).
     fireEvent.click(screen.getByTestId('pick-p1'))
     fireEvent.click(screen.getByTestId('pick-p2'))
     fireEvent.click(screen.getByTestId('pick-p3'))
     fireEvent.click(screen.getByTestId('pick-p4'))
-    fireEvent.click(screen.getByTestId('save-custom-match'))
+    fireEvent.click(screen.getByTestId('create-round'))
+    // Only the one full court is created (court 1 of the new round 2).
+    expect(addMatch).toHaveBeenCalledTimes(1)
     expect(addMatch).toHaveBeenCalledWith(
       expect.objectContaining({
         round: 2,
@@ -301,28 +309,32 @@ describe('PlayPage', () => {
     )
   })
 
-  it('auto-picks a balanced foursome from the free players', () => {
+  it('auto-fills a balanced round across all courts, then creates it', () => {
     addMatch.mockClear()
     renderPage()
-    fireEvent.click(screen.getByTestId('round-next'))
-    fireEvent.click(screen.getByTestId('auto-pick-match'))
-    fireEvent.click(screen.getByTestId('save-custom-match'))
-    expect(addMatch).toHaveBeenCalledTimes(1)
-    const players: string[] = addMatch.mock.calls.at(-1)![0].players
-    expect(players).toHaveLength(4)
-    expect(new Set(players).size).toBe(4) // four distinct players
-    for (const p of players) {
+    fireEvent.click(screen.getByTestId('add-round'))
+    fireEvent.click(screen.getByTestId('auto-fill-round'))
+    fireEvent.click(screen.getByTestId('create-round'))
+    // 8 players, 2 courts → both courts created, all 8 players used once.
+    expect(addMatch).toHaveBeenCalledTimes(2)
+    const calls = addMatch.mock.calls.map((c) => c[0])
+    expect(calls.map((c) => c.court).sort()).toEqual([1, 2])
+    const all = calls.flatMap((c) => c.players)
+    expect(new Set(all).size).toBe(8)
+    for (const p of all) {
       expect(['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']).toContain(p)
     }
   })
 
-  it('excludes players already in the round from the add-match picker', () => {
+  it('cancels the round builder without creating anything', () => {
+    addMatch.mockClear()
     renderPage()
-    // Round 1 (the default) is full: opening the picker offers no chips. Player
-    // 9 is on the roster but not in this game day, so it's excluded too.
-    fireEvent.click(screen.getByTestId('add-custom-match'))
-    expect(screen.queryByTestId('pick-p1')).toBeNull()
-    expect(screen.queryByTestId('pick-p9')).toBeNull()
+    fireEvent.click(screen.getByTestId('add-round'))
+    expect(screen.getByTestId('round-builder')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('cancel-round'))
+    expect(screen.queryByTestId('round-builder')).toBeNull()
+    expect(screen.getByTestId('add-round')).toBeInTheDocument()
+    expect(addMatch).not.toHaveBeenCalled()
   })
 
   it('shows who is resting a round and no label when nobody rests (TASK-31)', () => {

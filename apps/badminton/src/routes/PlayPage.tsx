@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, Card, cx, SkeletonCard } from '@gameon/ui'
+import { Button, cx, SkeletonCard } from '@gameon/ui'
 import { generateRounds, validateLineup, validateScores, type MatchPlayer } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
@@ -74,6 +74,8 @@ export function PlayPage() {
 
   const [tab, setTab] = useState<Tab>('matches')
   const [roundIdx, setRoundIdx] = useState(0)
+  // Matchmaker is building a brand-new round (the RoundBuilder is shown).
+  const [addingRound, setAddingRound] = useState(false)
   const [editingDate, setEditingDate] = useState(false)
   const [dateValue, setDateValue] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -263,35 +265,39 @@ export function PlayPage() {
             {/* One combined panel: sticky header (tabs + round pager) with the
                 tab content attached below — not three separate cards. */}
             {(() => {
-              // Matchmakers get one extra "new round" slot past the last real
-              // round: the right arrow steps into it, and adding a game there
-              // creates the round — no round dropdown needed.
+              const idx = Math.min(roundIdx, Math.max(0, rounds.length - 1))
+              const current = rounds[idx]
+              const resting = current ? restingInRound(sessionPlayers, current.results) : []
               const canAddRound = canEdit && live
+              const isLastRound = idx === rounds.length - 1
+              // A new round mirrors the busiest existing round's court count.
+              const templateCourts = rounds.length
+                ? Math.max(1, ...rounds.map((r) => r.results.length))
+                : 1
               const newRoundNumber = rounds.length ? rounds[rounds.length - 1].round + 1 : 1
-              const total = rounds.length + (canAddRound ? 1 : 0)
-              const idx = Math.min(roundIdx, Math.max(0, total - 1))
-              const isNewRound = idx >= rounds.length
-              const current = isNewRound
-                ? { round: newRoundNumber, results: [] as MatchResult[] }
-                : rounds[idx]
-              const resting =
-                current && !isNewRound ? restingInRound(sessionPlayers, current.results) : []
               return (
                 <div className="rounded-xl border border-line bg-surface" data-testid="game-day-panel">
                   {/* Divider lives on the sticky header (not the content) so the
                       seam stays a single crisp hairline while pinned. */}
                   <div className="sticky top-14 z-[9] rounded-t-xl border-b border-line bg-surface/95 px-2 pb-2 pt-2 shadow-sm backdrop-blur">
                     <Tabs active={tab} onChange={setTab} />
-                    {tab === 'matches' && current && (
+                    {tab === 'matches' && current && !addingRound && (
                       <RoundPager
                         round={current.round}
                         index={idx}
-                        total={total}
-                        isNew={isNewRound}
+                        total={rounds.length}
                         done={roundsDone}
                         onPrev={() => setRoundIdx(Math.max(0, idx - 1))}
-                        onNext={() => setRoundIdx(Math.min(total - 1, idx + 1))}
+                        onNext={() => setRoundIdx(Math.min(rounds.length - 1, idx + 1))}
                       />
+                    )}
+                    {tab === 'matches' && addingRound && (
+                      <p
+                        className="mt-2 rounded-lg bg-surface-muted py-1.5 text-center font-display text-sm font-semibold text-fg"
+                        data-testid="building-round-label"
+                      >
+                        New round {newRoundNumber}
+                      </p>
                     )}
                   </div>
 
@@ -309,12 +315,29 @@ export function PlayPage() {
                         matchmakers edit inline, players view read-only. */}
                     {tab === 'matches' && (
                       <div className="space-y-3" data-testid="matches-tab">
-                        {!current ? (
+                        {addingRound ? (
+                          <RoundBuilder
+                            roundNumber={newRoundNumber}
+                            courts={templateCourts}
+                            present={sessionPlayers}
+                            skillOf={skillOf}
+                            saving={addMatch.isPending}
+                            onCancel={() => setAddingRound(false)}
+                            onCreate={(courtsPlayers) => {
+                              courtsPlayers.forEach((players, i) =>
+                                addMatch.mutate({
+                                  clubId: data.session.clubId,
+                                  round: newRoundNumber,
+                                  court: i + 1,
+                                  players,
+                                }),
+                              )
+                              setAddingRound(false)
+                              setRoundIdx(rounds.length) // jump to the new round
+                            }}
+                          />
+                        ) : !current ? (
                           <p className="text-sm text-fg-muted">No matches yet.</p>
-                        ) : isNewRound ? (
-                          <p className="text-sm text-fg-muted" data-testid="new-round-hint">
-                            New round {current.round} — add games below to start it.
-                          </p>
                         ) : (
                           <>
                             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -345,26 +368,22 @@ export function PlayPage() {
                                 {resting.map((p) => p.nickname).join(', ')}
                               </p>
                             )}
+                            {/* Adding games only happens on a brand-new round; the
+                                button lives on the last round so it's easy to find. */}
+                            {canAddRound && isLastRound && (
+                              <Button
+                                variant="secondary"
+                                onClick={() => setAddingRound(true)}
+                                data-testid="add-round"
+                                className="w-full"
+                              >
+                                <span className="inline-flex items-center gap-1.5">
+                                  <Icon name="add" className="h-4 w-4" />
+                                  Add round {newRoundNumber}
+                                </span>
+                              </Button>
+                            )}
                           </>
-                        )}
-
-                        {canEdit && live && current && (
-                          <AddCustomMatch
-                            present={sessionPlayers}
-                            results={data.results}
-                            round={current.round}
-                            startOpen={isNewRound}
-                            saving={addMatch.isPending}
-                            skillOf={skillOf}
-                            onAdd={(players) => {
-                              addMatch.mutate({
-                                clubId: data.session.clubId,
-                                round: current.round,
-                                court: nextCourtInRound(data.results, current.round),
-                                players,
-                              })
-                            }}
-                          />
                         )}
                       </div>
                     )}
@@ -789,7 +808,6 @@ function RoundPager({
   round,
   index,
   total,
-  isNew = false,
   done,
   onPrev,
   onNext,
@@ -797,8 +815,6 @@ function RoundPager({
   round: number
   index: number
   total: number
-  /** The current slot is the not-yet-created "new round" (matchmakers only). */
-  isNew?: boolean
   /** done[i] = round i has every match scored. */
   done: boolean[]
   onPrev: () => void
@@ -822,13 +838,7 @@ function RoundPager({
       </button>
       <span className="flex flex-col items-center gap-1">
         <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
-          {isNew ? (
-            <>New round {round}</>
-          ) : (
-            <>
-              Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
-            </>
-          )}
+          Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
         </span>
         {/* Colour = progress only (game-day blue when the round is fully
             scored); the round being viewed is marked by a ring, so the two
@@ -1235,191 +1245,190 @@ function LineupEditor({
   )
 }
 
-/** Add an ad-hoc match: pick a round, then four players not already in it. */
 /**
- * Add a game to the round you're viewing in a couple of taps (TASK-67): pick 4
- * free players by tapping their chips (first two = Team A, next two = Team B),
- * or one-tap "Auto-pick" for a balanced foursome from whoever's resting. The
- * round comes from the pager — no dropdown. On the "new round" slot it opens
- * ready to fill.
+ * Build a whole new round (TASK-67): the round mirrors the busiest existing
+ * round's court count, so the matchmaker sees that many empty courts. Tap
+ * available players to fill the courts in order (first two in a court = Team A,
+ * next two = Team B), or one-tap "Auto-fill" for a balanced round. Create saves
+ * every filled court at once. No round dropdown, no per-round ad-hoc adds.
  */
-function AddCustomMatch({
+function RoundBuilder({
+  roundNumber,
+  courts,
   present,
-  results,
-  round,
-  startOpen = false,
-  saving,
   skillOf,
-  onAdd,
+  saving,
+  onCreate,
+  onCancel,
 }: {
+  roundNumber: number
+  courts: number
   present: PresentPlayer[]
-  results: MatchResult[]
-  /** The round being viewed (from the pager) that a new match is added to. */
-  round: number
-  /** Open the picker immediately (used on the empty "new round" slot). */
-  startOpen?: boolean
-  saving: boolean
   skillOf: SkillOf
-  onAdd: (players: [string, string, string, string]) => void
+  saving: boolean
+  onCreate: (courtsPlayers: [string, string, string, string][]) => void
+  onCancel: () => void
 }) {
-  const [open, setOpen] = useState(startOpen)
-  const [picks, setPicks] = useState<string[]>([])
+  const cap = courts * 4
+  // Flat list of assigned player ids; court i = assigned[i*4 .. i*4+3].
+  const [assigned, setAssigned] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  // Reset the picker whenever the viewed round changes (pager navigation).
-  useEffect(() => {
-    setPicks([])
-    setError(null)
-    setOpen(startOpen)
-  }, [round, startOpen])
+  const assignedSet = new Set(assigned)
+  const available = present.filter((p) => !assignedSet.has(p.id))
+  const nameOf = (id: string) => present.find((p) => p.id === id)?.nickname ?? '—'
+  const courtPlayers = (i: number) => assigned.slice(i * 4, i * 4 + 4)
 
-  const bookedInRound = useMemo(() => {
-    const ids = new Set<string>()
-    for (const r of results) {
-      if (r.round !== round) continue
-      for (const id of [...r.teamA, ...r.teamB]) if (id) ids.add(id)
-    }
-    return ids
-  }, [results, round])
-  const eligible = present.filter((p) => !bookedInRound.has(p.id))
-  const nameOf = (id: string) => present.find((p) => p.id === id)?.nickname ?? '…'
-
-  const toggle = (id: string) => {
+  const assign = (id: string) => {
     setError(null)
-    setPicks((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= 4 ? prev : [...prev, id],
-    )
+    setAssigned((a) => (a.length >= cap || a.includes(id) ? a : [...a, id]))
+  }
+  const unassign = (id: string) => {
+    setError(null)
+    setAssigned((a) => a.filter((x) => x !== id))
   }
 
-  // Fill a balanced foursome from the free players using the draw balancer.
-  const autoPick = () => {
-    const pool: MatchPlayer[] = eligible.map((p) => ({ id: p.id, skill: skillOf(p.id) ?? 5 }))
-    const court = generateRounds(pool, 1, { courts: 1 })?.rounds[0]?.matches[0]
-    if (!court) {
-      setError('Need at least 4 free players to auto-pick.')
+  const autoFill = () => {
+    const pool: MatchPlayer[] = present.map((p) => ({ id: p.id, skill: skillOf(p.id) ?? 5 }))
+    const matches = generateRounds(pool, 1, { courts })?.rounds[0]?.matches ?? []
+    if (matches.length === 0) {
+      setError('Need at least 4 players to auto-fill.')
       return
     }
     setError(null)
-    setPicks([court[0][0].id, court[0][1].id, court[1][0].id, court[1][1].id])
+    setAssigned(matches.flatMap((m) => [m[0][0].id, m[0][1].id, m[1][0].id, m[1][1].id]))
   }
 
-  const add = () => {
-    if (picks.length !== 4) {
-      setError('Pick 4 players — or use Auto-pick.')
-      return
+  const create = () => {
+    const full: [string, string, string, string][] = []
+    for (let i = 0; i < courts; i++) {
+      const c = courtPlayers(i)
+      if (c.length === 4) full.push(c as [string, string, string, string])
     }
-    const slots = picks as [string, string, string, string]
-    const v = validateLineup(slots)
-    if (!v.ok) {
-      setError(v.error ?? 'Invalid line-up')
+    if (full.length === 0) {
+      setError('Fill at least one court (4 players).')
       return
     }
     setError(null)
-    onAdd(slots)
-    setPicks([])
-    setOpen(false)
-  }
-
-  if (!open) {
-    return (
-      <Button variant="ghost" onClick={() => setOpen(true)} data-testid="add-custom-match">
-        + Add a game to round {round}
-      </Button>
-    )
+    onCreate(full)
   }
 
   return (
-    <Card title={`Add a game · round ${round}`} icon={<Icon name="add" />}>
-      <div className="space-y-3" data-testid="custom-match-form">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            onClick={autoPick}
-            disabled={eligible.length < 4}
-            data-testid="auto-pick-match"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Icon name="generate" className="h-4 w-4" />
-              Auto-pick balanced
-            </span>
-          </Button>
-          <span className="text-xs text-fg-subtle">or tap 4 players below</span>
-        </div>
-
-        {/* Tap free players to fill the two teams; first two are A, next two B. */}
-        {eligible.length === 0 ? (
-          <p className="text-sm text-fg-muted">Everyone is already playing this round.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2" data-testid="pick-chips">
-            {eligible.map((p) => {
-              const idx = picks.indexOf(p.id)
-              const sel = idx >= 0
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => toggle(p.id)}
-                  data-testid={`pick-${p.id}`}
-                  aria-pressed={sel}
-                  className={cx(
-                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors',
-                    sel
-                      ? 'border-accent bg-accent/15 text-accent-strong'
-                      : 'border-line bg-surface text-fg hover:bg-surface-muted',
-                  )}
-                >
-                  {p.nickname}
-                  {sel && (
-                    <span className="grid h-4 w-4 place-items-center rounded-full bg-accent/25 text-[10px] font-bold">
-                      {idx < 2 ? 'A' : 'B'}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {picks.length > 0 && (
-          <p className="text-xs text-fg-muted" data-testid="pick-summary">
-            <span className="font-medium text-fg-subtle">Team A:</span> {nameOf(picks[0])}
-            {picks[1] ? ` · ${nameOf(picks[1])}` : ''}
-            {'  ·  '}
-            <span className="font-medium text-fg-subtle">Team B:</span>{' '}
-            {picks[2] ? nameOf(picks[2]) : '…'}
-            {picks[3] ? ` · ${nameOf(picks[3])}` : ''}
-          </p>
-        )}
-
-        {error && (
-          <p className="text-xs text-negative" data-testid="custom-match-error">
-            {error}
-          </p>
-        )}
-
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            onClick={add}
-            disabled={saving || picks.length !== 4}
-            data-testid="save-custom-match"
-          >
-            Add match
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setOpen(false)
-              setPicks([])
-              setError(null)
-            }}
-            data-testid="cancel-custom-match"
-          >
-            Cancel
-          </Button>
-        </div>
+    <div className="space-y-3" data-testid="round-builder">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="secondary"
+          onClick={autoFill}
+          disabled={present.length < 4}
+          data-testid="auto-fill-round"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Icon name="generate" className="h-4 w-4" />
+            Auto-fill balanced
+          </span>
+        </Button>
+        <span className="text-xs text-fg-subtle">or tap players to fill the courts</span>
       </div>
-    </Card>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {Array.from({ length: courts }).map((_, i) => {
+          const cp = courtPlayers(i)
+          return (
+            <div
+              key={i}
+              className="rounded-lg border border-line bg-surface-muted/40 px-3 py-3"
+              data-testid={`court-slot-${i + 1}`}
+            >
+              <div className="mb-2 text-center text-xs uppercase tracking-wide text-fg-subtle">
+                Court {i + 1}
+              </div>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
+                <div className="min-w-0">
+                  <SlotName id={cp[0]} nameOf={nameOf} onRemove={unassign} />
+                  <SlotName id={cp[1]} nameOf={nameOf} onRemove={unassign} />
+                </div>
+                <span className="text-[11px] font-medium uppercase text-fg-subtle">vs</span>
+                <div className="min-w-0 text-right">
+                  <SlotName id={cp[2]} nameOf={nameOf} onRemove={unassign} align="right" />
+                  <SlotName id={cp[3]} nameOf={nameOf} onRemove={unassign} align="right" />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {available.length > 0 && (
+        <div className="flex flex-wrap gap-2" data-testid="builder-tray">
+          {available.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => assign(p.id)}
+              disabled={assigned.length >= cap}
+              data-testid={`pick-${p.id}`}
+              className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-fg transition-colors hover:bg-surface-muted disabled:opacity-40"
+            >
+              {p.nickname}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <p className="text-xs text-negative" data-testid="round-builder-error">
+          {error}
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          onClick={create}
+          disabled={saving || assigned.length < 4}
+          data-testid="create-round"
+        >
+          Create round {roundNumber}
+        </Button>
+        <Button variant="ghost" onClick={onCancel} data-testid="cancel-round">
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** A player slot in the RoundBuilder — the name (tap to remove) or an empty dash. */
+function SlotName({
+  id,
+  nameOf,
+  onRemove,
+  align = 'left',
+}: {
+  id: string | undefined
+  nameOf: (id: string) => string
+  onRemove: (id: string) => void
+  align?: 'left' | 'right'
+}) {
+  if (!id) {
+    return (
+      <p className={cx('leading-tight text-fg-subtle', align === 'right' ? 'text-right' : 'text-left')}>
+        —
+      </p>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onRemove(id)}
+      title="Tap to remove"
+      className={cx(
+        'block w-full truncate font-medium leading-tight text-fg hover:text-negative',
+        align === 'right' ? 'text-right' : 'text-left',
+      )}
+    >
+      {nameOf(id)}
+    </button>
   )
 }
 
@@ -1481,10 +1490,5 @@ function restingInRound(present: PresentPlayer[], results: MatchResult[]): Prese
 }
 
 /** The next free court in a given round (court 1 if the round is empty). */
-function nextCourtInRound(results: MatchResult[], round: number): number {
-  const inRound = results.filter((r) => r.round === round)
-  return inRound.length === 0 ? 1 : Math.max(...inRound.map((r) => r.court)) + 1
-}
-
 const recordedCount = (results: MatchResult[]) =>
   results.filter((r) => r.winner !== null).length
