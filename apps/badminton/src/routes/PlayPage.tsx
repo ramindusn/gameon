@@ -269,7 +269,6 @@ export function PlayPage() {
               const current = rounds[idx]
               const resting = current ? restingInRound(sessionPlayers, current.results) : []
               const canAddRound = canEdit && live
-              const isLastRound = idx === rounds.length - 1
               // A new round mirrors the busiest existing round's court count.
               const templateCourts = rounds.length
                 ? Math.max(1, ...rounds.map((r) => r.results.length))
@@ -289,6 +288,7 @@ export function PlayPage() {
                         done={roundsDone}
                         onPrev={() => setRoundIdx(Math.max(0, idx - 1))}
                         onNext={() => setRoundIdx(Math.min(rounds.length - 1, idx + 1))}
+                        onAddRound={canAddRound ? () => setAddingRound(true) : undefined}
                       />
                     )}
                     {tab === 'matches' && addingRound && (
@@ -367,21 +367,6 @@ export function PlayPage() {
                                 <span className="font-medium text-fg-subtle">Resting:</span>{' '}
                                 {resting.map((p) => p.nickname).join(', ')}
                               </p>
-                            )}
-                            {/* Adding games only happens on a brand-new round; the
-                                button lives on the last round so it's easy to find. */}
-                            {canAddRound && isLastRound && (
-                              <Button
-                                variant="secondary"
-                                onClick={() => setAddingRound(true)}
-                                data-testid="add-round"
-                                className="w-full"
-                              >
-                                <span className="inline-flex items-center gap-1.5">
-                                  <Icon name="add" className="h-4 w-4" />
-                                  Add round {newRoundNumber}
-                                </span>
-                              </Button>
                             )}
                           </>
                         )}
@@ -811,6 +796,7 @@ function RoundPager({
   done,
   onPrev,
   onNext,
+  onAddRound,
 }: {
   round: number
   index: number
@@ -819,6 +805,8 @@ function RoundPager({
   done: boolean[]
   onPrev: () => void
   onNext: () => void
+  /** When set (matchmaker + live), shows a "+" by the label to build a round. */
+  onAddRound?: () => void
 }) {
   const arrow = cx(
     'grid h-8 w-8 place-items-center rounded-full text-xl font-bold leading-none transition-colors hover:bg-sky-400/15 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent',
@@ -837,8 +825,22 @@ function RoundPager({
         ‹
       </button>
       <span className="flex flex-col items-center gap-1">
-        <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
-          Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
+            Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
+          </span>
+          {onAddRound && (
+            <button
+              type="button"
+              onClick={onAddRound}
+              aria-label="Add a new round"
+              title="Add a new round"
+              data-testid="add-round"
+              className="grid h-5 w-5 place-items-center rounded-full border border-accent/50 text-sm font-bold leading-none text-accent-strong transition-colors hover:bg-accent/15"
+            >
+              +
+            </button>
+          )}
         </span>
         {/* Colour = progress only (game-day blue when the round is fully
             scored); the round being viewed is marked by a ring, so the two
