@@ -180,7 +180,7 @@ export function PlayerProfilePage() {
 
             {showInsights && (
               <div className="mb-6">
-                <Card title="Partners & rivals" icon={<Icon name="pairs" />}>
+                <Card title="Partners & opponents" icon={<Icon name="pairs" />}>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2" data-testid="profile-insights">
                     <DuoList
                       heading="Most-played partners"
@@ -340,11 +340,10 @@ function DuoList({
                 </Link>
                 <span
                   className="shrink-0 text-xs tabular-nums text-fg-subtle"
-                  title={`${s.wins} won, ${s.games - s.wins} lost of ${s.games}`}
+                  title={`${s.wins} won · ${s.games - s.wins} lost of ${s.games}`}
                 >
                   {s.games} {s.games === 1 ? 'game' : 'games'} ·{' '}
-                  <span className="font-semibold text-fg">{winPct}% won</span> · {100 - winPct}%
-                  lost
+                  <span className="font-semibold text-fg">{winPct}% won</span>
                 </span>
               </li>
             )

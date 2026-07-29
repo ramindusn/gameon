@@ -4,7 +4,7 @@ title: 'Profile: partner & opponent insights + readable long match history'
 status: Done
 assignee: []
 created_date: '2026-07-27 21:48'
-updated_date: '2026-07-28 23:21'
+updated_date: '2026-07-29 00:09'
 labels:
   - feature
   - frontend
@@ -39,6 +39,8 @@ Simplified the insights display per feedback: the win% column was unclear (and '
 Per feedback, show the record as an explicit win rate + loss rate ('29% won · 71% lost') instead of the W–L count — win emphasised, loss muted, hover shows the raw counts. Verified at mobile width.
 
 Added the match count to each insight row: '28 games · 29% won · 71% lost' (singular 'game' at 1). Makes the most-played / toughest ordering self-evident. Verified one-line fit at both mobile (420) and desktop 2-col (900) widths.
+
+Decluttered per feedback: dropped the redundant inline loss rate (= 100 − win rate), leaving '28 games · 29% won'; full won/lost breakdown stays on hover. Renamed the card 'Partners & rivals' → 'Partners & opponents'.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
