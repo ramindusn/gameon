@@ -814,36 +814,30 @@ function RoundPager({
   )
   return (
     <div className="mt-2 flex items-center justify-between rounded-lg bg-surface-muted px-2 py-1.5">
-      <button
-        type="button"
-        onClick={onPrev}
-        disabled={index === 0}
-        aria-label="Previous round"
-        data-testid="round-prev"
-        className={arrow}
-      >
-        ‹
-      </button>
-      <span className="flex flex-col items-center gap-1">
-        <span className="flex items-center gap-1.5">
-          <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
-            Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
+      <span className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onPrev}
+          disabled={index === 0}
+          aria-label="Previous round"
+          data-testid="round-prev"
+          className={arrow}
+        >
+          ‹
+        </button>
+        {/* Invisible clone of the trailing pill so the label stays centred. */}
+        {onAddRound && (
+          <span
+            aria-hidden
+            className="invisible inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+          >
+            <span className="text-sm leading-none">+</span> Round
           </span>
-          {onAddRound && (
-            <button
-              type="button"
-              onClick={onAddRound}
-              aria-label="Add a new round"
-              title="Add a new round"
-              data-testid="add-round"
-              className={cx(
-                'grid h-6 w-6 place-items-center rounded-full text-base font-bold leading-none transition-colors hover:bg-sky-400/25',
-                POINTS_PILL,
-              )}
-            >
-              +
-            </button>
-          )}
+        )}
+      </span>
+      <span className="flex flex-col items-center gap-1">
+        <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
+          Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
         </span>
         {/* Colour = progress only (game-day blue when the round is fully
             scored); the round being viewed is marked by a ring, so the two
@@ -861,16 +855,32 @@ function RoundPager({
           ))}
         </span>
       </span>
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={index === total - 1}
-        aria-label="Next round"
-        data-testid="round-next"
-        className={arrow}
-      >
-        ›
-      </button>
+      <span className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={index === total - 1}
+          aria-label="Next round"
+          data-testid="round-next"
+          className={arrow}
+        >
+          ›
+        </button>
+        {onAddRound && (
+          <button
+            type="button"
+            onClick={onAddRound}
+            title="Add a new round"
+            data-testid="add-round"
+            className={cx(
+              'inline-flex shrink-0 items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-sky-400/25',
+              POINTS_PILL,
+            )}
+          >
+            <span className="text-sm leading-none">+</span> Round
+          </button>
+        )}
+      </span>
     </div>
   )
 }
