@@ -813,8 +813,11 @@ function RoundPager({
     POINTS_TEXT,
   )
   return (
-    <div className="mt-2 flex items-center justify-between rounded-lg bg-surface-muted px-2 py-1.5">
-      <span className="flex items-center gap-1.5">
+    // 3-column grid: equal side columns keep the ‹ label › nav centred while the
+    // add-round pill sits in the right column — no overlap on narrow screens.
+    <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center rounded-lg bg-surface-muted px-2 py-1.5">
+      <div aria-hidden />
+      <div className="flex items-center justify-center gap-1">
         <button
           type="button"
           onClick={onPrev}
@@ -825,37 +828,25 @@ function RoundPager({
         >
           ‹
         </button>
-        {/* Invisible clone of the trailing pill so the label stays centred. */}
-        {onAddRound && (
-          <span
-            aria-hidden
-            className="invisible inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold"
-          >
-            <span className="text-sm leading-none">+</span> Round
+        <span className="flex flex-col items-center gap-1">
+          <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
+            Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
           </span>
-        )}
-      </span>
-      <span className="flex flex-col items-center gap-1">
-        <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
-          Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
+          {/* Colour = progress only (game-day blue when the round is fully
+              scored); the round being viewed is marked by a ring. */}
+          <span className="flex items-center gap-1.5" aria-hidden data-testid="round-dots">
+            {Array.from({ length: total }).map((_, i) => (
+              <span
+                key={i}
+                className={cx(
+                  'h-1.5 w-1.5 rounded-full transition-all',
+                  done[i] ? POINTS_DOT : 'bg-fg-subtle/40',
+                  i === index && 'ring-2 ring-fg-subtle/50 ring-offset-2 ring-offset-surface-muted',
+                )}
+              />
+            ))}
+          </span>
         </span>
-        {/* Colour = progress only (game-day blue when the round is fully
-            scored); the round being viewed is marked by a ring, so the two
-            never mix. The last dot is the "new round" slot when present. */}
-        <span className="flex items-center gap-1.5" aria-hidden data-testid="round-dots">
-          {Array.from({ length: total }).map((_, i) => (
-            <span
-              key={i}
-              className={cx(
-                'h-1.5 w-1.5 rounded-full transition-all',
-                done[i] ? POINTS_DOT : 'bg-fg-subtle/40',
-                i === index && 'ring-2 ring-fg-subtle/50 ring-offset-2 ring-offset-surface-muted',
-              )}
-            />
-          ))}
-        </span>
-      </span>
-      <span className="flex items-center gap-1.5">
         <button
           type="button"
           onClick={onNext}
@@ -866,6 +857,8 @@ function RoundPager({
         >
           ›
         </button>
+      </div>
+      <div className="flex justify-end">
         {onAddRound && (
           <button
             type="button"
@@ -873,14 +866,14 @@ function RoundPager({
             title="Add a new round"
             data-testid="add-round"
             className={cx(
-              'inline-flex shrink-0 items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-sky-400/25',
+              'inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-sky-400/25',
               POINTS_PILL,
             )}
           >
             <span className="text-sm leading-none">+</span> Round
           </button>
         )}
-      </span>
+      </div>
     </div>
   )
 }
