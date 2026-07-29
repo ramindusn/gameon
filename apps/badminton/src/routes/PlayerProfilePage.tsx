@@ -18,7 +18,7 @@ import { PerformanceChart } from '../profile/PerformanceChart'
 import { computePartnerStats, toughestOpponents, type DuoStat } from '../profile/headToHead'
 
 /** How many recent game days the match history shows before "Show all". */
-const HISTORY_PREVIEW_DAYS = 5
+const HISTORY_PREVIEW_DAYS = 3
 /** How many partners/opponents the insights card lists. */
 const INSIGHT_LIMIT = 4
 
