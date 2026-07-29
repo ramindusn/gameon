@@ -131,8 +131,8 @@ export function PerformanceChart({
           <div className="inline-flex rounded-lg border border-line bg-surface-muted p-0.5 text-xs">
             {(
               [
-                ['points', 'Points', POINTS_TEXT],
                 ['rating', 'Rating', RANK_TEXT],
+                ['points', 'Points', POINTS_TEXT],
               ] as const
             ).map(([id, label, cls]) => (
               <button
