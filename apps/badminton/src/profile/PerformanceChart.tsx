@@ -45,7 +45,9 @@ export function PerformanceChart({
 }) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [hover, setHover] = useState<number | null>(null)
-  const [mode, setMode] = useState<Mode>('points')
+  // Default to the Rating view; falls back to Points when there isn't enough
+  // rating history to chart it (canToggle below).
+  const [mode, setMode] = useState<Mode>('rating')
 
   const pointsSeries = useMemo<Point[]>(() => {
     // history arrives newest-first; replay oldest → newest.
