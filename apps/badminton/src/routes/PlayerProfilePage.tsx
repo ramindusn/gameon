@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, cx } from '@gameon/ui'
+import { DEFAULT_RATING } from '@gameon/domain'
 import { Icon } from '../app/Icon'
 import { getPlayer } from '../roster/api'
 import { loadPlayerHistory, type PlayerMatch } from '../play/api'
@@ -71,6 +72,19 @@ export function PlayerProfilePage() {
       return { sessionId, date: matches[0].date, matches, wins: dayWins, losses: matches.length - dayWins, diff }
     })
   }, [history])
+
+  // Ranking points gained/lost each game day, derived from the rating-after-each
+  // -day series (this day's rating minus the previous day's; the 1500 baseline
+  // for their first). Shown green next to the blue game-day points (TASK-65).
+  const rankGainByDay = useMemo(() => {
+    const pts = ratingCtx.data?.points ?? []
+    const m = new Map<string, number>()
+    for (let i = 0; i < pts.length; i++) {
+      const prev = i > 0 ? pts[i - 1].rating : DEFAULT_RATING
+      m.set(pts[i].sessionId, pts[i].rating - prev)
+    }
+    return m
+  }, [ratingCtx.data])
 
   // Head-to-head insights (TASK-65): most-played partners + toughest opponents.
   const partners = useMemo(() => computePartnerStats(history).slice(0, INSIGHT_LIMIT), [history])
@@ -239,13 +253,17 @@ export function PlayerProfilePage() {
                             >
                               {formatDay(day.date)}
                             </Link>
-                            <span className="text-xs tabular-nums">
+                            <span className="flex items-baseline gap-2 text-xs tabular-nums">
                               <span className="text-fg-muted">
                                 {day.wins}–{day.losses}
-                              </span>{' '}
-                              <span className={cx('font-semibold', POINTS_TEXT)}>
+                              </span>
+                              <span
+                                className={cx('font-semibold', POINTS_TEXT)}
+                                title="Game-day points (rally point differential)"
+                              >
                                 {day.diff > 0 ? `+${day.diff}` : day.diff}
                               </span>
+                              <RankGain value={rankGainByDay.get(day.sessionId)} />
                             </span>
                           </div>
                           <ul className="space-y-2">
@@ -295,6 +313,22 @@ function Stat({
       <dt className="text-fg-muted">{label}</dt>
       <dd className={cx('font-semibold', valueTone ?? 'text-fg')}>{value}</dd>
     </div>
+  )
+}
+
+/** Ranking points gained/lost on a game day — green up, red down, one decimal
+ *  (matches the game-day page's Ranking column). Hidden while unknown. */
+function RankGain({ value }: { value?: number }) {
+  if (value == null) return null
+  const r = Math.round(value * 10) / 10
+  return (
+    <span
+      className={cx('font-semibold', r > 0 ? RANK_TEXT : r < 0 ? 'text-negative' : 'text-fg-muted')}
+      title="Ranking points gained/lost this game day"
+    >
+      {r > 0 ? '+' : ''}
+      {r.toFixed(1)}
+    </span>
   )
 }
 

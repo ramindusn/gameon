@@ -4,7 +4,7 @@ title: 'Profile: partner & opponent insights + readable long match history'
 status: Done
 assignee: []
 created_date: '2026-07-27 21:48'
-updated_date: '2026-07-29 00:11'
+updated_date: '2026-07-29 00:26'
 labels:
   - feature
   - frontend
@@ -43,6 +43,8 @@ Added the match count to each insight row: '28 games · 29% won · 71% lost' (si
 Decluttered per feedback: dropped the redundant inline loss rate (= 100 − win rate), leaving '28 games · 29% won'; full won/lost breakdown stays on hover. Renamed the card 'Partners & rivals' → 'Partners & opponents'.
 
 Reduced the history preview from 5 to 3 game days (HISTORY_PREVIEW_DAYS=3) per feedback — shows the last 3, rest behind 'Show all N game days'. Verified: 3 groups render, toggle reads 'Show all 8 game days'.
+
+Added the per-game-day ranking gain (green ±X.X, red when negative) next to the blue game-day points in each match-history day header, derived from the rating-after-each-day series (no extra query). Mirrors the game-day page's Points/Ranking distinction — e.g. a day can be -21 points but +0.8 ranking (beat stronger opponents). New RankGain helper. Verified on the 89-match profile.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
