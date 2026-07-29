@@ -216,24 +216,32 @@ export function PlayerProfilePage() {
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <Card title="Performance" icon={<Icon name="stats" />}>
-                <dl className="space-y-3 text-sm" data-testid="profile-performance">
-                  <Stat
-                    label="Rating"
-                    value={rated ? String(Math.round(rated.rating)) : '—'}
-                    valueTone={RANK_TEXT}
-                  />
-                  {/* Base skill is a manual matchmaking seed — never shown here;
-                      everyone sees the live (results-aware) skill only. */}
-                  <Stat label="Skill" value={liveSkill != null ? liveSkill.toFixed(1) : '—'} />
-                  <Stat label="Record" value={`${wins}W – ${losses}L`} />
-                  <Stat label="Games" value={String(history.length)} />
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-fg-muted">Recent form</dt>
-                    <dd>
-                      <FormStrip results={form.data?.[id]} />
-                    </dd>
+                <div data-testid="profile-performance">
+                  {/* Headline pair: Skill then Rating. Base skill is a manual
+                      matchmaking seed — never shown; everyone sees the live
+                      (results-aware) skill only. */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <BigStat
+                      label="Skill"
+                      value={liveSkill != null ? liveSkill.toFixed(1) : '—'}
+                    />
+                    <BigStat
+                      label="Rating"
+                      value={rated ? String(Math.round(rated.rating)) : '—'}
+                      tone={RANK_TEXT}
+                    />
                   </div>
-                </dl>
+                  <dl className="mt-4 space-y-2.5 border-t border-line pt-4 text-sm">
+                    <Stat label="Record" value={`${wins}W – ${losses}L`} />
+                    <Stat label="Games" value={String(history.length)} />
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-fg-muted">Recent form</dt>
+                      <dd>
+                        <FormStrip results={form.data?.[id]} />
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
               </Card>
 
               <div className="lg:col-span-2">
@@ -293,6 +301,20 @@ export function PlayerProfilePage() {
           </>
         )}
       </main>
+    </div>
+  )
+}
+
+/** A prominent headline stat tile (Skill / Rating) at the top of the card. */
+function BigStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-surface-muted/40 px-3 py-2.5">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
+        {label}
+      </div>
+      <div className={cx('font-display text-2xl font-bold tabular-nums', tone ?? 'text-fg')}>
+        {value}
+      </div>
     </div>
   )
 }
