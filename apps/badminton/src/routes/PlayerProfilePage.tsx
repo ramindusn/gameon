@@ -184,6 +184,34 @@ export function PlayerProfilePage() {
               </div>
             </div>
 
+            {/* Reading order: snapshot numbers → trend → who they play →
+                match log. */}
+            <div className="mb-6">
+              <Card title="Performance" icon={<Icon name="stats" />}>
+                <div data-testid="profile-performance">
+                  {/* Base skill is a manual matchmaking seed — never shown here;
+                      everyone sees the live (results-aware) skill only. */}
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <BigStat
+                      label="Skill"
+                      value={liveSkill != null ? liveSkill.toFixed(1) : '—'}
+                    />
+                    <BigStat
+                      label="Rating"
+                      value={rated ? String(Math.round(rated.rating)) : '—'}
+                      tone={RANK_TEXT}
+                    />
+                    <BigStat label="Record" value={`${wins}W – ${losses}L`} />
+                    <BigStat label="Games" value={String(history.length)} />
+                  </div>
+                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4 text-sm">
+                    <span className="text-fg-muted">Recent form</span>
+                    <FormStrip results={form.data?.[id]} />
+                  </div>
+                </div>
+              </Card>
+            </div>
+
             {history.length >= 2 && (
               <div className="mb-6">
                 <Card title="Performance trend" icon={<Icon name="ranking" />}>
@@ -214,38 +242,7 @@ export function PlayerProfilePage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <Card title="Performance" icon={<Icon name="stats" />}>
-                <div data-testid="profile-performance">
-                  {/* Headline pair: Skill then Rating. Base skill is a manual
-                      matchmaking seed — never shown; everyone sees the live
-                      (results-aware) skill only. */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <BigStat
-                      label="Skill"
-                      value={liveSkill != null ? liveSkill.toFixed(1) : '—'}
-                    />
-                    <BigStat
-                      label="Rating"
-                      value={rated ? String(Math.round(rated.rating)) : '—'}
-                      tone={RANK_TEXT}
-                    />
-                  </div>
-                  <dl className="mt-4 space-y-2.5 border-t border-line pt-4 text-sm">
-                    <Stat label="Record" value={`${wins}W – ${losses}L`} />
-                    <Stat label="Games" value={String(history.length)} />
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-fg-muted">Recent form</dt>
-                      <dd>
-                        <FormStrip results={form.data?.[id]} />
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </Card>
-
-              <div className="lg:col-span-2">
-                <Card title="Match history" icon={<Icon name="matches" />}>
+            <Card title="Match history" icon={<Icon name="matches" />}>
                   {history.length === 0 ? (
                     <p className="text-sm text-fg-muted" data-testid="profile-history-empty">
                       No matches played yet.
@@ -296,8 +293,6 @@ export function PlayerProfilePage() {
                     </div>
                   )}
                 </Card>
-              </div>
-            </div>
           </>
         )}
       </main>
@@ -315,25 +310,6 @@ function BigStat({ label, value, tone }: { label: string; value: string; tone?: 
       <div className={cx('font-display text-2xl font-bold tabular-nums', tone ?? 'text-fg')}>
         {value}
       </div>
-    </div>
-  )
-}
-
-function Stat({
-  label,
-  value,
-  valueTone,
-}: {
-  label: string
-  value: string
-  /** Optional metric colour for the value (e.g. RANK_TEXT for the rating); the
-   *  other stats stay neutral so only the ranking number reads as green. */
-  valueTone?: string
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-fg-muted">{label}</dt>
-      <dd className={cx('font-semibold', valueTone ?? 'text-fg')}>{value}</dd>
     </div>
   )
 }
