@@ -123,23 +123,20 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
   await editor.locator('[data-testid^="save-lineup-"]').click()
   await expect(page.locator('[data-testid^="lineup-editor-"]')).toHaveCount(0)
 
-  // Add a custom match → it lands in a new round 2 (3 matches total). The
-  // add-match picker is scoped to this game day's players (TASK-32), and round 1
-  // is full, so target a new round where those players are free again.
-  await page.getByTestId('add-custom-match').click()
-  await page.getByTestId('custom-round').selectOption('2')
-  await page.getByTestId('custom-a1').selectOption({ index: 1 })
-  await page.getByTestId('custom-a2').selectOption({ index: 2 })
-  await page.getByTestId('custom-b1').selectOption({ index: 3 })
-  await page.getByTestId('custom-b2').selectOption({ index: 4 })
-  await page.getByTestId('save-custom-match').click()
+  // Add a new round via the "+ Round" pill → the round builder shows the
+  // template's courts as empty slots (scoped to this game day's players,
+  // TASK-32). Fill one court by tapping four free players, then create the
+  // round — only the full court is saved, so round 2 has 1 court (3 total).
+  await page.getByTestId('add-round').click()
+  await expect(page.getByTestId('round-builder')).toBeVisible()
+  const tray = page.locator('[data-testid="builder-tray"] button')
+  for (let i = 0; i < 4; i++) await tray.first().click() // tapped chips leave the tray
+  await page.getByTestId('create-round').click()
   await expect(page.getByText(/0 \/ 3 recorded/)).toBeVisible()
 
-  // Rounds are paged: page to round 2 to see the custom court, then delete it
+  // Creating jumps to the new round 2 with its single court; delete it
   // (two-step) → back to round 1's 2 courts.
-  await page.locator('[aria-label="Next round"]').click()
   await expect(page.getByTestId('round-label')).toContainText('Round 2')
-  await expect(page.locator('[data-testid^="court-"]')).toHaveCount(1)
   const customCourt = page.locator('[data-testid^="court-"]').first()
   await customCourt.locator('[data-testid^="delete-match-"]').click()
   await customCourt.locator('[data-testid^="confirm-delete-match-"]').click()
@@ -181,5 +178,5 @@ test('signed-out visitor gets the public, read-only game-day page (TASK-50)', as
   await expect(page.getByTestId('play')).toBeVisible()
   // No matchmaker editing controls for a signed-out viewer.
   await expect(page.getByTestId('finish-session')).toHaveCount(0)
-  await expect(page.getByTestId('add-custom-match')).toHaveCount(0)
+  await expect(page.getByTestId('add-round')).toHaveCount(0)
 })
