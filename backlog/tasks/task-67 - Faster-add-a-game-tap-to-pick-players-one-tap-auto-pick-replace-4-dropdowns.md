@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-07-29 14:33'
-updated_date: '2026-07-29 14:33'
+updated_date: '2026-07-29 14:45'
 labels:
   - feature
   - frontend
@@ -29,6 +29,12 @@ Matchmakers complained that adding a game mid-round takes too many steps: the 'A
 - [ ] #4 Add match creates the match with the four picked players (first two = Team A); round + court behaviour unchanged
 - [ ] #5 PlayPage tests updated for the chip flow + a new auto-pick test; typecheck, lint, and tests pass
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Follow-up per feedback: the round dropdown (which let you pick a previous round) was the confusing part. Removed it — the 'Add a game' form now targets the round you're viewing in the pager. Added a 'new round' slot: matchmakers step the right arrow past the last round into an empty new round (labelled 'New round N', hint shown) where the picker opens ready; adding a game there creates the round. Read-only viewers don't get the extra slot. RoundPager gained round-prev/round-next testids + an isNew label; dots iterate over total rounds. PlayPage tests updated to navigate via the pager (no more custom-round dropdown). 23/23 PlayPage tests pass.
+<!-- SECTION:NOTES:END -->
 
 ## Final Summary
 

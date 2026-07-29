@@ -263,9 +263,19 @@ export function PlayPage() {
             {/* One combined panel: sticky header (tabs + round pager) with the
                 tab content attached below — not three separate cards. */}
             {(() => {
-              const idx = Math.min(roundIdx, Math.max(0, rounds.length - 1))
-              const current = rounds[idx]
-              const resting = current ? restingInRound(sessionPlayers, current.results) : []
+              // Matchmakers get one extra "new round" slot past the last real
+              // round: the right arrow steps into it, and adding a game there
+              // creates the round — no round dropdown needed.
+              const canAddRound = canEdit && live
+              const newRoundNumber = rounds.length ? rounds[rounds.length - 1].round + 1 : 1
+              const total = rounds.length + (canAddRound ? 1 : 0)
+              const idx = Math.min(roundIdx, Math.max(0, total - 1))
+              const isNewRound = idx >= rounds.length
+              const current = isNewRound
+                ? { round: newRoundNumber, results: [] as MatchResult[] }
+                : rounds[idx]
+              const resting =
+                current && !isNewRound ? restingInRound(sessionPlayers, current.results) : []
               return (
                 <div className="rounded-xl border border-line bg-surface" data-testid="game-day-panel">
                   {/* Divider lives on the sticky header (not the content) so the
@@ -276,10 +286,11 @@ export function PlayPage() {
                       <RoundPager
                         round={current.round}
                         index={idx}
-                        total={rounds.length}
+                        total={total}
+                        isNew={isNewRound}
                         done={roundsDone}
                         onPrev={() => setRoundIdx(Math.max(0, idx - 1))}
-                        onNext={() => setRoundIdx(Math.min(rounds.length - 1, idx + 1))}
+                        onNext={() => setRoundIdx(Math.min(total - 1, idx + 1))}
                       />
                     )}
                   </div>
@@ -300,6 +311,10 @@ export function PlayPage() {
                       <div className="space-y-3" data-testid="matches-tab">
                         {!current ? (
                           <p className="text-sm text-fg-muted">No matches yet.</p>
+                        ) : isNewRound ? (
+                          <p className="text-sm text-fg-muted" data-testid="new-round-hint">
+                            New round {current.round} — add games below to start it.
+                          </p>
                         ) : (
                           <>
                             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -333,17 +348,19 @@ export function PlayPage() {
                           </>
                         )}
 
-                        {canEdit && live && (
+                        {canEdit && live && current && (
                           <AddCustomMatch
                             present={sessionPlayers}
                             results={data.results}
+                            round={current.round}
+                            startOpen={isNewRound}
                             saving={addMatch.isPending}
                             skillOf={skillOf}
-                            onAdd={(round, players) => {
+                            onAdd={(players) => {
                               addMatch.mutate({
                                 clubId: data.session.clubId,
-                                round,
-                                court: nextCourtInRound(data.results, round),
+                                round: current.round,
+                                court: nextCourtInRound(data.results, current.round),
                                 players,
                               })
                             }}
@@ -772,6 +789,7 @@ function RoundPager({
   round,
   index,
   total,
+  isNew = false,
   done,
   onPrev,
   onNext,
@@ -779,6 +797,8 @@ function RoundPager({
   round: number
   index: number
   total: number
+  /** The current slot is the not-yet-created "new round" (matchmakers only). */
+  isNew?: boolean
   /** done[i] = round i has every match scored. */
   done: boolean[]
   onPrev: () => void
@@ -790,23 +810,36 @@ function RoundPager({
   )
   return (
     <div className="mt-2 flex items-center justify-between rounded-lg bg-surface-muted px-2 py-1.5">
-      <button type="button" onClick={onPrev} disabled={index === 0} aria-label="Previous round" className={arrow}>
+      <button
+        type="button"
+        onClick={onPrev}
+        disabled={index === 0}
+        aria-label="Previous round"
+        data-testid="round-prev"
+        className={arrow}
+      >
         ‹
       </button>
       <span className="flex flex-col items-center gap-1">
         <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
-          Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
+          {isNew ? (
+            <>New round {round}</>
+          ) : (
+            <>
+              Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
+            </>
+          )}
         </span>
         {/* Colour = progress only (game-day blue when the round is fully
             scored); the round being viewed is marked by a ring, so the two
-            never mix. */}
+            never mix. The last dot is the "new round" slot when present. */}
         <span className="flex items-center gap-1.5" aria-hidden data-testid="round-dots">
-          {done.map((d, i) => (
+          {Array.from({ length: total }).map((_, i) => (
             <span
               key={i}
               className={cx(
                 'h-1.5 w-1.5 rounded-full transition-all',
-                d ? POINTS_DOT : 'bg-fg-subtle/40',
+                done[i] ? POINTS_DOT : 'bg-fg-subtle/40',
                 i === index && 'ring-2 ring-fg-subtle/50 ring-offset-2 ring-offset-surface-muted',
               )}
             />
@@ -818,6 +851,7 @@ function RoundPager({
         onClick={onNext}
         disabled={index === total - 1}
         aria-label="Next round"
+        data-testid="round-next"
         className={arrow}
       >
         ›
@@ -1203,34 +1237,41 @@ function LineupEditor({
 
 /** Add an ad-hoc match: pick a round, then four players not already in it. */
 /**
- * Add a game mid-round in a couple of taps (TASK-67): pick 4 free players by
- * tapping their chips (first two = Team A, next two = Team B), or one-tap
- * "Auto-pick" for a balanced foursome from whoever's resting. No dropdowns.
+ * Add a game to the round you're viewing in a couple of taps (TASK-67): pick 4
+ * free players by tapping their chips (first two = Team A, next two = Team B),
+ * or one-tap "Auto-pick" for a balanced foursome from whoever's resting. The
+ * round comes from the pager — no dropdown. On the "new round" slot it opens
+ * ready to fill.
  */
 function AddCustomMatch({
   present,
   results,
+  round,
+  startOpen = false,
   saving,
   skillOf,
   onAdd,
 }: {
   present: PresentPlayer[]
   results: MatchResult[]
+  /** The round being viewed (from the pager) that a new match is added to. */
+  round: number
+  /** Open the picker immediately (used on the empty "new round" slot). */
+  startOpen?: boolean
   saving: boolean
   skillOf: SkillOf
-  onAdd: (round: number, players: [string, string, string, string]) => void
+  onAdd: (players: [string, string, string, string]) => void
 }) {
-  const existingRounds = useMemo(
-    () => [...new Set(results.map((r) => r.round))].sort((a, b) => a - b),
-    [results],
-  )
-  const lastRound = existingRounds.at(-1) ?? 1
-  const roundOptions = existingRounds.length ? [...existingRounds, lastRound + 1] : [1]
-
-  const [open, setOpen] = useState(false)
-  const [round, setRound] = useState(lastRound)
+  const [open, setOpen] = useState(startOpen)
   const [picks, setPicks] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  // Reset the picker whenever the viewed round changes (pager navigation).
+  useEffect(() => {
+    setPicks([])
+    setError(null)
+    setOpen(startOpen)
+  }, [round, startOpen])
 
   const bookedInRound = useMemo(() => {
     const ids = new Set<string>()
@@ -1242,12 +1283,6 @@ function AddCustomMatch({
   }, [results, round])
   const eligible = present.filter((p) => !bookedInRound.has(p.id))
   const nameOf = (id: string) => present.find((p) => p.id === id)?.nickname ?? '…'
-
-  const changeRound = (value: number) => {
-    setRound(value)
-    setPicks([])
-    setError(null)
-  }
 
   const toggle = (id: string) => {
     setError(null)
@@ -1280,36 +1315,23 @@ function AddCustomMatch({
       return
     }
     setError(null)
-    onAdd(round, slots)
+    onAdd(slots)
     setPicks([])
-    setRound(lastRound)
     setOpen(false)
   }
 
   if (!open) {
     return (
       <Button variant="ghost" onClick={() => setOpen(true)} data-testid="add-custom-match">
-        + Add a game
+        + Add a game to round {round}
       </Button>
     )
   }
 
   return (
-    <Card title="Add a game" icon={<Icon name="add" />}>
+    <Card title={`Add a game · round ${round}`} icon={<Icon name="add" />}>
       <div className="space-y-3" data-testid="custom-match-form">
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={round}
-            onChange={(e) => changeRound(Number(e.target.value))}
-            data-testid="custom-round"
-            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg"
-          >
-            {roundOptions.map((r) => (
-              <option key={r} value={r}>
-                {existingRounds.includes(r) ? `Round ${r}` : `New round ${r}`}
-              </option>
-            ))}
-          </select>
           <Button
             variant="secondary"
             onClick={autoPick}
@@ -1321,6 +1343,7 @@ function AddCustomMatch({
               Auto-pick balanced
             </span>
           </Button>
+          <span className="text-xs text-fg-subtle">or tap 4 players below</span>
         </div>
 
         {/* Tap free players to fill the two teams; first two are A, next two B. */}

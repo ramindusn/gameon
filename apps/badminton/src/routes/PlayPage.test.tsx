@@ -260,10 +260,9 @@ describe('PlayPage', () => {
 
   it('scopes the add-match picker to this game day’s players, not the whole roster (TASK-32)', () => {
     renderPage()
-    fireEvent.click(screen.getByTestId('add-custom-match'))
-    // Move to a fresh round so the game day's players aren't booked. Only p1–p8
-    // (this game day) get chips; p9–p12 are on the roster but not at the venue.
-    fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
+    // Step into the new round (right arrow): everyone's free and the picker
+    // opens. Only p1–p8 (this game day) get chips; p9–p12 aren't at the venue.
+    fireEvent.click(screen.getByTestId('round-next'))
     expect(screen.getByTestId('pick-p8')).toBeInTheDocument()
     expect(screen.queryByTestId('pick-p9')).toBeNull()
   })
@@ -275,22 +274,19 @@ describe('PlayPage', () => {
     const original = sessionData.results[1]
     sessionData.results[1] = { ...original, teamB: ['p9', 'p10'] }
     renderPage()
-    fireEvent.click(screen.getByTestId('add-custom-match'))
-    fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
+    fireEvent.click(screen.getByTestId('round-next'))
     expect(screen.getByTestId('pick-p9')).toBeInTheDocument()
     expect(screen.queryByTestId('pick-p7')).toBeNull()
     sessionData.results[1] = original
   })
 
-  it('targets a new round, where every player is free again', () => {
+  it('adds a game to the new round via the right arrow (no round dropdown)', () => {
     addMatch.mockClear()
     renderPage()
-    fireEvent.click(screen.getByTestId('add-custom-match'))
-    // Switch to a brand-new round (2): nobody is booked there, so p1–p4
-    // (busy in round 1) become tappable, and the court resets to 1. Tapping
-    // order fills the teams: first two = Team A, next two = Team B.
-    fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
-    expect(screen.getByTestId('pick-p1')).toBeInTheDocument()
+    // Right arrow → the new round (2), where p1–p8 are all free again and the
+    // picker opens ready. Tapping order fills the teams: first two = Team A.
+    fireEvent.click(screen.getByTestId('round-next'))
+    expect(screen.getByTestId('new-round-hint')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('pick-p1'))
     fireEvent.click(screen.getByTestId('pick-p2'))
     fireEvent.click(screen.getByTestId('pick-p3'))
@@ -308,8 +304,7 @@ describe('PlayPage', () => {
   it('auto-picks a balanced foursome from the free players', () => {
     addMatch.mockClear()
     renderPage()
-    fireEvent.click(screen.getByTestId('add-custom-match'))
-    fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
+    fireEvent.click(screen.getByTestId('round-next'))
     fireEvent.click(screen.getByTestId('auto-pick-match'))
     fireEvent.click(screen.getByTestId('save-custom-match'))
     expect(addMatch).toHaveBeenCalledTimes(1)
@@ -323,9 +318,9 @@ describe('PlayPage', () => {
 
   it('excludes players already in the round from the add-match picker', () => {
     renderPage()
+    // Round 1 (the default) is full: opening the picker offers no chips. Player
+    // 9 is on the roster but not in this game day, so it's excluded too.
     fireEvent.click(screen.getByTestId('add-custom-match'))
-    // Round 1 (the default) is full: p1–p8 are all booked → no chips. Player 9
-    // is on the roster but not in this game day, so it's excluded too.
     expect(screen.queryByTestId('pick-p1')).toBeNull()
     expect(screen.queryByTestId('pick-p9')).toBeNull()
   })
