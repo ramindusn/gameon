@@ -262,13 +262,10 @@ describe('PlayPage', () => {
     renderPage()
     fireEvent.click(screen.getByTestId('add-custom-match'))
     // Move to a fresh round so the game day's players aren't booked. Only p1–p8
-    // (this game day) are offered; p9–p12 are on the roster but not at the venue.
+    // (this game day) get chips; p9–p12 are on the roster but not at the venue.
     fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
-    const opts = Array.from(
-      (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
-    ).map((o) => o.textContent)
-    expect(opts).toContain('Player 8')
-    expect(opts).not.toContain('Player 9')
+    expect(screen.getByTestId('pick-p8')).toBeInTheDocument()
+    expect(screen.queryByTestId('pick-p9')).toBeNull()
   })
 
   it('derives the add-match player set from the (edited) line-ups (TASK-32 AC#3)', () => {
@@ -280,28 +277,24 @@ describe('PlayPage', () => {
     renderPage()
     fireEvent.click(screen.getByTestId('add-custom-match'))
     fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
-    const opts = Array.from(
-      (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
-    ).map((o) => o.textContent)
-    expect(opts).toContain('Player 9')
-    expect(opts).not.toContain('Player 7')
+    expect(screen.getByTestId('pick-p9')).toBeInTheDocument()
+    expect(screen.queryByTestId('pick-p7')).toBeNull()
     sessionData.results[1] = original
   })
 
   it('targets a new round, where every player is free again', () => {
+    addMatch.mockClear()
     renderPage()
     fireEvent.click(screen.getByTestId('add-custom-match'))
     // Switch to a brand-new round (2): nobody is booked there, so p1–p4
-    // (busy in round 1) become selectable, and the court resets to 1.
+    // (busy in round 1) become tappable, and the court resets to 1. Tapping
+    // order fills the teams: first two = Team A, next two = Team B.
     fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
-    const opts = Array.from(
-      (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
-    ).map((o) => o.textContent)
-    expect(opts).toContain('Player 1')
-    fireEvent.change(screen.getByTestId('custom-a1'), { target: { value: 'p1' } })
-    fireEvent.change(screen.getByTestId('custom-a2'), { target: { value: 'p2' } })
-    fireEvent.change(screen.getByTestId('custom-b1'), { target: { value: 'p3' } })
-    fireEvent.change(screen.getByTestId('custom-b2'), { target: { value: 'p4' } })
+    expect(screen.getByTestId('pick-p1')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('pick-p1'))
+    fireEvent.click(screen.getByTestId('pick-p2'))
+    fireEvent.click(screen.getByTestId('pick-p3'))
+    fireEvent.click(screen.getByTestId('pick-p4'))
     fireEvent.click(screen.getByTestId('save-custom-match'))
     expect(addMatch).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -312,16 +305,29 @@ describe('PlayPage', () => {
     )
   })
 
+  it('auto-picks a balanced foursome from the free players', () => {
+    addMatch.mockClear()
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-custom-match'))
+    fireEvent.change(screen.getByTestId('custom-round'), { target: { value: '2' } })
+    fireEvent.click(screen.getByTestId('auto-pick-match'))
+    fireEvent.click(screen.getByTestId('save-custom-match'))
+    expect(addMatch).toHaveBeenCalledTimes(1)
+    const players: string[] = addMatch.mock.calls.at(-1)![0].players
+    expect(players).toHaveLength(4)
+    expect(new Set(players).size).toBe(4) // four distinct players
+    for (const p of players) {
+      expect(['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']).toContain(p)
+    }
+  })
+
   it('excludes players already in the round from the add-match picker', () => {
     renderPage()
     fireEvent.click(screen.getByTestId('add-custom-match'))
-    const opts = Array.from(
-      (screen.getByTestId('custom-a1') as HTMLSelectElement).querySelectorAll('option'),
-    ).map((o) => o.textContent)
-    // Round 1 (the default) is full: p1–p8 are all booked → none selectable.
-    // Player 9 is on the roster but not in this game day, so it's excluded too.
-    expect(opts).not.toContain('Player 1')
-    expect(opts).not.toContain('Player 9')
+    // Round 1 (the default) is full: p1–p8 are all booked → no chips. Player 9
+    // is on the roster but not in this game day, so it's excluded too.
+    expect(screen.queryByTestId('pick-p1')).toBeNull()
+    expect(screen.queryByTestId('pick-p9')).toBeNull()
   })
 
   it('shows who is resting a round and no label when nobody rests (TASK-31)', () => {

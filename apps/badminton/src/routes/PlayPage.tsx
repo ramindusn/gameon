@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, cx, SkeletonCard } from '@gameon/ui'
-import { validateLineup, validateScores } from '@gameon/domain'
+import { generateRounds, validateLineup, validateScores, type MatchPlayer } from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import { useAuth } from '../auth/useAuth'
@@ -338,6 +338,7 @@ export function PlayPage() {
                             present={sessionPlayers}
                             results={data.results}
                             saving={addMatch.isPending}
+                            skillOf={skillOf}
                             onAdd={(round, players) => {
                               addMatch.mutate({
                                 clubId: data.session.clubId,
@@ -1201,15 +1202,22 @@ function LineupEditor({
 }
 
 /** Add an ad-hoc match: pick a round, then four players not already in it. */
+/**
+ * Add a game mid-round in a couple of taps (TASK-67): pick 4 free players by
+ * tapping their chips (first two = Team A, next two = Team B), or one-tap
+ * "Auto-pick" for a balanced foursome from whoever's resting. No dropdowns.
+ */
 function AddCustomMatch({
   present,
   results,
   saving,
+  skillOf,
   onAdd,
 }: {
   present: PresentPlayer[]
   results: MatchResult[]
   saving: boolean
+  skillOf: SkillOf
   onAdd: (round: number, players: [string, string, string, string]) => void
 }) {
   const existingRounds = useMemo(
@@ -1221,7 +1229,7 @@ function AddCustomMatch({
 
   const [open, setOpen] = useState(false)
   const [round, setRound] = useState(lastRound)
-  const [slots, setSlots] = useState<[string, string, string, string]>(['', '', '', ''])
+  const [picks, setPicks] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const bookedInRound = useMemo(() => {
@@ -1233,33 +1241,47 @@ function AddCustomMatch({
     return ids
   }, [results, round])
   const eligible = present.filter((p) => !bookedInRound.has(p.id))
-
-  const setSlot = (i: number, value: string) =>
-    setSlots((prev) => {
-      const next = [...prev] as [string, string, string, string]
-      next[i] = value
-      return next
-    })
+  const nameOf = (id: string) => present.find((p) => p.id === id)?.nickname ?? '…'
 
   const changeRound = (value: number) => {
     setRound(value)
-    setSlots(['', '', '', ''])
+    setPicks([])
     setError(null)
   }
 
+  const toggle = (id: string) => {
+    setError(null)
+    setPicks((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= 4 ? prev : [...prev, id],
+    )
+  }
+
+  // Fill a balanced foursome from the free players using the draw balancer.
+  const autoPick = () => {
+    const pool: MatchPlayer[] = eligible.map((p) => ({ id: p.id, skill: skillOf(p.id) ?? 5 }))
+    const court = generateRounds(pool, 1, { courts: 1 })?.rounds[0]?.matches[0]
+    if (!court) {
+      setError('Need at least 4 free players to auto-pick.')
+      return
+    }
+    setError(null)
+    setPicks([court[0][0].id, court[0][1].id, court[1][0].id, court[1][1].id])
+  }
+
   const add = () => {
+    if (picks.length !== 4) {
+      setError('Pick 4 players — or use Auto-pick.')
+      return
+    }
+    const slots = picks as [string, string, string, string]
     const v = validateLineup(slots)
     if (!v.ok) {
       setError(v.error ?? 'Invalid line-up')
       return
     }
-    if (slots.some((id) => bookedInRound.has(id))) {
-      setError('That player is already playing this round.')
-      return
-    }
     setError(null)
     onAdd(round, slots)
-    setSlots(['', '', '', ''])
+    setPicks([])
     setRound(lastRound)
     setOpen(false)
   }
@@ -1267,21 +1289,20 @@ function AddCustomMatch({
   if (!open) {
     return (
       <Button variant="ghost" onClick={() => setOpen(true)} data-testid="add-custom-match">
-        + Add custom match
+        + Add a game
       </Button>
     )
   }
 
   return (
-    <Card title="Add custom match" icon={<Icon name="add" />}>
-      <div className="space-y-2" data-testid="custom-match-form">
-        <label className="block text-sm">
-          <span className="mb-1 block text-fg-muted">Round</span>
+    <Card title="Add a game" icon={<Icon name="add" />}>
+      <div className="space-y-3" data-testid="custom-match-form">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={round}
             onChange={(e) => changeRound(Number(e.target.value))}
             data-testid="custom-round"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-fg"
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg"
           >
             {roundOptions.map((r) => (
               <option key={r} value={r}>
@@ -1289,31 +1310,84 @@ function AddCustomMatch({
               </option>
             ))}
           </select>
-        </label>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {(['a1', 'a2', 'b1', 'b2'] as const).map((label, i) => (
-            <PlayerSelect
-              key={label}
-              present={eligible}
-              value={slots[i]}
-              onChange={(v) => setSlot(i, v)}
-              testid={`custom-${label}`}
-            />
-          ))}
+          <Button
+            variant="secondary"
+            onClick={autoPick}
+            disabled={eligible.length < 4}
+            data-testid="auto-pick-match"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Icon name="generate" className="h-4 w-4" />
+              Auto-pick balanced
+            </span>
+          </Button>
         </div>
+
+        {/* Tap free players to fill the two teams; first two are A, next two B. */}
+        {eligible.length === 0 ? (
+          <p className="text-sm text-fg-muted">Everyone is already playing this round.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2" data-testid="pick-chips">
+            {eligible.map((p) => {
+              const idx = picks.indexOf(p.id)
+              const sel = idx >= 0
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => toggle(p.id)}
+                  data-testid={`pick-${p.id}`}
+                  aria-pressed={sel}
+                  className={cx(
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors',
+                    sel
+                      ? 'border-accent bg-accent/15 text-accent-strong'
+                      : 'border-line bg-surface text-fg hover:bg-surface-muted',
+                  )}
+                >
+                  {p.nickname}
+                  {sel && (
+                    <span className="grid h-4 w-4 place-items-center rounded-full bg-accent/25 text-[10px] font-bold">
+                      {idx < 2 ? 'A' : 'B'}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {picks.length > 0 && (
+          <p className="text-xs text-fg-muted" data-testid="pick-summary">
+            <span className="font-medium text-fg-subtle">Team A:</span> {nameOf(picks[0])}
+            {picks[1] ? ` · ${nameOf(picks[1])}` : ''}
+            {'  ·  '}
+            <span className="font-medium text-fg-subtle">Team B:</span>{' '}
+            {picks[2] ? nameOf(picks[2]) : '…'}
+            {picks[3] ? ` · ${nameOf(picks[3])}` : ''}
+          </p>
+        )}
+
         {error && (
           <p className="text-xs text-negative" data-testid="custom-match-error">
             {error}
           </p>
         )}
+
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={add} disabled={saving} data-testid="save-custom-match">
+          <Button
+            variant="secondary"
+            onClick={add}
+            disabled={saving || picks.length !== 4}
+            data-testid="save-custom-match"
+          >
             Add match
           </Button>
           <Button
             variant="ghost"
             onClick={() => {
               setOpen(false)
+              setPicks([])
               setError(null)
             }}
             data-testid="cancel-custom-match"
