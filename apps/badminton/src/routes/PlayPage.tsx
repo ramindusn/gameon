@@ -836,7 +836,10 @@ function RoundPager({
               aria-label="Add a new round"
               title="Add a new round"
               data-testid="add-round"
-              className="grid h-5 w-5 place-items-center rounded-full border border-accent/50 text-sm font-bold leading-none text-accent-strong transition-colors hover:bg-accent/15"
+              className={cx(
+                'grid h-6 w-6 place-items-center rounded-full text-base font-bold leading-none transition-colors hover:bg-sky-400/25',
+                POINTS_PILL,
+              )}
             >
               +
             </button>
@@ -1330,6 +1333,12 @@ function RoundBuilder({
           </span>
         </Button>
         <span className="text-xs text-fg-subtle">or tap players to fill the courts</span>
+        <span
+          className="ml-auto text-xs font-medium tabular-nums text-fg-subtle"
+          data-testid="pick-count"
+        >
+          {assigned.length}/{cap} picked
+        </span>
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -1338,19 +1347,25 @@ function RoundBuilder({
           return (
             <div
               key={i}
-              className="rounded-lg border border-line bg-surface-muted/40 px-3 py-3"
+              className={cx(
+                'rounded-lg border px-3 py-3 transition-colors',
+                cp.length === 4 ? 'border-sky-400/40 bg-sky-400/5' : 'border-line bg-surface-muted/40',
+              )}
               data-testid={`court-slot-${i + 1}`}
             >
-              <div className="mb-2 text-center text-xs uppercase tracking-wide text-fg-subtle">
-                Court {i + 1}
+              <div className="mb-2 flex items-center justify-between">
+                <span className={cx('text-xs font-semibold uppercase tracking-wide', POINTS_TEXT)}>
+                  Court {i + 1}
+                </span>
+                <span className="text-[10px] tabular-nums text-fg-subtle">{cp.length}/4</span>
               </div>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
-                <div className="min-w-0">
+                <div className="min-w-0 space-y-1">
                   <SlotName id={cp[0]} nameOf={nameOf} onRemove={unassign} />
                   <SlotName id={cp[1]} nameOf={nameOf} onRemove={unassign} />
                 </div>
                 <span className="text-[11px] font-medium uppercase text-fg-subtle">vs</span>
-                <div className="min-w-0 text-right">
+                <div className="min-w-0 space-y-1 text-right">
                   <SlotName id={cp[2]} nameOf={nameOf} onRemove={unassign} align="right" />
                   <SlotName id={cp[3]} nameOf={nameOf} onRemove={unassign} align="right" />
                 </div>
@@ -1361,19 +1376,24 @@ function RoundBuilder({
       </div>
 
       {available.length > 0 && (
-        <div className="flex flex-wrap gap-2" data-testid="builder-tray">
-          {available.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => assign(p.id)}
-              disabled={assigned.length >= cap}
-              data-testid={`pick-${p.id}`}
-              className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-fg transition-colors hover:bg-surface-muted disabled:opacity-40"
-            >
-              {p.nickname}
-            </button>
-          ))}
+        <div>
+          <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-fg-subtle">
+            Available ({available.length}) · tap to add
+          </p>
+          <div className="flex flex-wrap gap-2" data-testid="builder-tray">
+            {available.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => assign(p.id)}
+                disabled={assigned.length >= cap}
+                data-testid={`pick-${p.id}`}
+                className="rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-fg transition-colors hover:border-sky-400/50 hover:bg-sky-400/10 disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-surface"
+              >
+                {p.nickname}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1414,9 +1434,14 @@ function SlotName({
 }) {
   if (!id) {
     return (
-      <p className={cx('leading-tight text-fg-subtle', align === 'right' ? 'text-right' : 'text-left')}>
-        —
-      </p>
+      <span
+        className={cx(
+          'block truncate rounded border border-dashed border-line px-2 py-0.5 text-xs text-fg-subtle',
+          align === 'right' ? 'text-right' : 'text-left',
+        )}
+      >
+        empty
+      </span>
     )
   }
   return (
@@ -1425,7 +1450,7 @@ function SlotName({
       onClick={() => onRemove(id)}
       title="Tap to remove"
       className={cx(
-        'block w-full truncate font-medium leading-tight text-fg hover:text-negative',
+        'block w-full truncate rounded bg-surface px-2 py-0.5 font-medium leading-tight text-fg transition-colors hover:bg-negative/10 hover:text-negative',
         align === 'right' ? 'text-right' : 'text-left',
       )}
     >
