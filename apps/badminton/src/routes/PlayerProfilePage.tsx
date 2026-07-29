@@ -17,6 +17,7 @@ import { effectiveSkill } from '../ranking/effectiveSkill'
 import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import { PerformanceChart } from '../profile/PerformanceChart'
 import { computePartnerStats, toughestOpponents, type DuoStat } from '../profile/headToHead'
+import { computeImproving } from '../profile/improving'
 
 /** How many recent game days the match history shows before "Show all". */
 const HISTORY_PREVIEW_DAYS = 3
@@ -48,17 +49,17 @@ export function PlayerProfilePage() {
   const liveSkill = player
     ? effectiveSkill(player.skill, rated?.rating, rated?.games ?? history.length)
     : null
-  // "Improving" = recently winning more than losing (motivating up-signal only).
-  const recentForm = form.data?.[id] ?? []
-  const recentWins = recentForm.filter((r) => r === 'W').length
-  const recentLosses = recentForm.filter((r) => r === 'L').length
-  const improving = recentForm.length >= 3 && recentWins > recentLosses
-
   // Leaderboard context: rating-over-time + current rank and movement (TASK-55).
   const ratingCtx = useRatingHistory(id)
   const rank = ratingCtx.data?.rank ?? null
   const rankMove =
     rank != null && ratingCtx.data?.prevRank != null ? ratingCtx.data.prevRank - rank : null
+
+  // "Improving" now tracks the rating trajectory (see profile/improving.ts).
+  const { improving, gain: improvingGain } = useMemo(
+    () => computeImproving(ratingCtx.data?.points ?? []),
+    [ratingCtx.data],
+  )
 
   // Match history grouped by game day, newest first (history arrives sorted).
   const days = useMemo(() => {
@@ -131,7 +132,7 @@ export function PlayerProfilePage() {
                   {improving && (
                     <span
                       className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-accent-strong"
-                      title="Winning more than losing lately — keep it up!"
+                      title={`Rating up +${improvingGain} over recent game days — keep it up!`}
                       data-testid="improving-badge"
                     >
                       <svg
