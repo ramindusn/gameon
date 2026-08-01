@@ -567,12 +567,32 @@ const EMPTY_RATING_CONTEXT: RatingContext = {
  * current rank and the rank they held after the previous day. Mirrors
  * loadGameDayRatingDeltas' replay so the profile agrees with the boards.
  */
+/**
+ * A player's leaderboard rank: their position among the established (low-RD),
+ * non-inactive players by rating. Returns null when the player is provisional
+ * or inactive — they never hold a rank, mirroring the leaderboard (TASK-58/68).
+ */
+export function computeRank(
+  players: { id: string; rating: number; rd: number }[],
+  playerId: string,
+  inactive: ReadonlySet<string>,
+): number | null {
+  const me = players.find((p) => p.id === playerId)
+  if (!me || me.rd >= PROVISIONAL_RD || inactive.has(playerId)) return null
+  return (
+    players.filter((p) => p.rd < PROVISIONAL_RD && !inactive.has(p.id) && p.rating > me.rating)
+      .length + 1
+  )
+}
+
 export async function loadRatingHistory(playerId: string): Promise<RatingContext> {
   if (isE2E()) {
     const row = E2E_PLAYER_BOARD.find((p) => p.playerId === playerId)
-    if (!row || row.rd >= PROVISIONAL_RD) return EMPTY_RATING_CONTEXT
+    if (!row || row.rd >= PROVISIONAL_RD || E2E_INACTIVE.includes(playerId)) {
+      return EMPTY_RATING_CONTEXT
+    }
     const rank = E2E_PLAYER_BOARD.filter(
-      (p) => p.rd < PROVISIONAL_RD && p.rating > row.rating,
+      (p) => p.rd < PROVISIONAL_RD && !E2E_INACTIVE.includes(p.playerId) && p.rating > row.rating,
     ).length
     return { points: [], rank: rank + 1, prevRank: rank + 1, provisional: false }
   }
@@ -638,12 +658,16 @@ export async function loadRatingHistory(playerId: string): Promise<RatingContext
   )
   if (firstIdx === -1) return EMPTY_RATING_CONTEXT
 
-  // Rank among established players from one replay result.
-  const rankOf = (players: { id: string; rating: number; rd: number }[]): number | null => {
-    const me = players.find((p) => p.id === playerId)
-    if (!me || me.rd >= PROVISIONAL_RD) return null
-    return players.filter((p) => p.rd < PROVISIONAL_RD && p.rating > me.rating).length + 1
-  }
+  // Inactive players (missed the last ABSENCE_GRACE_PERIOD finished game days)
+  // are excluded from the ranking, same as the leaderboard (TASK-58/68).
+  const recentIds = new Set(sRows.slice(-ABSENCE_GRACE_PERIOD).map((s) => s.id))
+  const recentAttendance = (
+    (attendance ?? []) as { session_id: string; player_id: string; present: boolean }[]
+  ).filter((a) => recentIds.has(a.session_id))
+  const inactive = new Set(computeInactivePlayers(recentAttendance, ABSENCE_GRACE_PERIOD))
+
+  const rankOf = (players: { id: string; rating: number; rd: number }[]): number | null =>
+    computeRank(players, playerId, inactive)
 
   const points: RatingHistoryPoint[] = []
   let rank: number | null = null

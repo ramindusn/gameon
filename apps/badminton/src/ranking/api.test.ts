@@ -4,6 +4,7 @@ import {
   buildGameDayBoard,
   computeAttendance,
   computeInactivePlayers,
+  computeRank,
   mapPairRatingRow,
   mapPlayerRatingRow,
   type FormResultRow,
@@ -240,5 +241,44 @@ describe('computeAttendance (TASK-64)', () => {
     // Rows out of order; still: absent newest (s1), present s2 → streak 1.
     const att = computeAttendance([row('p5', 's2', true), row('p5', 's1', false)], order)
     expect(att.p5).toEqual({ attended: 1, missStreak: 1 })
+  })
+})
+
+describe('computeRank (TASK-68)', () => {
+  // Established players (rd < 150) by rating; e3 is inactive.
+  const board = [
+    { id: 'e1', rating: 1600, rd: 50 },
+    { id: 'e2', rating: 1550, rd: 60 },
+    { id: 'e3', rating: 1520, rd: 60 }, // inactive — sits mid-table by rating
+    { id: 'e4', rating: 1500, rd: 55 },
+    { id: 'e5', rating: 1480, rd: 55 },
+    { id: 'p6', rating: 1400, rd: 200 }, // provisional (high rd)
+  ]
+  const inactive = new Set(['e3'])
+
+  it('excludes inactive players from the rank count', () => {
+    // e4 is rated below e1, e2, e3 — but e3 is inactive, so e4 is rank 3, not 4.
+    expect(computeRank(board, 'e4', inactive)).toBe(3)
+    expect(computeRank(board, 'e5', inactive)).toBe(4)
+  })
+
+  it('matches a plain count when nobody is inactive', () => {
+    expect(computeRank(board, 'e4', new Set())).toBe(4)
+  })
+
+  it('gives an inactive player no rank, even when established', () => {
+    expect(computeRank(board, 'e3', inactive)).toBeNull()
+  })
+
+  it('gives a provisional (high-RD) player no rank', () => {
+    expect(computeRank(board, 'p6', inactive)).toBeNull()
+  })
+
+  it('returns null for an unknown player', () => {
+    expect(computeRank(board, 'nope', inactive)).toBeNull()
+  })
+
+  it('the top active player is rank 1', () => {
+    expect(computeRank(board, 'e1', inactive)).toBe(1)
   })
 })
