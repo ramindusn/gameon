@@ -1,0 +1,10 @@
+{
+  // Editor-support config so the TS server resolves this package (and its tests)
+  // with the repo's compiler options instead of an inferred default project.
+  // `npm run typecheck` still checks everything via ../../tsconfig.typecheck.json.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src"]
+}

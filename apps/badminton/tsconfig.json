@@ -2,13 +2,18 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "types": ["vite/client"],
+    // `node` matches tsconfig.typecheck.json so this config (which editors pick up
+    // for app files) type-checks the same way CI does; the jest-dom matcher
+    // augmentation comes from including vitest.setup.ts below.
+    "types": ["vite/client", "node"],
     "paths": {
       "@gameon/ui": ["../../packages/ui/src/index.tsx"],
       "@gameon/domain": ["../../packages/domain/src/index.ts"],
       "@gameon/supabase": ["../../packages/supabase/src/index.ts"]
     }
   },
-  "include": ["src", "vite.config.ts"],
-  "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"]
+  // Test files are included (not excluded) so editors resolve their types the
+  // same way `npm run typecheck` does — vite bundles from the entry graph, not
+  // this include list, so test files never reach the production bundle.
+  "include": ["src", "vite.config.ts", "../../vitest.setup.ts"]
 }

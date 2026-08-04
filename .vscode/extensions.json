@@ -1,0 +1,4 @@
+{
+  // Deno LSP for the Supabase edge functions (see .vscode/settings.json).
+  "recommendations": ["denoland.vscode-deno"]
+}
