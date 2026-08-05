@@ -57,9 +57,17 @@ export function MyStock() {
           </li>
         ))}
       </ul>
+      {/* "in your hands", not "in total": the dashboard shows the club figure
+          under the same kind of heading, and the two looked like they
+          disagreed when they were only counting different things. */}
       <p className="mt-3 text-sm font-semibold text-fg" data-testid="my-stock-total">
-        {data.totalShuttles} shuttles in total
+        {data.totalShuttles} shuttles in your hands
       </p>
+      {data.clubTotalShuttles > data.totalShuttles && (
+        <p className="mt-0.5 text-xs text-fg-muted" data-testid="my-stock-club-total">
+          of {data.clubTotalShuttles} in the club — the rest is with other matchmakers.
+        </p>
+      )}
       <p className="mt-1 text-xs text-fg-subtle">
         An admin allocates and moves stock. Tell them if these numbers look wrong.
       </p>

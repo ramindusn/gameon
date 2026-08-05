@@ -37,24 +37,44 @@ describe('MyStock', () => {
         },
       ],
       totalShuttles: 125,
+      clubTotalShuttles: 200,
     }
     renderCard()
     const row = await screen.findByTestId('my-stock-p1')
     expect(row).toHaveTextContent('RSL')
     expect(row).toHaveTextContent('10')
     expect(row).toHaveTextContent('5')
-    expect(screen.getByTestId('my-stock-total')).toHaveTextContent('125 shuttles in total')
+    // "in your hands", not "in total" — the dashboard's club figure is shown
+    // under a similar heading and the two read as a contradiction otherwise.
+    expect(screen.getByTestId('my-stock-total')).toHaveTextContent(
+      '125 shuttles in your hands',
+    )
+    expect(screen.getByTestId('my-stock-club-total')).toHaveTextContent('of 200 in the club')
   })
 
   // Vanishing left them with no explanation for the "Nobody is holding stock"
   // they then meet in the usage form (TASK-76.2).
   it('explains itself when they are a matchmaker holding nothing', async () => {
-    stock.current = { holderName: 'Ramboo', items: [], totalShuttles: 0 }
+    stock.current = { holderName: 'Ramboo', items: [], totalShuttles: 0, clubTotalShuttles: 0 }
     renderCard()
     expect(await screen.findByTestId('my-stock-empty')).toHaveTextContent(
       /not holding any shuttles/i,
     )
     expect(screen.queryByTestId('my-stock')).not.toBeInTheDocument()
+  })
+
+  it('leaves the club line off when they hold all of it', async () => {
+    stock.current = {
+      holderName: 'Ramboo',
+      items: [
+        { productId: 'p1', brand: 'RSL', model: 'C', barrels: 1, looseShuttles: 0, shuttles: 12 },
+      ],
+      totalShuttles: 12,
+      clubTotalShuttles: 12,
+    }
+    renderCard()
+    await screen.findByTestId('my-stock-total')
+    expect(screen.queryByTestId('my-stock-club-total')).toBeNull()
   })
 
   it('renders nothing for someone who is not a matchmaker', async () => {
@@ -78,6 +98,7 @@ describe('MyStock', () => {
         },
       ],
       totalShuttles: 12,
+      clubTotalShuttles: 12,
     }
     renderCard()
     await screen.findByTestId('my-stock-p1')

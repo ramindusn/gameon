@@ -25,9 +25,11 @@ export function MatchmakerHome() {
       >
         <LiveNow />
         <ShuttlesToRecord />
-        <RecentGameDays />
-        {/* The barrels this matchmaker is keeping (renders nothing if none). */}
+        {/* The barrels this matchmaker is keeping. Sits with the two cards it
+            relates to — what is on now and what still needs recording — rather
+            than below the history, which pushed it off the first screen. */}
         <MyStock />
+        <RecentGameDays />
       </div>
     </AppShell>
   )

@@ -377,6 +377,9 @@ export interface MyStock {
   holderName: string
   items: MyStockItem[]
   totalShuttles: number
+  /** Every matchmaker's stock added up, so "in your hands" can be read against
+   *  the club figure the dashboard shows rather than looking like it disagrees. */
+  clubTotalShuttles: number
 }
 
 /** The signed-in matchmaker's own stock. Null when they hold none / aren't one. */
@@ -394,14 +397,22 @@ export async function loadMyStock(): Promise<MyStock | null> {
     .maybeSingle()
   if (!profile?.is_matchmaker) return null
 
+  // Every holding, not just this matchmaker's: the card names the club total
+  // too, and a matchmaker may read them all (holdings_matchmaker_read).
   const [{ data: holdings }, { data: products }] = await Promise.all([
-    db.from('holdings').select('*').eq('holder_id', profile.id),
+    db.from('holdings').select('*'),
     db.from('products').select('*'),
   ])
 
   const byId = new Map((products ?? []).map((p) => [p.id, p]))
+  const shuttlesOf = (h: { product_id: string; barrels: number; loose_shuttles: number }) => {
+    const p = byId.get(h.product_id)
+    return p ? h.barrels * p.shuttles_per_barrel + h.loose_shuttles : 0
+  }
+  const clubTotalShuttles = (holdings ?? []).reduce((s, h) => s + shuttlesOf(h), 0)
+
   const items: MyStockItem[] = []
-  for (const h of holdings ?? []) {
+  for (const h of (holdings ?? []).filter((h) => h.holder_id === profile.id)) {
     const p = byId.get(h.product_id)
     if (!p) continue
     if (h.barrels === 0 && h.loose_shuttles === 0) continue
@@ -420,5 +431,6 @@ export async function loadMyStock(): Promise<MyStock | null> {
     holderName: profile.nickname,
     items,
     totalShuttles: items.reduce((s, i) => s + i.shuttles, 0),
+    clubTotalShuttles,
   }
 }
