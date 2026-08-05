@@ -7,6 +7,8 @@ import {
   remainingFund,
   shuttlesPerGameDay,
   totalCollected,
+  totalExpenses,
+  totalPurchases,
   totalSpent,
   totalUsageIncome,
 } from '@gameon/domain'
@@ -16,6 +18,8 @@ export function FundSummary() {
   const { state } = useFund()
   const cash = totalCollected(state)
   const usage = totalUsageIncome(state)
+  const purchases = totalPurchases(state)
+  const expenses = totalExpenses(state)
   const spent = totalSpent(state)
   const moneyIn = cash + usage
   const remaining = remainingFund(state)
@@ -76,7 +80,16 @@ export function FundSummary() {
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-red-500">
             Money out
           </div>
-          <Row label="Stock & expenses" value={`− ${euro(spent)}`} negative />
+          {/* Shuttles and everything else were one "Stock & expenses" line, so
+              a 16.67 € expense sat invisible inside a 768.50 € figure and read
+              as though it had not been counted at all. */}
+          <Row label="Shuttles bought" value={`− ${euro(purchases)}`} negative />
+          <Row
+            label="Other expenses"
+            value={`− ${euro(expenses)}`}
+            negative
+            faded={expenses === 0}
+          />
           <Subtotal label="Total out" value={`− ${euro(spent)}`} negative />
         </section>
 

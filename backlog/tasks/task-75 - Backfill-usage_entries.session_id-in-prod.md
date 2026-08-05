@@ -1,9 +1,11 @@
 ---
 id: TASK-75
 title: Backfill usage_entries.session_id in prod
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-08-05 12:30'
+updated_date: '2026-08-05 20:33'
 labels:
   - ops
 dependencies: []
@@ -37,8 +39,22 @@ CAUTION: prod ids above are prod's own and were valid on 2026-08-05 — re-verif
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every prod game day that had admin-side usage resolves to a linked usage entry
-- [ ] #2 The two pre-game-day entries (Jun 17, Jun 21) remain unlinked
-- [ ] #3 Club shuttle totals are unchanged by the backfill (61 across the copied range)
-- [ ] #4 The mapping is re-verified against live prod data before the write, not taken from this description on faith
+- [x] #1 Every prod game day that had admin-side usage resolves to a linked usage entry
+- [x] #2 The two pre-game-day entries (Jun 17, Jun 21) remain unlinked
+- [x] #3 Club shuttle totals are unchanged by the backfill (61 across the copied range)
+- [x] #4 The mapping is re-verified against live prod data before the write, not taken from this description on faith
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Applied to prod 2026-08-05. Mapping recomputed from live prod first (AC #4) and it reproduced the recorded plan exactly: nine entries 0.8-8.3h after one game day, Jun 23 and Jul 19 with two each, the two June entries 56h and 140h from anything.
+
+Rehearsed on dev before touching prod — dev already held this end state from the TASK-74 clone, so it was a free test of idempotency: it changed nothing and still passed every assertion.
+
+Result on prod: 13 entries, 11 linked, 2 unlinked, 61 shuttles (unchanged), 0 game days missing usage. 193 match results and 184 attendance rows untouched.
+
+holder_id left null on every item, deliberately: those shuttles came from the old club pool and Ramboo's holdings were derived from products.barrels which was ALREADY net of them. Naming a holder would mean a later delete credited him stock never deducted from him.
+
+Run as a one-off and removed from migration history rather than committed, since dev must not re-run it.
+<!-- SECTION:NOTES:END -->
