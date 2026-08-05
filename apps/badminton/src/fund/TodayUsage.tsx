@@ -87,7 +87,9 @@ export function TodayUsage() {
         {history.length === 0 ? (
           <p className="text-sm text-fg-subtle">
             No game days logged yet.
-            {isAuthenticated ? ' Use + Add transaction in the header to log one.' : ''}
+            {isAuthenticated
+              ? ' Record one in the Game-day usage card above, against the day and the matchmaker whose barrels were used.'
+              : ''}
           </p>
         ) : (
           <ul className="space-y-2">

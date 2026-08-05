@@ -8,7 +8,6 @@ import {
   deleteProduct as rDeleteProduct,
   deleteTransaction as rDeleteTransaction,
   emptyFundState,
-  recordUsage as rRecordUsage,
   updateBatchPrice as rUpdateBatchPrice,
   updateProduct as rUpdateProduct,
   type FundState,
@@ -141,8 +140,6 @@ export function useFund() {
     deleteProduct: (id: string) => apply((s) => rDeleteProduct(s, id)),
     updateBatchPrice: (id: string, price: number) =>
       apply((s) => rUpdateBatchPrice(s, id, price)),
-    recordUsage: (date: string, items: { productId: string; shuttlesUsed: number }[]) =>
-      apply((s) => rRecordUsage(s, date, items, loggedBy)),
     addMember: (name: string, cash: number, when?: string, email?: string) =>
       apply((s) => rAddMember(s, name, cash, when, loggedBy, email)),
     addCash: (memberId: string, amount: number, when?: string) =>

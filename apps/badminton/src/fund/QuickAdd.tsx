@@ -3,7 +3,7 @@ import { Button, Field, Modal } from '@gameon/ui'
 import { nowLocalInput } from '@gameon/domain'
 import { useFund } from './useFund'
 
-type Kind = 'cash' | 'expense' | 'usage'
+type Kind = 'cash' | 'expense'
 
 /**
  * Single "+ Add transaction" entry point. Opens a chooser, then routes to a
@@ -43,23 +43,18 @@ export function QuickAdd() {
               subtitle="Money paid out (not shuttles)"
               onClick={() => pick('expense')}
             />
-            <ChoiceCard
-              accent="emerald"
-              title="Game-day usage"
-              subtitle="Members pay for shuttles used"
-              onClick={() => pick('usage')}
-            />
           </div>
           <p className="mt-3 text-xs text-fg-subtle">
             Buying shuttles? Use <span className="font-medium">Add product</span> in the
-            Inventory card so the batch price is tracked.
+            Inventory card so the batch price is tracked. Shuttles used on a game day
+            are recorded in <span className="font-medium">Game-day usage</span>, against
+            the day and the matchmaker whose barrels they came from.
           </p>
         </Modal>
       )}
 
       {kind === 'cash' && <CashModal onClose={() => setKind(null)} />}
       {kind === 'expense' && <ExpenseModal onClose={() => setKind(null)} />}
-      {kind === 'usage' && <UsageModal onClose={() => setKind(null)} />}
     </>
   )
 }
@@ -215,57 +210,3 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function UsageModal({ onClose }: { onClose: () => void }) {
-  const { state, recordUsage } = useFund()
-  const [when, setWhen] = useState(nowLocalInput())
-  const [counts, setCounts] = useState<Record<string, string>>({})
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault()
-    const items = state.products
-      .map((p) => ({ productId: p.id, shuttlesUsed: Number(counts[p.id] || 0) }))
-      .filter((i) => i.shuttlesUsed > 0)
-    if (items.length === 0) return
-    recordUsage(when, items)
-    onClose()
-  }
-
-  return (
-    <Modal open title="Record game-day usage" onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3">
-        <Field
-          label="Game day & time"
-          type="datetime-local"
-          value={when}
-          onChange={(e) => setWhen(e.target.value)}
-        />
-        {state.products.map((p) => (
-          <Field
-            key={p.id}
-            label={`${p.brand} ${p.model} — shuttles used`}
-            type="number"
-            min={0}
-            step="1"
-            value={counts[p.id] ?? ''}
-            onChange={(e) => setCounts((c) => ({ ...c, [p.id]: e.target.value }))}
-            placeholder="0"
-          />
-        ))}
-        {state.products.length === 0 && (
-          <p className="text-sm text-fg-muted">Add a product first in Inventory.</p>
-        )}
-        <p className="text-xs text-fg-subtle">
-          Members are charged for the shuttles used. Increases the fund.
-        </p>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={state.products.length === 0}>
-            Record usage
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  )
-}

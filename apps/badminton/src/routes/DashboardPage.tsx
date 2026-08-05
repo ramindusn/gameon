@@ -1,12 +1,13 @@
+import { useState } from 'react'
 import {
   euro,
   remainingFund,
   totalShuttlesInStock,
   totalShuttlesUsed,
 } from '@gameon/domain'
-import { SkeletonCard } from '@gameon/ui'
+import { cx, SkeletonCard } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
-import { Icon } from '../app/Icon'
+import { Icon, type IconName } from '../app/Icon'
 import { StatCard, DualStatCard } from '../app/StatCard'
 import { useFund } from '../fund/useFund'
 import { QuickAdd } from '../fund/QuickAdd'
@@ -22,8 +23,19 @@ import { MemberBalances } from '../fund/MemberBalances'
 // the prototype's fund/inventory dashboard into the Emerald Pro shell: KPIs +
 // game-day usage, fund summary, inventory, transaction log and member balances,
 // all add/edit/delete-capable. Data via @gameon/domain + TanStack Query (ADR 0006).
+type DashTab = 'gamedays' | 'stock' | 'money'
+
+const DASH_TABS: { id: DashTab; label: string; icon: IconName }[] = [
+  { id: 'gamedays', label: 'Game days', icon: 'calendar' },
+  { id: 'stock', label: 'Stock', icon: 'inventory' },
+  { id: 'money', label: 'Money', icon: 'money' },
+]
+
 export function DashboardPage() {
   const { state, playerCount, isLoading, isError } = useFund()
+  // Game days lead: recording the day's shuttles is the recurring job, and the
+  // KPI row above already answers "how is the fund doing?" at a glance.
+  const [tab, setTab] = useState<DashTab>('gamedays')
   const remaining = remainingFund(state)
   const shuttles = totalShuttlesInStock(state)
 
@@ -80,25 +92,72 @@ export function DashboardPage() {
           />
         </div>
 
-        {/* Today's usage paired with the compact fund summary */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <AdminGameDayUsage />
-            <TodayUsage />
-          </div>
-          <div className="lg:col-span-1">
-            <FundSummary />
-          </div>
-        </div>
+        {/* Seven panels at once read as clutter, so the KPIs above stay put and
+            the rest is grouped behind tabs — one job at a time (TASK-73). */}
+        <DashboardTabs active={tab} onChange={setTab} />
 
-        {/* Wide tables get full width */}
         <div className="mt-6 space-y-6">
-          <StockPanel />
-          <Inventory />
-          <TransactionLog />
-          <MemberBalances />
+          {tab === 'gamedays' && (
+            <>
+              <AdminGameDayUsage />
+              <TodayUsage />
+            </>
+          )}
+          {tab === 'stock' && (
+            <>
+              <StockPanel />
+              <Inventory />
+            </>
+          )}
+          {tab === 'money' && (
+            <>
+              <FundSummary />
+              <TransactionLog />
+              <MemberBalances />
+            </>
+          )}
         </div>
       </div>
     </AppShell>
+  )
+}
+
+/** Groups the dashboard's panels so only one area is on screen at a time. */
+function DashboardTabs({
+  active,
+  onChange,
+}: {
+  active: DashTab
+  onChange: (t: DashTab) => void
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Dashboard sections"
+      className="flex items-center gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1 text-sm"
+    >
+      {DASH_TABS.map((t) => {
+        const on = active === t.id
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            type="button"
+            aria-selected={on}
+            onClick={() => onChange(t.id)}
+            data-testid={`dash-tab-${t.id}`}
+            className={cx(
+              'inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 font-medium transition-colors',
+              on
+                ? 'bg-accent text-neutral-950'
+                : 'text-fg-muted hover:bg-surface-muted hover:text-fg',
+            )}
+          >
+            <Icon name={t.icon} className="h-4 w-4" />
+            {t.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
