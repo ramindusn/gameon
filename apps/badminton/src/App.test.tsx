@@ -29,4 +29,10 @@ describe('App', () => {
     renderAt('/dashboard')
     expect(await screen.findByTestId('nav-admin-login')).toBeInTheDocument()
   })
+
+  it('sends the old /play/:id address to the game day page (TASK-71)', async () => {
+    // Shared links and bookmarks from before the two pages merged must still land.
+    renderAt('/play/abc-123')
+    expect(await screen.findByTestId('play')).toBeInTheDocument()
+  })
 })

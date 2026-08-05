@@ -1,4 +1,4 @@
-import type { FundState, Member, Product, Purchase } from './types'
+import type { FundState, Holding, Member, Product, Purchase, StockHolder } from './types'
 
 /** Build a Product with sensible defaults for tests. */
 export function makeProduct(overrides: Partial<Product> = {}): Product {
@@ -35,6 +35,16 @@ export function makeMember(overrides: Partial<Member> = {}): Member {
   }
 }
 
+/** Build a StockHolder (a matchmaker) with sensible defaults for tests. */
+export function makeHolder(overrides: Partial<StockHolder> = {}): StockHolder {
+  return { id: 'h1', name: 'Ramboo', ...overrides }
+}
+
+/** Build a Holding with sensible defaults for tests. */
+export function makeHolding(overrides: Partial<Holding> = {}): Holding {
+  return { productId: 'p1', holderId: 'h1', barrels: 0, looseShuttles: 0, ...overrides }
+}
+
 /** Build a full FundState, overriding only the slices a test cares about. */
 export function makeState(overrides: Partial<FundState> = {}): FundState {
   return {
@@ -43,6 +53,8 @@ export function makeState(overrides: Partial<FundState> = {}): FundState {
     purchases: [],
     usage: [],
     expenses: [],
+    holders: [],
+    holdings: [],
     ...overrides,
   }
 }

@@ -1,9 +1,9 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { MatchResult, MatchSession } from '../play/api'
 
-const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole } =
+const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole, usageCtx, lastUsageModalProps, ratingDeltas } =
   vi.hoisted(() => {
   const session: MatchSession = {
     id: 's1',
@@ -49,6 +49,14 @@ const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, ses
     deleteMatch: vi.fn(),
     sessionData: { session, results },
     authRole: { current: 'matchmaker' as 'matchmaker' | 'admin' | null },
+    // Stock context drives whether finishing prompts for shuttle usage.
+    usageCtx: { current: null as { myHolderId?: string } | null },
+    // Last props the usage dialog was rendered with, so tests can hit "Later".
+    lastUsageModalProps: {
+      current: null as { onLater?: () => void; onClose?: () => void } | null,
+    },
+    // Real per-day rating movement, once the day is finished and recomputed.
+    ratingDeltas: { current: undefined as Record<string, number> | undefined },
   }
 })
 
@@ -86,17 +94,33 @@ vi.mock('../roster/useRoster', () => ({
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ role: authRole.current, signOut: vi.fn() }),
 }))
+// The usage card fetches through TanStack Query; this suite mocks its hooks
+// rather than providing a QueryClient, and the card has its own tests.
+vi.mock('../fund/GameDayUsage', () => ({
+  GameDayUsagePanel: () => <div data-testid="usage-panel" />,
+  // Captured so tests can drive "Later" without rendering the real dialog.
+  GameDayUsageModal: (props: { onLater?: () => void; onClose?: () => void }) => {
+    lastUsageModalProps.current = props
+    return null
+  },
+  useStockContext: () => ({ data: usageCtx.current }),
+}))
 vi.mock('../ranking/useRanking', () => ({
   usePlayerBoard: () => ({ data: [] }),
+  // Empty until a day is finished and recomputed, so the Points tab falls back
+  // to its projection — which is what these tests assert.
+  useGameDayRatingDeltas: () => ({ data: ratingDeltas.current }),
 }))
 
 import { PlayPage } from './PlayPage'
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/play/s1']}>
+    <MemoryRouter initialEntries={['/game-days/s1']}>
       <Routes>
-        <Route path="/play/:id" element={<PlayPage />} />
+        <Route path="/game-days/:id" element={<PlayPage />} />
+        {/* Stand-in so tests can tell whether finishing navigated away. */}
+        <Route path="/leaderboard" element={<div data-testid="leaderboard-page" />} />
       </Routes>
     </MemoryRouter>,
   )
@@ -111,6 +135,9 @@ describe('PlayPage', () => {
     addMatch.mockClear()
     deleteMatch.mockClear()
     authRole.current = 'matchmaker'
+    usageCtx.current = null
+    lastUsageModalProps.current = null
+    ratingDeltas.current = undefined
   })
 
   it('switches to the Points tab, showing point diff + ranking gain per player', () => {
@@ -123,6 +150,16 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('points-p5')).toHaveTextContent('+8.0')
     expect(screen.getByTestId('points-p7')).toHaveTextContent('-6')
     expect(screen.getByTestId('points-p7')).toHaveTextContent('-8.0')
+  })
+
+  it('shows the real recorded rating movement once the day is scored (TASK-71)', () => {
+    // A finished, recomputed day has actual deltas — they win over the
+    // projection so the page agrees with the leaderboard.
+    ratingDeltas.current = { p5: 12.4, p7: -12.4 }
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-points'))
+    expect(screen.getByTestId('points-p5')).toHaveTextContent('+12.4')
+    expect(screen.getByTestId('points-p7')).toHaveTextContent('-12.4')
   })
 
   it('has two tabs (Matches + Points), not separate Schedule/Score', () => {
@@ -204,6 +241,57 @@ describe('PlayPage', () => {
       'finished',
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
+    sessionData.results[0].winner = null
+  })
+
+  it('asks for the shuttles used instead of leaving straight away (TASK-70)', () => {
+    // A matchmaker holding stock is the one who can answer, so they get the popup.
+    usageCtx.current = { myHolderId: 'h1' }
+    sessionData.results[0].winner = 'a'
+    renderPage()
+    fireEvent.click(screen.getByTestId('finish-session'))
+    act(() => setStatus.mock.calls[0][1].onSuccess())
+    // Still on the game day, with the popup owning the next step.
+    expect(screen.queryByTestId('leaderboard-page')).toBeNull()
+    sessionData.results[0].winner = null
+  })
+
+  it('keeps the usage panel off the page during live play (TASK-70)', () => {
+    usageCtx.current = { myHolderId: 'h1' }
+    renderPage()
+    // Live: the popup on finishing is the prompt, so nothing clutters the page.
+    expect(screen.queryByTestId('usage-panel')).toBeNull()
+  })
+
+  it('shows the usage panel once the game day is finished (TASK-70)', () => {
+    usageCtx.current = { myHolderId: 'h1' }
+    sessionData.session.status = 'finished'
+    renderPage()
+    expect(screen.getByTestId('usage-panel')).toBeInTheDocument()
+    sessionData.session.status = 'live'
+  })
+
+  it('keeps a deferred game day on the page, revealing the usage panel (TASK-70)', () => {
+    usageCtx.current = { myHolderId: 'h1' }
+    sessionData.results[0].winner = 'a'
+    renderPage()
+    fireEvent.click(screen.getByTestId('finish-session'))
+    act(() => setStatus.mock.calls[0][1].onSuccess())
+    // "Later" must not strand the matchmaker on the leaderboard — it leaves the
+    // panel behind as the way back in.
+    act(() => lastUsageModalProps.current?.onLater?.())
+    expect(screen.queryByTestId('leaderboard-page')).toBeNull()
+    expect(screen.getByTestId('usage-panel')).toBeInTheDocument()
+    sessionData.results[0].winner = null
+  })
+
+  it('finishes straight to the leaderboard for someone holding no stock (TASK-70)', () => {
+    usageCtx.current = null
+    sessionData.results[0].winner = 'a'
+    renderPage()
+    fireEvent.click(screen.getByTestId('finish-session'))
+    act(() => setStatus.mock.calls[0][1].onSuccess())
+    expect(screen.getByTestId('leaderboard-page')).toBeInTheDocument()
     sessionData.results[0].winner = null
   })
 

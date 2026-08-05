@@ -1,7 +1,17 @@
 // Pure fund & inventory math (E06 / TASK-7.1). No I/O — everything derives from
 // a FundState snapshot so it is trivially unit-testable and reusable.
 
-import type { FundState, MemberBalance, Product, UsageTotals } from './types'
+import type {
+  FundState,
+  Holding,
+  HolderStock,
+  MemberBalance,
+  Product,
+  ProductStock,
+  StockHolder,
+  StockLevel,
+  UsageTotals,
+} from './types'
 
 /** Format a number as euros. */
 export function euro(n: number): string {
@@ -81,14 +91,162 @@ export function productShuttleCount(product: Product): number {
 /** Default threshold (in shuttles) below which a product is "low stock". */
 export const LOW_STOCK_THRESHOLD = 24
 
-/** Whether a product is running low on shuttles. */
+/** Whether a product is running low on shuttles (legacy club-wide pool only). */
 export function isLowStock(product: Product, threshold = LOW_STOCK_THRESHOLD): boolean {
   return productShuttleCount(product) < threshold
 }
 
-/** Total shuttles in stock across all products. */
+/**
+ * Whether a product is running low club-wide, counting every holder's stock.
+ * Low stock is a club-level concern: barrels split across three matchmakers are
+ * not "low" just because no single one of them has many.
+ */
+export function isProductLowStock(
+  state: FundState,
+  product: Product,
+  threshold = LOW_STOCK_THRESHOLD,
+): boolean {
+  return productStock(state, product).shuttles < threshold
+}
+
+// ---------------------------------------------------------------------------
+// Per-matchmaker stock. Barrels are handed to the matchmakers who run game
+// days, so stock is summed from holdings rather than a single club-wide pool.
+//
+// Each helper falls back to the legacy Product.barrels/looseShuttles when a
+// state carries no holdings at all — that is exactly a pre-allocation state, and
+// the fallback keeps older callers and fixtures correct until every read path
+// has moved over.
+// ---------------------------------------------------------------------------
+
+/** Shuttle count for a barrels + loose pair of a given product. */
+function shuttlesOf(product: Product, barrels: number, loose: number): number {
+  return barrels * product.shuttlesPerBarrel + loose
+}
+
+function levelOf(product: Product, barrels: number, loose: number): StockLevel {
+  return { barrels, looseShuttles: loose, shuttles: shuttlesOf(product, barrels, loose) }
+}
+
+/** Holdings for one product, across every holder. */
+function holdingsFor(state: FundState, productId: string): Holding[] {
+  return state.holdings.filter((h) => h.productId === productId)
+}
+
+/** Stock of one product across every matchmaker holding it. */
+export function productStock(state: FundState, product: Product): StockLevel {
+  const held = holdingsFor(state, product.id)
+  if (state.holdings.length === 0) {
+    return levelOf(product, product.barrels, product.looseShuttles)
+  }
+  return levelOf(
+    product,
+    held.reduce((s, h) => s + h.barrels, 0),
+    held.reduce((s, h) => s + h.looseShuttles, 0),
+  )
+}
+
+/**
+ * Club-wide summary: every product with its total barrels + loose shuttles
+ * summed across every holder. The "how much do we have as a club" view,
+ * regardless of who is keeping it.
+ */
+export function stockOverview(state: FundState): ProductStock[] {
+  return state.products.map((product) => ({
+    product,
+    ...productStock(state, product),
+  }))
+}
+
+/** What one matchmaker is holding, per product (zero rows omitted). */
+export function holderStock(state: FundState, holderId: string): HolderStock {
+  const holder = state.holders.find((h) => h.id === holderId) ?? {
+    id: holderId,
+    name: 'Unknown',
+  }
+  const items: ProductStock[] = []
+  for (const product of state.products) {
+    const h = state.holdings.find(
+      (x) => x.productId === product.id && x.holderId === holderId,
+    )
+    if (!h || (h.barrels === 0 && h.looseShuttles === 0)) continue
+    items.push({ product, ...levelOf(product, h.barrels, h.looseShuttles) })
+  }
+  return {
+    holder,
+    items,
+    totalShuttles: items.reduce((s, i) => s + i.shuttles, 0),
+  }
+}
+
+/** Every matchmaker's stock, for the per-holder breakdown. */
+export function stockByHolder(state: FundState): HolderStock[] {
+  return state.holders.map((h) => holderStock(state, h.id))
+}
+
+/** Find the matchmaker a signed-in user holds stock as, if any. */
+export function holderForUser(
+  state: FundState,
+  userId: string | undefined,
+): StockHolder | undefined {
+  if (!userId) return undefined
+  return state.holders.find((h) => h.userId === userId)
+}
+
+/**
+ * Apply shuttles used to one holder's stock. Shuttles come out of the running
+ * total and the remainder is re-split, so using 4 from a single 12-shuttle
+ * barrel leaves 0 barrels and 8 loose — the barrel is opened, not lost.
+ *
+ * Returns null when the holder does not have that many: usage can never take
+ * stock below zero, and the caller should say so rather than clamp silently.
+ */
+export function deductUsage(
+  product: Product,
+  held: { barrels: number; looseShuttles: number },
+  shuttlesUsed: number,
+): { barrels: number; looseShuttles: number } | null {
+  if (shuttlesUsed < 0 || product.shuttlesPerBarrel <= 0) return null
+  const total = held.barrels * product.shuttlesPerBarrel + held.looseShuttles
+  const remaining = total - shuttlesUsed
+  if (remaining < 0) return null
+  return {
+    barrels: Math.floor(remaining / product.shuttlesPerBarrel),
+    looseShuttles: remaining % product.shuttlesPerBarrel,
+  }
+}
+
+/**
+ * Who a game day's usage should come out of by default: the signed-in
+ * matchmaker, but only if they actually hold that product. Returns undefined
+ * otherwise so the caller asks instead of silently picking someone else.
+ */
+export function defaultUsageHolder(
+  state: FundState,
+  product: Product,
+  myHolderId: string | undefined,
+): StockHolder | undefined {
+  if (!myHolderId) return undefined
+  const held = state.holdings.find(
+    (h) => h.productId === product.id && h.holderId === myHolderId,
+  )
+  if (!held || (held.barrels === 0 && held.looseShuttles === 0)) return undefined
+  return state.holders.find((h) => h.id === myHolderId)
+}
+
+/** Everyone holding some of this product — the candidates usage can come from. */
+export function holdersOfProduct(state: FundState, product: Product): StockHolder[] {
+  return state.holders.filter((h) => {
+    const held = state.holdings.find(
+      (x) => x.productId === product.id && x.holderId === h.id,
+    )
+    return !!held && (held.barrels > 0 || held.looseShuttles > 0)
+  })
+}
+
+/** Total shuttles in stock across all products (summed across holders). */
 export function totalShuttlesInStock(state: FundState): number {
-  return state.products.reduce((sum, p) => sum + productShuttleCount(p), 0)
+  return state.products.reduce((sum, p) => sum + productStock(state, p).shuttles, 0)
 }
 
 /** Total shuttles consumed across every logged game day. */

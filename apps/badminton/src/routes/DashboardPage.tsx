@@ -13,6 +13,7 @@ import { QuickAdd } from '../fund/QuickAdd'
 import { TodayUsage } from '../fund/TodayUsage'
 import { FundSummary } from '../fund/FundSummary'
 import { Inventory } from '../fund/Inventory'
+import { StockPanel } from '../fund/StockPanel'
 import { TransactionLog } from '../fund/TransactionLog'
 import { MemberBalances } from '../fund/MemberBalances'
 
@@ -90,6 +91,7 @@ export function DashboardPage() {
 
         {/* Wide tables get full width */}
         <div className="mt-6 space-y-6">
+          <StockPanel />
           <Inventory />
           <TransactionLog />
           <MemberBalances />

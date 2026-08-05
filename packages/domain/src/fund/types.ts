@@ -24,8 +24,14 @@ export interface Product {
   brand: string
   model: string
   shuttlesPerBarrel: number
-  barrels: number // full barrels currently in stock
-  looseShuttles: number // leftover individual shuttles (created by usage)
+  /**
+   * @deprecated Legacy club-wide pool, superseded by per-matchmaker `Holding`s.
+   * Still populated so states loaded before per-holder stock existed keep working;
+   * read stock through the holdings helpers in calc.ts instead.
+   */
+  barrels: number
+  /** @deprecated See `barrels` — use per-matchmaker holdings. */
+  looseShuttles: number
 }
 
 /** A purchase of barrels for a product = one batch with a fixed unit price. */
@@ -56,6 +62,26 @@ export interface Expense {
   loggedBy?: string
 }
 
+/**
+ * A matchmaker who physically keeps club barrels. Barrels are handed to the
+ * people who run game days, so every barrel belongs to one of them. `id` is
+ * their player_profiles row; `userId` is their login, which is what lets them
+ * see the stock in their own hands.
+ */
+export interface StockHolder {
+  id: string
+  name: string
+  userId?: string
+}
+
+/** Stock of one product held by one matchmaker. */
+export interface Holding {
+  productId: string
+  holderId: string
+  barrels: number // full unopened barrels in this matchmaker's hands
+  looseShuttles: number // leftover individual shuttles (created by usage)
+}
+
 /** The full fund/inventory state the calculations operate on. */
 export interface FundState {
   members: Member[]
@@ -63,6 +89,28 @@ export interface FundState {
   purchases: Purchase[]
   usage: UsageEntry[]
   expenses: Expense[]
+  holders: StockHolder[]
+  holdings: Holding[]
+}
+
+/** Stock counted as barrels + loose, with the derived shuttle total. */
+export interface StockLevel {
+  barrels: number
+  looseShuttles: number
+  /** barrels * shuttlesPerBarrel + looseShuttles */
+  shuttles: number
+}
+
+/** One product's stock, either club-wide or in one matchmaker's hands. */
+export interface ProductStock extends StockLevel {
+  product: Product
+}
+
+/** What one matchmaker is holding, per product. */
+export interface HolderStock {
+  holder: StockHolder
+  items: ProductStock[]
+  totalShuttles: number
 }
 
 export interface MemberBalance {

@@ -93,7 +93,7 @@ const fmtRating = (n: number) => Math.round(n).toLocaleString('en-US')
 
 /**
  * When a casual game day is in progress, surface it so players (logged out) can
- * open the live schedule / points / scores at /play/:id — otherwise that page is
+ * open the live schedule / points / scores at /game-days/:id — otherwise that is
  * only reachable by direct link. Hidden game days are excluded, matching the
  * rest of the public home.
  */
@@ -109,7 +109,7 @@ function LiveNow() {
         {live.map((s) => (
           <Link
             key={s.id}
-            to={`/play/${s.id}`}
+            to={`/game-days/${s.id}`}
             data-testid={`live-now-${s.id}`}
             className={cx(
               'flex items-center justify-between gap-3 rounded-2xl border p-5 shadow-sm transition-colors focus:outline-none focus:ring-2 sm:p-6',

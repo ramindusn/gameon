@@ -277,5 +277,13 @@ export function deleteTransaction(s: FundState, ref: TxRef): FundState {
 
 /** An empty fund state — the starting point before hydration. */
 export function emptyFundState(): FundState {
-  return { members: [], products: [], purchases: [], usage: [], expenses: [] }
+  return {
+    members: [],
+    products: [],
+    purchases: [],
+    usage: [],
+    expenses: [],
+    holders: [],
+    holdings: [],
+  }
 }

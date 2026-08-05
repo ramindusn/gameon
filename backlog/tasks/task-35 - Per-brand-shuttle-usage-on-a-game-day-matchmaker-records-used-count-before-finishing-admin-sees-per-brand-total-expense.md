@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-09 07:07'
-updated_date: '2026-07-09 07:19'
+updated_date: '2026-08-04 12:04'
 labels:
   - feature
   - inventory
@@ -39,4 +39,6 @@ Support two shuttle brands being used on a single game day and report expenses p
 
 <!-- SECTION:NOTES:BEGIN -->
 Depends conceptually on TASK-34 for the inventory display and reuses recordUsage/costPerShuttle. May warrant splitting into a matchmaker-entry subtask and an admin-reporting subtask during planning.
+
+SUPERSEDED by the TASK-69 usage subtask (2026-08-04): shuttle usage now deducts from a specific matchmaker's held stock rather than a club-wide pool, with a deduct-from picker defaulting to the signed-in matchmaker. The per-brand expense reporting requirement carries over into that task.
 <!-- SECTION:NOTES:END -->

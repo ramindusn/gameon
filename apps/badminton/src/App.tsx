@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { ToastProvider, ConfirmProvider } from '@gameon/ui'
 import { Home } from './routes/Home'
 import { DashboardPage } from './routes/DashboardPage'
@@ -7,7 +7,6 @@ import { GeneratePage } from './routes/GeneratePage'
 import { PlayPage } from './routes/PlayPage'
 import { PlayersPage } from './routes/PlayersPage'
 import { PlayerProfilePage } from './routes/PlayerProfilePage'
-import { GameDayPage } from './routes/GameDayPage'
 import { AllGameDaysPage } from './routes/AllGameDaysPage'
 import { LeaderboardPage } from './routes/LeaderboardPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
@@ -24,10 +23,12 @@ export function App() {
             <Route path="/" element={<Home />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/players/:id" element={<PlayerProfilePage />} />
-            <Route path="/game-days/:id" element={<GameDayPage />} />
-            {/* Public + read-only for players; editing controls are gated to
-                matchmakers inside the page (TASK-50). */}
-            <Route path="/play/:id" element={<PlayPage />} />
+            {/* One page per game day (TASK-71). Public + read-only for players;
+                editing controls are gated to matchmakers inside it (TASK-50). */}
+            <Route path="/game-days/:id" element={<PlayPage />} />
+            {/* The old matchmaker URL — kept so shared links and bookmarks and
+                any open tabs still land on the game day. */}
+            <Route path="/play/:id" element={<PlayRedirect />} />
 
             <Route element={<ProtectedRoute allow={['admin']} />}>
               <Route path="/dashboard" element={<DashboardPage />} />
@@ -49,4 +50,10 @@ export function App() {
       </ConfirmProvider>
     </ToastProvider>
   )
+}
+
+/** /play/:id was the game day's old address — send it to the surviving one. */
+function PlayRedirect() {
+  const { id = '' } = useParams()
+  return <Navigate to={`/game-days/${id}`} replace />
 }

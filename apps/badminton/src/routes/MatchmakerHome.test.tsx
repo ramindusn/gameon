@@ -20,6 +20,9 @@ vi.mock('../roster/useRoster', () => ({
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ role: 'matchmaker', signOut: vi.fn() }),
 }))
+// The matchmaker's own-stock card fetches through TanStack Query; this suite
+// renders without a QueryClient, and the card has its own tests.
+vi.mock('../fund/MyStock', () => ({ MyStock: () => null }))
 
 import { MatchmakerHome } from './MatchmakerHome'
 
@@ -59,10 +62,10 @@ describe('MatchmakerHome (TASK-11.1)', () => {
     state.sessions = [session('s1', 'live'), session('s2', 'finished')]
     state.playerCounts = {}
     renderHome()
-    expect(screen.getByTestId('resume-s1')).toHaveAttribute('href', '/play/s1')
+    expect(screen.getByTestId('resume-s1')).toHaveAttribute('href', '/game-days/s1')
     expect(screen.queryByTestId('live-empty')).toBeNull()
     // The finished game day shows under recent, not live.
-    expect(screen.getByTestId('recent-s2')).toHaveAttribute('href', '/play/s2')
+    expect(screen.getByTestId('recent-s2')).toHaveAttribute('href', '/game-days/s2')
     expect(screen.queryByTestId('live-s2')).toBeNull()
   })
 

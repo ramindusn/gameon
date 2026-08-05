@@ -23,7 +23,7 @@ import {
   isoToLocalInput,
   localInputToIso,
 } from '../play/datetime'
-import { usePlayerBoard } from '../ranking/useRanking'
+import { useGameDayRatingDeltas, usePlayerBoard } from '../ranking/useRanking'
 import {
   effectiveSkill,
   isEvenMatch,
@@ -33,6 +33,11 @@ import {
   type MatchOdds,
 } from '../ranking/effectiveSkill'
 import { buildGameDayBoard, type GameDayResultRow } from '../ranking/api'
+import {
+  GameDayUsageModal,
+  GameDayUsagePanel,
+  useStockContext,
+} from '../fund/GameDayUsage'
 import { POINTS_DOT, POINTS_PILL, POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import type { MatchResult, MatchSession, Side } from '../play/api'
 
@@ -59,7 +64,13 @@ export function PlayPage() {
   useSessionRealtime(id)
   const { data: roster } = useRoster()
   const board = usePlayerBoard()
+  // Actual per-player rating movement for this day — empty until it is finished.
+  const { data: ratingDeltas } = useGameDayRatingDeltas(id)
   const { role } = useAuth()
+  const { data: stockCtx } = useStockContext()
+  // Usage comes out of a matchmaker's own barrels, so only a stock holder is
+  // ever asked for it.
+  const canRecordUsage = !!stockCtx?.myHolderId
   const canEdit = role === 'matchmaker'
   const staff = role === 'matchmaker' || role === 'admin'
 
@@ -79,6 +90,13 @@ export function PlayPage() {
   const [editingDate, setEditingDate] = useState(false)
   const [dateValue, setDateValue] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // The shuttle-usage popup (TASK-70). Opened by finishing the game day — where
+  // closing it moves on to the leaderboard — or from the usage panel, where
+  // closing simply returns to the page.
+  const [usagePrompt, setUsagePrompt] = useState<'closed' | 'finish' | 'panel'>('closed')
+  // Set when the matchmaker defers with "Later", so the panel appears as their
+  // way back in even if the day is put back to live.
+  const [usageDeferred, setUsageDeferred] = useState(false)
 
   const nameOf = useMemo(() => {
     const byId = new Map((roster?.players ?? []).map((p) => [p.id, p.nickname]))
@@ -175,9 +193,16 @@ export function PlayPage() {
         winner: r.winner === 'b' ? 'b' : 'a',
       }))
     return buildGameDayBoard(rows)
-      .map((s) => ({ ...s, name: nameOf(s.playerId), ranking: rankingPoints[s.playerId] ?? 0 }))
+      .map((s) => ({
+        ...s,
+        name: nameOf(s.playerId),
+        // While the day is live the ranking column is a projection of what each
+        // player stands to gain; once it is finished and recomputed, show the
+        // real recorded delta so the page agrees with the leaderboard (TASK-71).
+        ranking: ratingDeltas?.[s.playerId] ?? rankingPoints[s.playerId] ?? 0,
+      }))
       .sort((a, b) => b.diff - a.diff || a.name.localeCompare(b.name))
-  }, [data, nameOf, rankingPoints])
+  }, [data, nameOf, rankingPoints, ratingDeltas])
 
   const live = data?.session.status === 'live'
 
@@ -249,7 +274,13 @@ export function PlayPage() {
               onCancelDate={() => setEditingDate(false)}
               onToggleHidden={(v) => setHidden.mutate(v)}
               onFinish={() =>
-                setStatus.mutate('finished', { onSuccess: () => navigate('/leaderboard') })
+                setStatus.mutate('finished', {
+                  // Ask for the shuttles used while the day is still fresh; only
+                  // someone holding stock can record it, so everyone else moves
+                  // straight on as before.
+                  onSuccess: () =>
+                    canRecordUsage ? setUsagePrompt('finish') : navigate('/leaderboard'),
+                })
               }
               onReopen={() => setStatus.mutate('live')}
               onAskDelete={() => setConfirmingDelete(true)}
@@ -376,6 +407,37 @@ export function PlayPage() {
                 </div>
               )
             })()}
+
+            {/* Shuttle usage for this game day (TASK-70). Kept off the page
+                during live play — the popup on finishing is the prompt — and
+                shown once the day is done, or once it was deferred with
+                "Later", so there is always a way back in. */}
+            {canEdit && (!live || usageDeferred) && (
+              <div className="mt-6">
+                <GameDayUsagePanel
+                  sessionId={data.session.id}
+                  onOpen={() => setUsagePrompt('panel')}
+                />
+              </div>
+            )}
+
+            <GameDayUsageModal
+              sessionId={data.session.id}
+              open={usagePrompt !== 'closed'}
+              onClose={() => {
+                // Recording it finishes the job, so finishing the day moves on to
+                // the leaderboard.
+                const cameFromFinish = usagePrompt === 'finish'
+                setUsagePrompt('closed')
+                if (cameFromFinish) navigate('/leaderboard')
+              }}
+              // Deferring stays put and reveals the panel below: that is the way
+              // back in, and leaving for the leaderboard would strand it.
+              onLater={() => {
+                setUsagePrompt('closed')
+                setUsageDeferred(true)
+              }}
+            />
           </>
         )}
       </div>

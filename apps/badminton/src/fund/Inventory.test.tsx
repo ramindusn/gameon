@@ -1,16 +1,19 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ConfirmProvider } from '@gameon/ui'
 import { LOW_STOCK_THRESHOLD, type FundState, type Product, type Purchase } from '@gameon/domain'
 
 // Inventory reads its data through useFund and gates edit controls on the admin
 // role; both are stubbed so the test drives the pure rendering.
-const { fundState } = vi.hoisted(() => ({ fundState: { current: null as FundState | null } }))
+const { fundState, addProduct } = vi.hoisted(() => ({
+  fundState: { current: null as FundState | null },
+  addProduct: vi.fn(),
+}))
 
 vi.mock('./useFund', () => ({
   useFund: () => ({
     state: fundState.current,
-    addProduct: vi.fn(),
+    addProduct,
     updateProduct: vi.fn(),
     deleteProduct: vi.fn(),
   }),
@@ -27,6 +30,8 @@ const makeState = (products: Product[], purchases: Purchase[] = []): FundState =
   purchases,
   usage: [],
   expenses: [],
+  holders: [],
+  holdings: [],
 })
 
 function renderInv(state: FundState) {
@@ -97,5 +102,60 @@ describe('Inventory (TASK-34)', () => {
     expect(screen.getByTestId('barrels-left-p3')).toHaveTextContent('1')
     // Shown in both the mobile card and the desktop table.
     expect(screen.getAllByText('Low stock').length).toBeGreaterThan(0)
+  })
+})
+
+describe('adding stock (TASK-69)', () => {
+  const holder = { id: 'h1', name: 'Ramboo' }
+
+  function openAddForm() {
+    renderInv({ ...makeState([]), holders: [holder] })
+    fireEvent.click(screen.getByTestId('add-product-button'))
+    fireEvent.change(screen.getByLabelText('Brand'), { target: { value: 'RSL' } })
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Classic' } })
+    fireEvent.change(screen.getByTestId('add-barrels'), { target: { value: '2' } })
+    fireEvent.change(screen.getByLabelText('Price per barrel (€)'), {
+      target: { value: '27.5' },
+    })
+  }
+
+  it('will not add stock without naming the matchmaker who keeps it', async () => {
+    addProduct.mockClear()
+    openAddForm()
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
+
+    expect(
+      await screen.findByText('Choose the matchmaker who will keep this stock.'),
+    ).toBeInTheDocument()
+    expect(addProduct).not.toHaveBeenCalled()
+  })
+
+  it('keeps the form open and reports it when the allocation fails', async () => {
+    addProduct.mockClear()
+    addProduct.mockRejectedValueOnce(new Error('network'))
+    openAddForm()
+    fireEvent.change(screen.getByTestId('add-holder'), { target: { value: 'h1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
+
+    // Nothing is half-saved: the product is rolled back, so the admin is told
+    // rather than left with unallocated stock.
+    expect(
+      await screen.findByText('Could not allocate the stock, so nothing was added. Try again.'),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('add-holder')).toBeInTheDocument()
+  })
+
+  it('allocates the new stock to the chosen matchmaker, loose shuttles included', async () => {
+    addProduct.mockClear()
+    openAddForm()
+    fireEvent.change(screen.getByTestId('add-loose'), { target: { value: '8' } })
+    fireEvent.change(screen.getByTestId('add-holder'), { target: { value: 'h1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add product' }))
+
+    await waitFor(() => expect(addProduct).toHaveBeenCalledTimes(1))
+    expect(addProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ brand: 'RSL', barrels: 2, looseShuttles: 8 }),
+      holder,
+    )
   })
 })

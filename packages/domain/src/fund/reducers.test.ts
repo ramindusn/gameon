@@ -319,6 +319,8 @@ describe('emptyFundState', () => {
       purchases: [],
       usage: [],
       expenses: [],
+      holders: [],
+      holdings: [],
     })
     expect(a).not.toBe(b)
     expect(remainingFund(a)).toBe(0)

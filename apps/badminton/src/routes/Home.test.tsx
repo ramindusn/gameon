@@ -93,7 +93,7 @@ describe('Home (TASK-9.5)', () => {
     ] as MatchSession[]
     renderHome()
     expect(screen.getByText('Live now')).toBeInTheDocument()
-    expect(screen.getByTestId('live-now-live-1')).toHaveAttribute('href', '/play/live-1')
+    expect(screen.getByTestId('live-now-live-1')).toHaveAttribute('href', '/game-days/live-1')
     expect(screen.queryByTestId('live-now-live-hidden')).toBeNull()
   })
 

@@ -5,6 +5,7 @@ import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
+import { MyStock } from '../fund/MyStock'
 
 const RECENT_LIMIT = 20
 
@@ -20,6 +21,8 @@ export function MatchmakerHome() {
       >
         <LiveNow />
         <RecentGameDays />
+        {/* The barrels this matchmaker is keeping (renders nothing if none). */}
+        <MyStock />
       </div>
     </AppShell>
   )
@@ -106,7 +109,7 @@ function LiveNow() {
                   )}
                 </span>
               </span>
-              <LinkButton to={`/play/${s.id}`} data-testid={`resume-${s.id}`}>
+              <LinkButton to={`/game-days/${s.id}`} data-testid={`resume-${s.id}`}>
                 Resume
               </LinkButton>
             </li>
@@ -143,7 +146,7 @@ function RecentGameDays() {
           {recent.map((s) => (
             <li key={s.id}>
               <Link
-                to={`/play/${s.id}`}
+                to={`/game-days/${s.id}`}
                 className="flex items-center justify-between gap-3 py-3 text-sm hover:text-accent-strong"
                 data-testid={`recent-${s.id}`}
               >

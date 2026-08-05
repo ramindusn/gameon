@@ -264,7 +264,7 @@ export function GeneratePage() {
               clubId={data?.clubId ?? null}
               playedAt={localInputToIso(playedAt)}
               passes={rounds}
-              onCreated={(id) => navigate(`/play/${id}`)}
+              onCreated={(id) => navigate(`/game-days/${id}`)}
             />
           </div>
         )}
@@ -298,7 +298,7 @@ export function GeneratePage() {
                       mode,
                       playedAt: localInputToIso(playedAt),
                     },
-                    { onSuccess: (id) => navigate(`/play/${id}`) },
+                    { onSuccess: (id) => navigate(`/game-days/${id}`) },
                   )
                 }
               />
