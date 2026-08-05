@@ -5,14 +5,27 @@ interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'classN
   label: ReactNode
   /** Narrow, auto-width input (e.g. a small number field) instead of full width. */
   inline?: boolean
+  /** Keep the label for screen readers but hide it — for inputs whose meaning
+   *  is already clear from the row they sit in. */
+  labelHidden?: boolean
   /** Extra classes for the <input>. */
   className?: string
 }
 
-export function Field({ label, inline = false, className, ...rest }: FieldProps) {
+export function Field({
+  label,
+  inline = false,
+  labelHidden = false,
+  className,
+  ...rest
+}: FieldProps) {
   return (
     <label className="block text-sm">
-      <span className="mb-1 block font-medium text-fg-muted">{label}</span>
+      <span
+        className={cx('mb-1 block font-medium text-fg-muted', labelHidden && 'sr-only')}
+      >
+        {label}
+      </span>
       <input
         className={cx(
           inline ? 'w-24' : 'w-full',

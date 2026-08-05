@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button, Card, Field, Modal } from '@gameon/ui'
+import { Button, Card, Field, Modal, Select } from '@gameon/ui'
 import { holderStock, type FundState } from '@gameon/domain'
 import { Icon } from '../app/Icon'
 import {
@@ -263,30 +263,25 @@ function UsageForm({
 
   return (
     <form onSubmit={submit} className="space-y-4" data-testid="usage-form">
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium text-fg-muted">
-          From whose stock
-        </span>
-        <select
-          data-testid="usage-holder"
-          className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-fg"
-          value={holderId}
-          onChange={(e) => {
-            setHolderId(e.target.value)
-            setCounts({}) // counts belong to the previous person's brands
-            setError('')
-          }}
-        >
-          <option value="">
-            {candidates.length === 0 ? 'Nobody is holding stock' : 'Choose whose stock…'}
+      <Select
+        label="From whose stock"
+        data-testid="usage-holder"
+        value={holderId}
+        onChange={(e) => {
+          setHolderId(e.target.value)
+          setCounts({}) // counts belong to the previous person's brands
+          setError('')
+        }}
+      >
+        <option value="">
+          {candidates.length === 0 ? 'Nobody is holding stock' : 'Choose whose stock…'}
+        </option>
+        {candidates.map((h) => (
+          <option key={h.id} value={h.id}>
+            {h.id === ctx.myHolderId ? `${h.name} (you)` : h.name}
           </option>
-          {candidates.map((h) => (
-            <option key={h.id} value={h.id}>
-              {h.id === ctx.myHolderId ? `${h.name} (you)` : h.name}
-            </option>
-          ))}
-        </select>
-      </label>
+        ))}
+      </Select>
 
       {holderId && items.length === 0 && (
         <p className="text-sm text-fg-muted" data-testid="holder-has-nothing">
@@ -295,7 +290,7 @@ function UsageForm({
       )}
 
       {items.map((item) => (
-        <div key={item.product.id} className="flex items-end justify-between gap-3">
+        <div key={item.product.id} className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="font-medium text-fg">{item.product.brand}</p>
             <p className="text-xs text-fg-subtle" data-testid={`stock-${item.product.id}`}>
@@ -303,14 +298,18 @@ function UsageForm({
               {item.shuttles} shuttles
             </p>
           </div>
-          <div className="w-24 shrink-0">
-            {/* Deliberately no `max`: native validation would block the submit
+          <div className="w-20 shrink-0">
+            {/* The label repeats down the rows, so it is kept for screen readers
+                only — the brand beside it already says what the number is for.
+                Deliberately no `max`: native validation would block the submit
                 silently, where the API refusal names who is short and by how
                 much. The count above is the guide. */}
             <Field
-              label="Used"
+              label={`${item.product.brand} used`}
+              labelHidden
               type="number"
               min={0}
+              placeholder="0"
               data-testid={`used-${item.product.id}`}
               value={counts[item.product.id] ?? ''}
               onChange={(e) =>
