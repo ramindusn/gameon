@@ -1,9 +1,10 @@
 ---
 id: TASK-76.2
 title: Phase 1 — stop the dashboard saying untrue things
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-05 17:58'
+updated_date: '2026-08-05 18:25'
 labels:
   - ui
 dependencies: []

@@ -1,9 +1,10 @@
 ---
 id: TASK-76.3
 title: Phase 2 — one home for each stock number
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-05 17:58'
+updated_date: '2026-08-05 18:25'
 labels:
   - ui
 dependencies: []

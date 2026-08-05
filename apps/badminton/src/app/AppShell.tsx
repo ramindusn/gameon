@@ -81,7 +81,10 @@ export function AppShell({
       <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-6">
-            <NavLink to="/" className="font-display text-lg font-bold text-accent-strong">
+            <NavLink
+              to="/"
+              className="whitespace-nowrap font-display text-base font-bold text-accent-strong sm:text-lg"
+            >
               BadmintonDuo
             </NavLink>
             {/* Desktop links live in the top bar; mobile uses the bottom tabs. */}
@@ -127,18 +130,24 @@ export function AppShell({
               </>
             ) : (
               <>
+                {/* "Login" is dropped on a phone: with it, both buttons wrap
+                    to two lines and the header eats a third of the screen —
+                    and since TASK-76.1 this header is on every page, not just
+                    the public home. */}
                 <Button
                   variant="ghost"
+                  className="whitespace-nowrap px-2.5 sm:px-3.5"
                   onClick={() => setLogin((k) => (k === 'admin' ? null : 'admin'))}
                   data-testid="nav-admin-login"
                 >
-                  Admin Login
+                  Admin<span className="hidden sm:inline"> Login</span>
                 </Button>
                 <Button
+                  className="whitespace-nowrap px-2.5 sm:px-3.5"
                   onClick={() => setLogin((k) => (k === 'matchmaker' ? null : 'matchmaker'))}
                   data-testid="nav-matchmaker-login"
                 >
-                  Matchmaker Login
+                  Matchmaker<span className="hidden sm:inline"> Login</span>
                 </Button>
               </>
             )}

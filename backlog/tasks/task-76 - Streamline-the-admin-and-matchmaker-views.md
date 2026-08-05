@@ -4,6 +4,7 @@ title: Streamline the admin and matchmaker views
 status: To Do
 assignee: []
 created_date: '2026-08-05 17:58'
+updated_date: '2026-08-05 18:25'
 labels:
   - ui
 dependencies: []
@@ -26,9 +27,25 @@ DIAGNOSIS (verified against the code, not assumed):
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Navigation is identical in shape on every page, on both desktop and mobile
-- [ ] #2 No dashboard label or helper text describes something that is not true
-- [ ] #3 Each stock number has exactly one place it is shown
-- [ ] #4 Fund summary answers an actionable question rather than repeating a KPI card
-- [ ] #5 Recording usage takes fewer steps for a matchmaker than it does today
+- [x] #1 Navigation is identical in shape on every page, on both desktop and mobile
+- [x] #2 No dashboard label or helper text describes something that is not true
+- [x] #3 Each stock number has exactly one place it is shown
+- [x] #4 Fund summary answers an actionable question rather than repeating a KPI card
+- [x] #5 Recording usage takes fewer steps for a matchmaker than it does today
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+All five phases shipped on branch task-70-71-usage-popup-single-game-day-page (commits 9b9b529, 57ad58f, 6c18f19, b416f76).
+
+Phase 0 went further than 'move two pages onto AppShell'. PublicNav already handled BOTH signed-in and signed-out states, so the app carried two competing navbars; AppShell now covers both instead, and gained the search box and footer so they are on every page rather than only the public home. Home and PlayerProfilePage are just content now.
+
+Phase 3 needed new domain helpers rather than UI-only work: gameDaysRecorded, shuttlesPerGameDay, costPerGameDay in @gameon/domain. Cost is valued on the same cost-per-shuttle basis as totalUsageIncome, and a test asserts costPerGameDay * days == totalUsageIncome so the two can never drift.
+
+Phase 4's admin half turned out to be two changes, not one: a single pending day is now stated rather than offered as a one-item picker, AND the multi-day case moved from a native <select> to ChipPicker, since a select's list is OS chrome on a phone (the same fault fixed in the transfer dialog).
+
+Test fallout worth knowing about: every page test that renders through AppShell now needs a useRoster mock, because the shell's search reads the roster on every page. Two e2e specs decided 'was I redirected home?' by looking for the admin login button; that button is on every signed-out page now, so they assert the landing URL instead — the thing they actually meant.
+
+Verified: lint, typecheck, 371 unit tests, production build, and 39/40 e2e. The one e2e miss is play.spec.ts on mobile-chrome, where a success toast intercepts the next save click — a pre-existing timing flake, unrelated to this branch, which passes on retry and which CI retries once. E2E had to be run on an isolated port: a dev server started without VITE_E2E was holding :5173 and Playwright's reuseExistingServer was silently adopting it, failing 26 specs for reasons unconnected to any code.
+<!-- SECTION:NOTES:END -->
