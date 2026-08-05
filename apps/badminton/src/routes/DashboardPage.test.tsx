@@ -6,6 +6,11 @@ import { ConfirmProvider } from '@gameon/ui'
 
 // The dashboard's seven panels are grouped behind tabs (TASK-73); the KPI row
 // stays put. Each panel has its own tests, so they are stubbed to markers here.
+// AppShell carries the player search on every page now, so every page test
+// needs the roster it reads.
+vi.mock('../roster/useRoster', () => ({
+  useRoster: () => ({ data: { clubId: 'c1', players: [] }, isLoading: false, isError: false }),
+}))
 vi.mock('../fund/useFund', () => ({
   useFund: () => ({
     state: emptyFundState(),

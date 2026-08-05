@@ -1,12 +1,30 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { cx, Button } from '@gameon/ui'
 import { useAuth } from '../auth/useAuth'
+import { roleHome } from '../auth/roleHome'
+import { AdminLogin } from '../auth/AdminLogin'
+import { MatchmakerLogin } from '../auth/MatchmakerLogin'
+import { SearchBox } from '../search/SearchBox'
 import { Icon, type IconName } from './Icon'
 
 type NavItem = { to: string; label: string; icon: IconName }
+type LoginKind = 'admin' | 'matchmaker' | null
 
-// Top-nav (desktop) + bottom tab bar (mobile) links per role.
+// One nav for the whole app. Every page renders through this shell — including
+// the public home and player profiles, which used to carry a second, differently
+// shaped header of their own. That was the inconsistency: the links did not
+// change between desktop and mobile, but the *shape* changed between pages, so
+// opening a player from the dashboard on a phone made the tab bar disappear.
+//
+// Signed out, the shell offers the public destinations plus the login buttons;
+// signed in, the role's own set. Desktop puts them in the top bar, mobile in a
+// bottom tab bar — same links either way.
+const PUBLIC_NAV: NavItem[] = [
+  { to: '/', label: 'Home', icon: 'home' },
+  { to: '/leaderboard', label: 'Leaderboards', icon: 'trophy' },
+]
+
 const NAV_BY_ROLE: Record<'admin' | 'matchmaker', NavItem[]> = {
   admin: [
     { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
@@ -34,7 +52,16 @@ export function AppShell({
 }) {
   const { role, signOut } = useAuth()
   const navigate = useNavigate()
-  const nav = role ? NAV_BY_ROLE[role] : []
+  const nav = role ? NAV_BY_ROLE[role] : PUBLIC_NAV
+  const [login, setLogin] = useState<LoginKind>(null)
+
+  // A sign-in started from the header closes it and routes to the role's home.
+  useEffect(() => {
+    if (login && role) {
+      setLogin(null)
+      navigate(roleHome(role))
+    }
+  }, [login, role, navigate])
 
   async function handleSignOut() {
     await signOut()
@@ -42,7 +69,7 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-bg text-fg" data-testid="app-shell">
+    <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="app-shell">
       {/* Keyboard users can jump past the nav straight to the page content. */}
       <a
         href="#main-content"
@@ -78,24 +105,78 @@ export function AppShell({
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-3">
-            <span
-              className="hidden text-sm capitalize text-fg-muted sm:inline"
-              data-testid="auth-role"
-            >
-              Role: {role}
-            </span>
-            <Button variant="ghost" onClick={() => void handleSignOut()} data-testid="sign-out">
-              Sign out
-            </Button>
+          <div className="relative flex items-center gap-3">
+            <div className="hidden w-56 lg:block">
+              <SearchBox />
+            </div>
+            {role ? (
+              <>
+                <span
+                  className="hidden text-sm capitalize text-fg-muted sm:inline"
+                  data-testid="auth-role"
+                >
+                  Role: {role}
+                </span>
+                <Button
+                  variant="ghost"
+                  onClick={() => void handleSignOut()}
+                  data-testid="sign-out"
+                >
+                  Sign out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => setLogin((k) => (k === 'admin' ? null : 'admin'))}
+                  data-testid="nav-admin-login"
+                >
+                  Admin Login
+                </Button>
+                <Button
+                  onClick={() => setLogin((k) => (k === 'matchmaker' ? null : 'matchmaker'))}
+                  data-testid="nav-matchmaker-login"
+                >
+                  Matchmaker Login
+                </Button>
+              </>
+            )}
+
+            {login && (
+              <>
+                {/* click-away catcher */}
+                <button
+                  type="button"
+                  aria-label="Close login"
+                  className="fixed inset-0 z-10 cursor-default"
+                  onClick={() => setLogin(null)}
+                />
+                <div
+                  className="absolute right-0 top-full z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface p-4 shadow-xl"
+                  data-testid="login-dropdown"
+                >
+                  <div className="mb-3 text-sm font-semibold text-fg">
+                    {login === 'admin' ? 'Admin login' : 'Matchmaker login'}
+                  </div>
+                  {login === 'admin' ? <AdminLogin /> : <MatchmakerLogin />}
+                </div>
+              </>
+            )}
           </div>
+        </div>
+
+        {/* Search sits in the bar on desktop (hidden lg:block above); narrower
+            screens get a full-width row so it stays reachable. */}
+        <div className="border-t border-line px-4 pb-3 pt-2 sm:px-6 lg:hidden">
+          <SearchBox />
         </div>
       </header>
 
       {/* Extra bottom padding on mobile so content clears the fixed tab bar. */}
       <main
         id="main-content"
-        className="mx-auto w-full max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-8"
+        className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-8"
         data-testid="app-main"
       >
         {(title || actions) && (
@@ -106,6 +187,13 @@ export function AppShell({
         )}
         {children}
       </main>
+
+      <footer className="border-t border-line pb-20 sm:pb-0">
+        <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-4 text-xs text-fg-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <span className="font-display text-sm font-bold text-fg">BadmintonDuo</span>
+          <span>© 2026 BadmintonDuo Club Management.</span>
+        </div>
+      </footer>
 
       {/* Mobile bottom tab bar — thumb-friendly, always reachable. */}
       {nav.length > 0 && (
