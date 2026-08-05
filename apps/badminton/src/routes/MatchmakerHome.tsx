@@ -1,13 +1,17 @@
 import { Link } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 import { MyStock } from '../fund/MyStock'
+import { useStockContext } from '../fund/GameDayUsage'
+import { loadSessionsWithUsage } from '../fund/usageApi'
 
 const RECENT_LIMIT = 20
+const PENDING_LIMIT = 5
 
 // Matchmaker landing (E10 / TASK-11.1). The first screen after a matchmaker
 // signs in: resume any live game day (with the active player count) and review
@@ -20,11 +24,65 @@ export function MatchmakerHome() {
         data-testid="matchmaker-home"
       >
         <LiveNow />
+        <ShuttlesToRecord />
         <RecentGameDays />
         {/* The barrels this matchmaker is keeping (renders nothing if none). */}
         <MyStock />
       </div>
     </AppShell>
+  )
+}
+
+/**
+ * Game days that finished without their shuttle usage recorded (TASK-76.5).
+ *
+ * There was no route from here to recording usage at all: the matchmaker had to
+ * remember which day was outstanding, find it under Game Days, and open it. The
+ * days that need them are now on the first screen after signing in, each a
+ * single tap from the form.
+ */
+function ShuttlesToRecord() {
+  const { data: ctx } = useStockContext()
+  const { data: sessions } = useSessions()
+  const { data: answered } = useQuery({
+    queryKey: ['sessions-with-usage'],
+    queryFn: loadSessionsWithUsage,
+  })
+
+  const pending = useMemo(() => {
+    const done = new Set(answered ?? [])
+    return (sessions ?? [])
+      .filter((s) => s.kind === 'casual' && s.status === 'finished' && !done.has(s.id))
+      .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
+      .slice(0, PENDING_LIMIT)
+  }, [sessions, answered])
+
+  // Only people who can actually record it — a matchmaker holding stock, or an
+  // admin. Nothing outstanding means no card rather than an empty one.
+  if (!ctx || !(ctx.myHolderId || ctx.isAdmin)) return null
+  if (pending.length === 0) return null
+
+  return (
+    <Card title="Shuttles to record" icon={<Icon name="shuttle" />}>
+      <ul className="space-y-2" data-testid="shuttles-to-record">
+        {pending.map((s) => (
+          <li key={s.id}>
+            <Link
+              to={`/game-days/${s.id}`}
+              data-testid={`record-usage-${s.id}`}
+              className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2 transition-colors hover:bg-line"
+            >
+              <span className="min-w-0 truncate font-medium text-fg">
+                {formatPlayedAt(s.playedAt)}
+              </span>
+              <span className="shrink-0 text-sm font-medium text-accent-strong">
+                Record →
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
   )
 }
 

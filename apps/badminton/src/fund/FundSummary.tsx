@@ -1,8 +1,11 @@
 import { Card } from '@gameon/ui'
 import { Icon } from '../app/Icon'
 import {
+  costPerGameDay,
   euro,
+  gameDaysRecorded,
   remainingFund,
+  shuttlesPerGameDay,
   totalCollected,
   totalSpent,
   totalUsageIncome,
@@ -16,20 +19,41 @@ export function FundSummary() {
   const spent = totalSpent(state)
   const moneyIn = cash + usage
   const remaining = remainingFund(state)
-  const utilized = moneyIn > 0 ? Math.min(100, Math.round((spent / moneyIn) * 100)) : 0
+  const days = gameDaysRecorded(state)
+  const perDay = costPerGameDay(state)
+  const shuttlesADay = shuttlesPerGameDay(state)
+  const daysLeft = perDay > 0 ? Math.floor(Math.max(remaining, 0) / perDay) : 0
 
   return (
     <Card title="Fund Summary" icon={<Icon name="money" />}>
-      <div className="mb-4">
-        <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-fg-muted">
-          <span>Budget utilized</span>
-          <span className="tabular-nums text-fg">{utilized}%</span>
+      {/* This used to lead with a "budget utilized" bar — spent over money in.
+          It is a ratio nobody acts on, and the remaining figure below it
+          already appears as a KPI card above the tabs. What an admin actually
+          needs is what a game day costs, and how many more the fund covers. */}
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="rounded-lg border border-line bg-surface-muted px-3 py-2">
+          <div className="text-xs font-medium text-fg-muted">Cost per game day</div>
+          <div className="font-display text-lg font-bold text-fg" data-testid="cost-per-day">
+            {days === 0 ? '—' : euro(perDay)}
+          </div>
+          <div className="text-xs text-fg-subtle">
+            {days === 0
+              ? 'No game days recorded yet'
+              : `${shuttlesADay.toFixed(1)} shuttles · ${days} day${days === 1 ? '' : 's'}`}
+          </div>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
-          <div
-            className="h-full rounded-full bg-accent"
-            style={{ width: `${utilized}%` }}
-          />
+        <div className="rounded-lg border border-line bg-surface-muted px-3 py-2">
+          <div className="text-xs font-medium text-fg-muted">Game days covered</div>
+          <div className="font-display text-lg font-bold text-fg" data-testid="days-covered">
+            {perDay > 0 && remaining > 0 ? daysLeft : '—'}
+          </div>
+          <div className="text-xs text-fg-subtle">
+            {perDay <= 0
+              ? 'Record usage to project this'
+              : remaining > 0
+                ? 'at the current rate'
+                : 'fund is in the red'}
+          </div>
         </div>
       </div>
 

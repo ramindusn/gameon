@@ -257,6 +257,32 @@ export function totalShuttlesUsed(state: FundState): number {
   )
 }
 
+/** Game days with usage recorded — one usage entry is one game day. */
+export function gameDaysRecorded(state: FundState): number {
+  return state.usage.length
+}
+
+/**
+ * What a game day costs and consumes on average.
+ *
+ * Running totals ("shuttles used, all time") only ever grow, so they answer
+ * nothing you can act on. These are the per-day figures you can compare against
+ * what members pay in. Cost is valued at each product's average batch
+ * cost-per-shuttle, the same basis as totalUsageIncome, so the two agree.
+ *
+ * Zero recorded game days gives zero rather than a division by zero — the UI
+ * shows the empty state instead.
+ */
+export function shuttlesPerGameDay(state: FundState): number {
+  const days = gameDaysRecorded(state)
+  return days === 0 ? 0 : totalShuttlesUsed(state) / days
+}
+
+export function costPerGameDay(state: FundState): number {
+  const days = gameDaysRecorded(state)
+  return days === 0 ? 0 : totalUsageIncome(state) / days
+}
+
 /**
  * Per-member balances. **Net** spending — stock + expenses minus game-day usage
  * income — is split equally across all current members. Crediting usage income

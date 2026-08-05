@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card } from '@gameon/ui'
+import { Card, ChipPicker } from '@gameon/ui'
 import { Icon } from '../app/Icon'
 import { formatPlayedAt } from '../play/datetime'
 import { useSessions } from '../play/useMatchPlay'
@@ -49,23 +49,30 @@ export function AdminGameDayUsage() {
         </p>
       ) : (
         <div className="space-y-4">
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-fg-muted">
-              Game day ({pending.length} still to record)
-            </span>
-            <select
+          {/* A picker offering one option is just a step to get past, so a
+              single outstanding day is stated rather than chosen (TASK-76.5).
+              Beyond that the days are chips: a native select's list renders as
+              OS chrome away from the control on a phone. */}
+          {pending.length === 1 ? (
+            <p className="text-sm text-fg-muted" data-testid="usage-game-day">
+              Recording{' '}
+              <span className="font-medium text-fg">
+                {formatPlayedAt(pending[0].playedAt)}
+              </span>{' '}
+              — the only game day still to record.
+            </p>
+          ) : (
+            <ChipPicker
+              label={`Game day (${pending.length} still to record)`}
               data-testid="usage-game-day"
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               value={sessionId ?? ''}
-              onChange={(e) => setPicked(e.target.value)}
-            >
-              {pending.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {formatPlayedAt(s.playedAt)}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={setPicked}
+              options={pending.map((s) => ({
+                id: s.id,
+                label: formatPlayedAt(s.playedAt),
+              }))}
+            />
+          )}
 
           {/* Keyed on the day so switching starts from a clean form. */}
           {sessionId && <GameDayUsage key={sessionId} sessionId={sessionId} />}

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import {
+  costPerGameDay,
   euro,
+  gameDaysRecorded,
   remainingFund,
+  shuttlesPerGameDay,
   totalShuttlesInStock,
-  totalShuttlesUsed,
 } from '@gameon/domain'
 import { cx, SkeletonCard } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
@@ -38,6 +40,7 @@ export function DashboardPage() {
   const [tab, setTab] = useState<DashTab>('gamedays')
   const remaining = remainingFund(state)
   const shuttles = totalShuttlesInStock(state)
+  const days = gameDaysRecorded(state)
 
   return (
     <AppShell
@@ -75,11 +78,18 @@ export function DashboardPage() {
             tone={shuttles < 24 ? 'warning' : 'default'}
             testId="stat-total-shuttles"
           />
+          {/* Was "Shuttles Used — all game days": a running total that only
+              ever grows, so it never prompts an action. The per-day rate is the
+              number you can compare against what members pay in. */}
           <StatCard
             icon={<Icon name="shuttle" />}
-            label="Shuttles Used"
-            value={String(totalShuttlesUsed(state))}
-            hint="all game days"
+            label="Per Game Day"
+            value={days === 0 ? '—' : euro(costPerGameDay(state))}
+            hint={
+              days === 0
+                ? 'no usage recorded yet'
+                : `${shuttlesPerGameDay(state).toFixed(1)} shuttles · ${days} recorded`
+            }
             testId="stat-shuttles-used"
           />
           {/* "Members" are the people who put money into the fund — they carry

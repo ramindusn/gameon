@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   avgBarrelPrice,
+  costPerGameDay,
   costPerShuttle,
+  gameDaysRecorded,
   euro,
   isLowStock,
   memberBalances,
@@ -10,6 +12,7 @@ import {
   totalCollected,
   totalExpenses,
   totalPurchases,
+  shuttlesPerGameDay,
   totalShuttlesInStock,
   totalShuttlesUsed,
   totalSpent,
@@ -155,6 +158,40 @@ describe('totalShuttlesUsed', () => {
       ],
     })
     expect(totalShuttlesUsed(state)).toBe(9)
+  })
+})
+
+describe('per game day (TASK-76.4)', () => {
+  // 24 € a barrel over 12 shuttles is 2 € a shuttle; 9 shuttles over 2 game
+  // days is 4.5 a day, so 9 € a day.
+  const state = makeState({
+    products: [makeProduct({ id: 'p1', shuttlesPerBarrel: 12 })],
+    purchases: [makePurchase({ productId: 'p1', barrels: 10, pricePerBarrel: 24 })],
+    usage: [
+      { id: 'u1', date: '2026-01-02', items: [{ productId: 'p1', shuttlesUsed: 6 }] },
+      { id: 'u2', date: '2026-01-03', items: [{ productId: 'p1', shuttlesUsed: 3 }] },
+    ],
+  })
+
+  it('counts a game day per usage entry', () => {
+    expect(gameDaysRecorded(state)).toBe(2)
+  })
+
+  it('averages shuttles and cost over the game days recorded', () => {
+    expect(shuttlesPerGameDay(state)).toBe(4.5)
+    expect(costPerGameDay(state)).toBe(9)
+  })
+
+  it('values a day on the same basis as usage income, so the two agree', () => {
+    expect(costPerGameDay(state) * gameDaysRecorded(state)).toBeCloseTo(
+      totalUsageIncome(state),
+    )
+  })
+
+  it('reads zero with nothing recorded rather than dividing by zero', () => {
+    const empty = makeState({ usage: [] })
+    expect(shuttlesPerGameDay(empty)).toBe(0)
+    expect(costPerGameDay(empty)).toBe(0)
   })
 })
 

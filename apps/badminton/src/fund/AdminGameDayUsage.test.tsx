@@ -71,16 +71,30 @@ describe('choosing the game day', () => {
   it('lists only days with no usage recorded, newest first', async () => {
     answered.current = ['s2'] // already answered, so it drops off
     renderAdmin()
-    const select = (await screen.findByTestId('usage-game-day')) as HTMLSelectElement
-    const values = [...select.querySelectorAll('option')].map((o) => o.value)
-    expect(values).toEqual(['s3', 's1'])
+    const group = await screen.findByTestId('usage-game-day')
+    const ids = [...group.querySelectorAll('[role="radio"]')].map((el) =>
+      el.getAttribute('data-testid'),
+    )
+    expect(ids).toEqual(['usage-game-day-s3', 'usage-game-day-s1'])
   })
 
   it('selects the latest outstanding game day by default', async () => {
     renderAdmin()
     await waitFor(() =>
-      expect(screen.getByTestId('usage-game-day')).toHaveValue('s3'),
+      expect(screen.getByTestId('usage-game-day-s3')).toHaveAttribute(
+        'aria-checked',
+        'true',
+      ),
     )
+  })
+
+  // A picker offering one option is just a step to get past (TASK-76.5).
+  it('states the day instead of offering a one-item picker', async () => {
+    answered.current = ['s1', 's2']
+    renderAdmin()
+    const only = await screen.findByTestId('usage-game-day')
+    expect(only).toHaveTextContent(/only game day still to record/i)
+    expect(only.querySelector('[role="radio"]')).toBeNull()
   })
 
   it('says so when every game day has been answered', async () => {
