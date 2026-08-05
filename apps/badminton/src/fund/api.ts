@@ -258,6 +258,8 @@ export async function deleteHolding(input: {
 
 export interface InventoryLogEntry {
   id: string
+  /** Lets the log convert barrels+loose into the shuttle count people think in. */
+  productId?: string
   holderName: string
   productLabel: string
   action: string
@@ -280,6 +282,7 @@ export async function loadInventoryLog(limit = 20): Promise<InventoryLogEntry[]>
   if (error) throw error
   return (data ?? []).map((r) => ({
     id: r.id,
+    productId: r.product_id ?? undefined,
     holderName: r.holder_name,
     productLabel: r.product_label,
     action: r.action,

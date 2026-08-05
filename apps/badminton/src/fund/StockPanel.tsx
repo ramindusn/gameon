@@ -213,7 +213,11 @@ export function StockPanel() {
             <li key={e.id} className="py-1.5 text-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="text-fg">
-                  <b>{e.actorName ?? 'An admin'}</b> {describeChange(e)}{' '}
+                  <b>{e.actorName ?? 'An admin'}</b>{' '}
+                  {describeChange(
+                    e,
+                    state.products.find((p) => p.id === e.productId)?.shuttlesPerBarrel,
+                  )}{' '}
                   <span className="text-fg-muted">
                     ({e.productLabel} · {e.holderName})
                   </span>
@@ -248,15 +252,51 @@ export function StockPanel() {
   )
 }
 
-/** "added 2 barrels", "removed 3 loose" — the change in words. */
-function describeChange(e: InventoryLogEntry): string {
-  const parts: string[] = []
-  const say = (n: number, unit: string) =>
-    `${n > 0 ? 'added' : 'removed'} ${Math.abs(n)} ${unit}${Math.abs(n) === 1 ? '' : 's'}`
-  if (e.barrelsDelta !== 0) parts.push(say(e.barrelsDelta, 'barrel'))
-  if (e.looseDelta !== 0) parts.push(say(e.looseDelta, 'loose shuttle'))
-  if (parts.length === 0) return 'confirmed the count'
-  return parts.join(' and ')
+/**
+ * The change in words, from the reader's point of view.
+ *
+ * This used to narrate the bookkeeping: taking 3 shuttles out of a full barrel
+ * reads in the table as barrels -1, loose +9, and it said exactly that —
+ * "removed 1 barrel and added 9 loose shuttles" — which is true and tells you
+ * nothing. People think in shuttles, and in what the action was, so that is what
+ * it says now. Whole-barrel moves still name barrels, since that is how they are
+ * handed over.
+ */
+function describeChange(e: InventoryLogEntry, shuttlesPerBarrel?: number): string {
+  const per = shuttlesPerBarrel && shuttlesPerBarrel > 0 ? shuttlesPerBarrel : 0
+  const net = per ? e.barrelsDelta * per + e.looseDelta : 0
+  const plural = (n: number, unit: string) =>
+    `${Math.abs(n)} ${unit}${Math.abs(n) === 1 ? '' : 's'}`
+
+  // A clean barrel movement is best described as barrels.
+  const wholeBarrels = e.looseDelta === 0 && e.barrelsDelta !== 0
+
+  switch (e.action) {
+    case 'usage':
+      return per ? `used ${plural(net, 'shuttle')}` : 'recorded usage'
+    case 'transfer':
+      if (wholeBarrels) {
+        return e.barrelsDelta > 0
+          ? `received ${plural(e.barrelsDelta, 'barrel')}`
+          : `handed over ${plural(e.barrelsDelta, 'barrel')}`
+      }
+      return e.barrelsDelta + e.looseDelta > 0 || net > 0
+        ? `received ${plural(net, 'shuttle')}`
+        : `handed over ${plural(net, 'shuttle')}`
+    case 'allocate':
+      return wholeBarrels
+        ? `was given ${plural(e.barrelsDelta, 'barrel')}`
+        : `was given ${plural(net, 'shuttle')}`
+    case 'migrate':
+      return 'opening balance'
+    default:
+      // adjust: a correction, or shuttles handed back when usage was deleted.
+      if (net === 0 && e.barrelsDelta === 0 && e.looseDelta === 0) {
+        return 'confirmed the count'
+      }
+      if (!per) return e.barrelsDelta + e.looseDelta > 0 ? 'stock added' : 'stock removed'
+      return net > 0 ? `got back ${plural(net, 'shuttle')}` : `lost ${plural(net, 'shuttle')}`
+  }
 }
 
 type HoldingLookup = (

@@ -292,6 +292,41 @@ describe('transferring stock', () => {
   })
 })
 
+describe('audit log wording (TASK-79 follow-up)', () => {
+  // Taking 3 shuttles from a full barrel is barrels -1, loose +9 in the table.
+  // The log used to say exactly that, which is true and unreadable.
+  const entry = (o: Record<string, unknown>) => ({
+    id: 'l1',
+    productId: 'p1',
+    holderName: 'Ramboo',
+    productLabel: 'RSL Classic',
+    occurredAt: '2026-08-05T12:00:00Z',
+    actorName: 'Ramboo',
+    barrelsDelta: 0,
+    looseDelta: 0,
+    ...o,
+  })
+
+  it('reports usage in shuttles, not barrel bookkeeping', async () => {
+    logRows.current = [entry({ action: 'usage', barrelsDelta: -1, looseDelta: 9 })]
+    renderPanel()
+    expect(await screen.findByText(/used 3 shuttles/)).toBeInTheDocument()
+    expect(screen.getByTestId('inventory-log')).not.toHaveTextContent('added 9 loose')
+  })
+
+  it('names barrels for a whole-barrel transfer', async () => {
+    logRows.current = [entry({ action: 'transfer', barrelsDelta: 1, looseDelta: 0 })]
+    renderPanel()
+    expect(await screen.findByText(/received 1 barrel/)).toBeInTheDocument()
+  })
+
+  it('says shuttles came back when usage was deleted', async () => {
+    logRows.current = [entry({ action: 'adjust', barrelsDelta: 0, looseDelta: 5 })]
+    renderPanel()
+    expect(await screen.findByText(/got back 5 shuttles/)).toBeInTheDocument()
+  })
+})
+
 describe('audit log', () => {
   it('names who made each change and describes it in words', async () => {
     logRows.current = [
@@ -300,6 +335,7 @@ describe('audit log', () => {
         actorName: 'Ramindu',
         holderName: 'Kasun',
         productLabel: 'RSL Classic',
+        productId: 'p1',
         action: 'allocate',
         barrelsDelta: 5,
         looseDelta: -2,
@@ -310,9 +346,9 @@ describe('audit log', () => {
     renderPanel()
     expect(await screen.findByText('Ramindu')).toBeInTheDocument()
     const log = screen.getByTestId('inventory-log')
-    expect(
-      within(log).getByText(/added 5 barrels and removed 2 loose shuttles/),
-    ).toBeInTheDocument()
+    // 5 barrels of 12 less 2 loose = 58 shuttles. It used to narrate the
+    // bookkeeping instead ("added 5 barrels and removed 2 loose shuttles").
+    expect(within(log).getByText(/was given 58 shuttles/)).toBeInTheDocument()
   })
 
   it('shows an empty state when nothing has been logged', async () => {
