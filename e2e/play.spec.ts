@@ -23,7 +23,7 @@ test('matchmaker starts a session, scores a match, and finds it in history', asy
 
   // Create a game day → routed to the scoring view.
   await page.getByTestId('create-game-day').click()
-  await expect(page).toHaveURL(/\/play\/[^/]+$/)
+  await expect(page).toHaveURL(/\/game-days\/[^/]+$/)
   const sessionUrl = page.url()
   await expect(page.getByTestId('session-status')).toHaveText('Live')
   await expect(page.getByText(/0 \/ 2 recorded/)).toBeVisible()
@@ -55,13 +55,13 @@ test('matchmaker starts a session, scores a match, and finds it in history', asy
   // The finished game day persists (sessionStorage) and shows in the
   // matchmaker's game-day history.
   await page.goto('/matchmaker')
-  const sessionId = sessionUrl.split('/play/')[1]
+  const sessionId = sessionUrl.split('/game-days/')[1]
   const link = page.getByTestId(`recent-${sessionId}`)
   await expect(link).toBeVisible()
 
   // Reopening the session from history shows the recorded score + Finished.
   await link.click()
-  await expect(page).toHaveURL(new RegExp(`/play/${sessionId}$`))
+  await expect(page).toHaveURL(new RegExp(`/game-days/${sessionId}$`))
   await expect(page.getByTestId('session-status')).toHaveText('Finished')
   await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
 })
@@ -79,8 +79,8 @@ test('matchmaker sets a game-day date, edits it, then deletes the game day', asy
   await expect(dt).toBeVisible()
   await dt.fill('2026-05-01T19:30')
   await page.getByTestId('create-game-day').click()
-  await expect(page).toHaveURL(/\/play\/[^/]+$/)
-  const sessionId = page.url().split('/play/')[1]
+  await expect(page).toHaveURL(/\/game-days\/[^/]+$/)
+  const sessionId = page.url().split('/game-days/')[1]
 
   // The chosen date shows on the play view; edit it to a new value.
   await expect(page.getByTestId('game-day-date')).toContainText('2026')
@@ -108,7 +108,7 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
   // Create the game day with an explicit date/time.
   await page.getByTestId('game-day-datetime').fill('2026-05-10T18:00')
   await page.getByTestId('create-game-day').click()
-  await expect(page).toHaveURL(/\/play\/[^/]+$/)
+  await expect(page).toHaveURL(/\/game-days\/[^/]+$/)
   await expect(page.getByText(/0 \/ 2 recorded/)).toBeVisible()
 
   // Edit the first court's line-up (full substitution): open the editor and
@@ -172,9 +172,11 @@ test('signed-out visitor gets the public, read-only game-day page (TASK-50)', as
   await page.goto('/play')
   await expect(page.getByTestId('nav-admin-login')).toBeVisible()
 
-  // /play/:id is public: the page renders read-only (a bogus id shows the
-  // "not found" state, but crucially it is NOT bounced to login).
+  // The game day is public: it renders read-only (a bogus id shows the "not
+  // found" state, but crucially it is NOT bounced to login). The old /play/:id
+  // address still lands here too (TASK-71).
   await page.goto('/play/some-session-id')
+  await expect(page).toHaveURL(/\/game-days\/some-session-id$/)
   await expect(page.getByTestId('play')).toBeVisible()
   // No matchmaker editing controls for a signed-out viewer.
   await expect(page.getByTestId('finish-session')).toHaveCount(0)

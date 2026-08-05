@@ -4,11 +4,10 @@ import { Icon } from '../app/Icon'
 import {
   euro,
   formatDateTime,
-  isLowStock,
   nowLocalInput,
-  productShuttleCount,
   type Product,
   type Purchase,
+  type StockHolder,
 } from '@gameon/domain'
 import { useAuth } from '../auth/useAuth'
 import { useFund } from './useFund'
@@ -36,6 +35,9 @@ export function Inventory() {
 
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
 
+  // Stock now lives per custodian, so the club-wide figures shown here are the
+  // sum across everyone holding that product (TASK-69).
+
   const rows: RowData[] = state.products.flatMap((product): RowData[] => {
     const batches = state.purchases
       .filter((p) => p.productId === product.id)
@@ -46,7 +48,7 @@ export function Inventory() {
 
   return (
     <Card
-      title="Inventory Left"
+      title="Products & pricing"
       icon={<Icon name="inventory" />}
       action={
         isAuthenticated ? (
@@ -59,8 +61,6 @@ export function Inventory() {
       {/* Mobile: stacked cards */}
       <ul className="space-y-3 sm:hidden">
         {rows.map(({ product: p, batch }, i) => {
-          const low = isLowStock(p)
-          const firstOfProduct = rows.findIndex((r) => r.product.id === p.id) === i
           const perShuttle =
             batch && p.shuttlesPerBarrel > 0
               ? batch.pricePerBarrel / p.shuttlesPerBarrel
@@ -75,11 +75,6 @@ export function Inventory() {
                   <span className="font-semibold text-fg">{p.brand}</span>{' '}
                   <span className="text-fg-muted">{p.model}</span>
                 </div>
-                {firstOfProduct && low && (
-                  <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-400">
-                    Low stock
-                  </span>
-                )}
               </div>
               <dl className="divide-y divide-line px-3 text-sm">
                 <DetailRow
@@ -96,17 +91,6 @@ export function Inventory() {
                   value={batch ? formatDateTime(batch.date) : '—'}
                   muted
                 />
-                {firstOfProduct && (
-                  <>
-                    <DetailRow label="Barrels remaining" value={String(p.barrels)} />
-                    <DetailRow label="Loose shuttles" value={String(p.looseShuttles)} />
-                    <DetailRow
-                      label="Total shuttles"
-                      value={String(productShuttleCount(p))}
-                      emphasis
-                    />
-                  </>
-                )}
               </dl>
               {isAuthenticated && (
                 <div className="flex gap-2 border-t border-line bg-surface-muted px-3 py-2">
@@ -144,16 +128,11 @@ export function Inventory() {
               <th className="py-2 pr-3 font-medium">€/barrel</th>
               <th className="py-2 pr-3 font-medium">€/shuttle</th>
               <th className="py-2 pr-3 font-medium">Added</th>
-              <th className="py-2 pr-3 font-medium">Barrels left</th>
-              <th className="py-2 pr-3 font-medium">Loose</th>
-              <th className="py-2 pr-3 font-medium">Total shuttles</th>
               {isAuthenticated && <th className="py-2 font-medium">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {rows.map(({ product: p, batch }, i) => {
-              const low = isLowStock(p)
-              const firstOfProduct = rows.findIndex((r) => r.product.id === p.id) === i
               const perShuttle =
                 batch && p.shuttlesPerBarrel > 0
                   ? batch.pricePerBarrel / p.shuttlesPerBarrel
@@ -178,37 +157,6 @@ export function Inventory() {
                   </td>
                   <td className="py-2 pr-3 text-fg-muted">
                     {batch ? formatDateTime(batch.date) : '—'}
-                  </td>
-                  <td className="py-2 pr-3 text-fg-muted">
-                    {firstOfProduct ? (
-                      <span data-testid={`barrels-left-${p.id}`}>{p.barrels}</span>
-                    ) : (
-                      ''
-                    )}
-                  </td>
-                  <td className="py-2 pr-3 text-fg-muted">
-                    {firstOfProduct ? (
-                      <span data-testid={`loose-left-${p.id}`}>{p.looseShuttles}</span>
-                    ) : (
-                      ''
-                    )}
-                  </td>
-                  <td className="py-2 pr-3">
-                    {firstOfProduct && (
-                      <>
-                        <span
-                          className="font-semibold text-fg"
-                          data-testid={`total-shuttles-${p.id}`}
-                        >
-                          {productShuttleCount(p)}
-                        </span>
-                        {low && (
-                          <span className="ml-2 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">
-                            Low stock
-                          </span>
-                        )}
-                      </>
-                    )}
                   </td>
                   {isAuthenticated && (
                     <td className="py-2">
@@ -253,9 +201,10 @@ export function Inventory() {
       {editing && (
         <ProductModal
           product={editing === 'new' ? null : editing}
+          holders={state.holders}
           onClose={() => setEditing(null)}
-          onAdd={(data) => {
-            addProduct(data)
+          onAdd={async (data, holder) => {
+            await addProduct(data, holder)
             setEditing(null)
           }}
           onUpdate={(id, data) => {
@@ -299,20 +248,26 @@ function DetailRow({
 
 function ProductModal({
   product,
+  holders,
   onClose,
   onAdd,
   onUpdate,
 }: {
   product: Product | null
+  holders: StockHolder[]
   onClose: () => void
-  onAdd: (data: {
-    brand: string
-    model: string
-    shuttlesPerBarrel: number
-    pricePerBarrel: number
-    barrels: number
-    when: string
-  }) => void
+  onAdd: (
+    data: {
+      brand: string
+      model: string
+      shuttlesPerBarrel: number
+      pricePerBarrel: number
+      barrels: number
+      looseShuttles: number
+      when: string
+    },
+    holder: StockHolder,
+  ) => Promise<void>
   onUpdate: (
     id: string,
     data: {
@@ -330,23 +285,27 @@ function ProductModal({
   const [perBarrel, setPerBarrel] = useState(String(product?.shuttlesPerBarrel ?? 12))
   const [price, setPrice] = useState('')
   const [barrels, setBarrels] = useState(String(product?.barrels ?? ''))
-  const [loose, setLoose] = useState(String(product?.looseShuttles ?? 0))
+  const [loose, setLoose] = useState('')
+  const [holderId, setHolderId] = useState('')
   const [when, setWhen] = useState(nowLocalInput())
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!brand.trim() || !model.trim()) {
       setError('Brand and model are required.')
       return
     }
     if (isEdit) {
+      // Stock counts are held per matchmaker now, so editing a product only
+      // changes its description — the barrel/loose figures pass through.
       onUpdate(product.id, {
         brand,
         model,
         shuttlesPerBarrel: Number(perBarrel) || 1,
-        barrels: Number(barrels) || 0,
-        looseShuttles: Number(loose) || 0,
+        barrels: product.barrels,
+        looseShuttles: product.looseShuttles,
       })
     } else {
       if (Number(barrels) <= 0) {
@@ -357,20 +316,37 @@ function ProductModal({
         setError('Enter the price per barrel.')
         return
       }
-      onAdd({
-        brand,
-        model,
-        shuttlesPerBarrel: Number(perBarrel) || 1,
-        pricePerBarrel: Number(price) || 0,
-        barrels: Number(barrels) || 0,
-        when,
-      })
+      const holder = holders.find((h) => h.id === holderId)
+      // Every barrel belongs to a matchmaker — the keeper is not optional.
+      if (!holder) {
+        setError('Choose the matchmaker who will keep this stock.')
+        return
+      }
+      setSaving(true)
+      try {
+        await onAdd(
+          {
+            brand,
+            model,
+            shuttlesPerBarrel: Number(perBarrel) || 1,
+            pricePerBarrel: Number(price) || 0,
+            barrels: Number(barrels) || 0,
+            looseShuttles: Number(loose) || 0,
+            when,
+          },
+          holder,
+        )
+      } catch {
+        // The product was rolled back, so nothing was half-saved.
+        setError('Could not allocate the stock, so nothing was added. Try again.')
+        setSaving(false)
+      }
     }
   }
 
   return (
     <Modal open title={isEdit ? 'Edit product' : 'Add new product'} onClose={onClose}>
-      <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={(e) => void submit(e)} className="space-y-3">
         <Field
           label="Brand"
           value={brand}
@@ -385,54 +361,67 @@ function ProductModal({
           placeholder="e.g. AS-30"
         />
         {isEdit ? (
+          <Field
+            label="Shuttles / barrel"
+            type="number"
+            min={1}
+            value={perBarrel}
+            onChange={(e) => setPerBarrel(e.target.value)}
+          />
+        ) : (
           <>
             <div className="grid grid-cols-2 gap-3">
               <Field
-                label="Shuttles / barrel"
+                label="Barrels to buy"
                 type="number"
                 min={1}
-                value={perBarrel}
-                onChange={(e) => setPerBarrel(e.target.value)}
-              />
-              <Field
-                label="Barrels in stock"
-                type="number"
-                min={0}
+                data-testid="add-barrels"
                 value={barrels}
                 onChange={(e) => setBarrels(e.target.value)}
               />
+              <Field
+                label="Price per barrel (€)"
+                type="number"
+                min={0}
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
             </div>
-            <Field
-              label="Loose shuttles"
-              type="number"
-              min={0}
-              value={loose}
-              onChange={(e) => setLoose(e.target.value)}
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                label="Loose shuttles"
+                type="number"
+                min={0}
+                data-testid="add-loose"
+                value={loose}
+                onChange={(e) => setLoose(e.target.value)}
+              />
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-fg-muted">
+                  Kept by
+                </span>
+                <select
+                  data-testid="add-holder"
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-fg"
+                  value={holderId}
+                  onChange={(e) => setHolderId(e.target.value)}
+                >
+                  <option value="">Select a matchmaker…</option>
+                  {holders.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="Barrels to buy"
-              type="number"
-              min={1}
-              value={barrels}
-              onChange={(e) => setBarrels(e.target.value)}
-            />
-            <Field
-              label="Price per barrel (€)"
-              type="number"
-              min={0}
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
-          </div>
         )}
         <p className="text-xs text-fg-subtle">
           {isEdit
-            ? '“Loose” = leftover shuttles that don’t fill a full barrel. Editing the barrel and loose counts is a manual stock correction and does not change the fund. To change a batch price, edit it in the Transaction Log.'
-            : 'A new product is added as a purchase batch. The fund drops by barrels × price, and that price stays fixed for this batch. (Defaults to 12 shuttles per barrel — adjust later with Edit.)'}
+            ? 'Stock counts live with the matchmaker keeping them — change those in Shuttle stock. To change a batch price, edit it in the Transaction Log.'
+            : 'The stock goes straight to the matchmaker who will keep it. “Loose” = shuttles that don’t fill a full barrel. The fund drops by barrels × price, and that price stays fixed for this batch.'}
         </p>
         {!isEdit && (
           <Field
@@ -447,7 +436,9 @@ function ProductModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit">{isEdit ? 'Save changes' : 'Add product'}</Button>
+          <Button type="submit" disabled={saving}>
+            {isEdit ? 'Save changes' : saving ? 'Adding…' : 'Add product'}
+          </Button>
         </div>
       </form>
     </Modal>

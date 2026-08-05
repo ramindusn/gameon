@@ -34,3 +34,6 @@ test-results/
 
 # local scratch (screenshots, notes — not for the repo)
 local/
+
+# Prod data snapshots (personal data — never commit)
+backups/

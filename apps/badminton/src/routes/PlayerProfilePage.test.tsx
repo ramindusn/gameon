@@ -40,6 +40,11 @@ const { player, history } = vi.hoisted(() => ({
   ] as PlayerMatch[],
 }))
 
+// AppShell carries the player search on every page now, so every page test
+// needs the roster it reads.
+vi.mock('../roster/useRoster', () => ({
+  useRoster: () => ({ data: { clubId: 'c1', players: [] }, isLoading: false, isError: false }),
+}))
 vi.mock('../roster/api', () => ({
   getPlayer: (id: string) => Promise.resolve(id === 'p1' ? player : null),
 }))

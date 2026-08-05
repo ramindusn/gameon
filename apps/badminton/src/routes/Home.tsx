@@ -1,11 +1,8 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Button, Card, cx } from '@gameon/ui'
+import { Link } from 'react-router-dom'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Card, cx } from '@gameon/ui'
+import { AppShell } from '../app/AppShell'
 import { Icon, type IconName } from '../app/Icon'
-import { useAuth } from '../auth/useAuth'
-import { roleHome } from '../auth/roleHome'
-import { AdminLogin } from '../auth/AdminLogin'
-import { MatchmakerLogin } from '../auth/MatchmakerLogin'
 import {
   useGameDayBoards,
   useInactivePlayers,
@@ -25,32 +22,25 @@ import {
   POINTS_TEXT,
   RANK_TEXT,
 } from '../ranking/metricColors'
-import { SearchBox } from '../search/SearchBox'
 import { useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 
-// Public, logged-out home (TASK-9.1 / 9.2 / 9.5). Top bar with the two login
-// buttons, hero, then the latest game day's standings and the rankings. The
+// Public home (TASK-9.1 / 9.2 / 9.5). Hero, then the latest game day's
+// standings and the rankings. The
 // Scheduled Matches / Recent Results feeds were removed to keep the public home
 // focused (too much detail); the layout follows the GameOn mockup (TASK-9.5).
 export function Home() {
+  // The header, search, login buttons and footer come from AppShell now, so
+  // every page carries the same navigation — this page is just its content.
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="home">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-lg focus:bg-accent focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-950"
-      >
-        Skip to content
-      </a>
-      <PublicNav />
-      <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-4 sm:px-6">
+    <AppShell>
+      <div data-testid="home">
         <Hero />
         <LiveNow />
         <GameDayRank />
         <RankingPreview />
-      </main>
-      <Footer />
-    </div>
+      </div>
+    </AppShell>
   )
 }
 
@@ -93,7 +83,7 @@ const fmtRating = (n: number) => Math.round(n).toLocaleString('en-US')
 
 /**
  * When a casual game day is in progress, surface it so players (logged out) can
- * open the live schedule / points / scores at /play/:id — otherwise that page is
+ * open the live schedule / points / scores at /game-days/:id — otherwise that is
  * only reachable by direct link. Hidden game days are excluded, matching the
  * rest of the public home.
  */
@@ -109,7 +99,7 @@ function LiveNow() {
         {live.map((s) => (
           <Link
             key={s.id}
-            to={`/play/${s.id}`}
+            to={`/game-days/${s.id}`}
             data-testid={`live-now-${s.id}`}
             className={cx(
               'flex items-center justify-between gap-3 rounded-2xl border p-5 shadow-sm transition-colors focus:outline-none focus:ring-2 sm:p-6',
@@ -482,123 +472,6 @@ function ViewAll() {
   )
 }
 
-type LoginKind = 'admin' | 'matchmaker' | null
-
-function PublicNav() {
-  const { role, signOut } = useAuth()
-  const navigate = useNavigate()
-  const [login, setLogin] = useState<LoginKind>(null)
-  const links = ['Leaderboards']
-
-  // When a sign-in started here resolves a role, close the modal and route on.
-  useEffect(() => {
-    if (login && role) {
-      setLogin(null)
-      navigate(roleHome(role))
-    }
-  }, [login, role, navigate])
-
-  return (
-    <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-6">
-          <Link to="/" className="font-display text-lg font-bold text-accent-strong">
-            BadmintonDuo
-          </Link>
-          <nav className="hidden items-center gap-1 md:flex">
-            {links.map((l) =>
-              l === 'Leaderboards' ? (
-                <Link
-                  key={l}
-                  to="/leaderboard"
-                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-fg-muted hover:text-fg"
-                >
-                  {l}
-                </Link>
-              ) : (
-                <span
-                  key={l}
-                  className="cursor-default rounded-lg px-3 py-1.5 text-sm font-medium text-fg-muted"
-                >
-                  {l}
-                </span>
-              ),
-            )}
-          </nav>
-        </div>
-
-        <div className="relative flex items-center gap-3">
-          <div className="hidden w-56 lg:block">
-            <SearchBox />
-          </div>
-          {role ? (
-            <>
-              <Link
-                to={roleHome(role)}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-fg-muted hover:text-fg"
-              >
-                {role === 'admin' ? 'Dashboard' : 'My area'}
-              </Link>
-              <Button
-                variant="ghost"
-                onClick={() => void signOut()}
-                data-testid="sign-out"
-              >
-                Sign out
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                onClick={() => setLogin((k) => (k === 'admin' ? null : 'admin'))}
-                data-testid="nav-admin-login"
-              >
-                Admin Login
-              </Button>
-              <Button
-                onClick={() =>
-                  setLogin((k) => (k === 'matchmaker' ? null : 'matchmaker'))
-                }
-                data-testid="nav-matchmaker-login"
-              >
-                Matchmaker Login
-              </Button>
-            </>
-          )}
-
-          {login && (
-            <>
-              {/* click-away catcher */}
-              <button
-                type="button"
-                aria-label="Close login"
-                className="fixed inset-0 z-10 cursor-default"
-                onClick={() => setLogin(null)}
-              />
-              <div
-                className="absolute right-0 top-full z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface p-4 shadow-xl"
-                data-testid="login-dropdown"
-              >
-                <div className="mb-3 text-sm font-semibold text-fg">
-                  {login === 'admin' ? 'Admin login' : 'Matchmaker login'}
-                </div>
-                {login === 'admin' ? <AdminLogin /> : <MatchmakerLogin />}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Search lives in the nav on desktop (hidden lg:block above); on smaller
-          screens it gets its own full-width row so it's reachable on mobile. */}
-      <div className="border-t border-line px-4 pb-3 pt-2 sm:px-6 lg:hidden">
-        <SearchBox />
-      </div>
-    </header>
-  )
-}
-
 function Hero() {
   return (
     <section className="py-16 text-center sm:py-24">
@@ -637,16 +510,5 @@ function Section({
       </div>
       {children}
     </section>
-  )
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-line">
-      <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-4 text-xs text-fg-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <span className="font-display text-sm font-bold text-fg">BadmintonDuo</span>
-        <span>© 2026 BadmintonDuo Club Management.</span>
-      </div>
-    </footer>
   )
 }

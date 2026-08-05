@@ -18,6 +18,14 @@ const { players, pairs, form, inactive } = vi.hoisted(() => ({
   inactive: new Set(['p3', 'p4']),
 }))
 
+// The page renders through AppShell now (TASK-76.1), which reads the signed-in
+// role and the roster for its nav and search.
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => ({ role: null, signOut: vi.fn() }),
+}))
+vi.mock('../roster/useRoster', () => ({
+  useRoster: () => ({ data: { clubId: 'c1', players: [] }, isLoading: false, isError: false }),
+}))
 vi.mock('../ranking/useRanking', () => ({
   usePlayerBoard: () => ({ data: players, isLoading: false, isError: false }),
   usePairBoard: () => ({ data: pairs, isLoading: false, isError: false }),

@@ -2,6 +2,7 @@
 export { Button } from './components/Button'
 export { Card } from './components/Card'
 export { Field } from './components/Field'
+export { ChipPicker, type ChipOption } from './components/ChipPicker'
 export { Modal } from './components/Modal'
 export { ToastProvider, useToast } from './components/Toast'
 export { ConfirmProvider, useConfirm } from './components/ConfirmDialog'

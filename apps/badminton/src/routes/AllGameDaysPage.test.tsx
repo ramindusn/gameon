@@ -5,6 +5,11 @@ import type { MatchSession } from '../play/api'
 
 const { state } = vi.hoisted(() => ({ state: { sessions: [] as MatchSession[] } }))
 
+// AppShell carries the player search on every page now, so every page test
+// needs the roster it reads.
+vi.mock('../roster/useRoster', () => ({
+  useRoster: () => ({ data: { clubId: 'c1', players: [] }, isLoading: false, isError: false }),
+}))
 vi.mock('../play/useMatchPlay', () => ({
   useSessions: () => ({ data: state.sessions, isLoading: false, isError: false }),
 }))

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, cx } from '@gameon/ui'
 import { DEFAULT_RATING } from '@gameon/domain'
+import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import { getPlayer } from '../roster/api'
 import { loadPlayerHistory, type PlayerMatch } from '../play/api'
@@ -97,20 +98,11 @@ export function PlayerProfilePage() {
   const [showAllHistory, setShowAllHistory] = useState(false)
   const visibleDays = showAllHistory ? days : days.slice(0, HISTORY_PREVIEW_DAYS)
 
+  // Header, nav and footer come from AppShell — this page used to render its
+  // own, which is why the bottom tab bar vanished when a profile was opened.
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="player-profile">
-      <header className="border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link to="/" className="font-display text-lg font-bold text-accent-strong">
-            BadmintonDuo
-          </Link>
-          <Link to="/" className="text-sm text-fg-muted hover:text-fg">
-            ← Home
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6">
+    <AppShell>
+      <div className="mx-auto w-full max-w-4xl" data-testid="player-profile">
         {isLoading && <p className="text-sm text-fg-muted">Loading…</p>}
         {(isError || (!isLoading && !player)) && (
           <p className="text-sm text-fg-muted" data-testid="player-not-found">
@@ -296,8 +288,8 @@ export function PlayerProfilePage() {
                 </Card>
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   )
 }
 

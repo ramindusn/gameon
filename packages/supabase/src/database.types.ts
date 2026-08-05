@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '14.15'
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -52,11 +57,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "admin_allowlist_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'admin_allowlist_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -78,11 +83,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "admins_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'admins_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -131,18 +136,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "contributions_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'contributions_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "contributions_member_id_fkey"
-            columns: ["member_id"]
+            foreignKeyName: 'contributions_member_id_fkey'
+            columns: ['member_id']
             isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
+            referencedRelation: 'members'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -173,11 +178,139 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "expenses_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'expenses_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      holdings: {
+        Row: {
+          barrels: number
+          club_id: string
+          holder_id: string
+          id: string
+          loose_shuttles: number
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          barrels?: number
+          club_id: string
+          holder_id: string
+          id?: string
+          loose_shuttles?: number
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          barrels?: number
+          club_id?: string
+          holder_id?: string
+          id?: string
+          loose_shuttles?: number
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'holdings_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'holdings_holder_id_fkey'
+            columns: ['holder_id']
+            isOneToOne: false
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'holdings_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      inventory_log: {
+        Row: {
+          action: string
+          actor_name: string | null
+          actor_user_id: string | null
+          barrels_after: number
+          barrels_delta: number
+          club_id: string
+          holder_id: string | null
+          holder_name: string
+          id: string
+          loose_after: number
+          loose_delta: number
+          note: string | null
+          occurred_at: string
+          product_id: string | null
+          product_label: string
+        }
+        Insert: {
+          action: string
+          actor_name?: string | null
+          actor_user_id?: string | null
+          barrels_after: number
+          barrels_delta?: number
+          club_id: string
+          holder_id?: string | null
+          holder_name: string
+          id?: string
+          loose_after: number
+          loose_delta?: number
+          note?: string | null
+          occurred_at?: string
+          product_id?: string | null
+          product_label: string
+        }
+        Update: {
+          action?: string
+          actor_name?: string | null
+          actor_user_id?: string | null
+          barrels_after?: number
+          barrels_delta?: number
+          club_id?: string
+          holder_id?: string | null
+          holder_name?: string
+          id?: string
+          loose_after?: number
+          loose_delta?: number
+          note?: string | null
+          occurred_at?: string
+          product_id?: string | null
+          product_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'inventory_log_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'inventory_log_holder_id_fkey'
+            columns: ['holder_id']
+            isOneToOne: false
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'inventory_log_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'products'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -229,46 +362,46 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "match_results_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'match_results_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "match_results_session_id_fkey"
-            columns: ["session_id"]
+            foreignKeyName: 'match_results_session_id_fkey'
+            columns: ['session_id']
             isOneToOne: false
-            referencedRelation: "match_sessions"
-            referencedColumns: ["id"]
+            referencedRelation: 'match_sessions'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "match_results_team_a1_fkey"
-            columns: ["team_a1"]
+            foreignKeyName: 'match_results_team_a1_fkey'
+            columns: ['team_a1']
             isOneToOne: false
-            referencedRelation: "player_profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "match_results_team_a2_fkey"
-            columns: ["team_a2"]
+            foreignKeyName: 'match_results_team_a2_fkey'
+            columns: ['team_a2']
             isOneToOne: false
-            referencedRelation: "player_profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "match_results_team_b1_fkey"
-            columns: ["team_b1"]
+            foreignKeyName: 'match_results_team_b1_fkey'
+            columns: ['team_b1']
             isOneToOne: false
-            referencedRelation: "player_profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "match_results_team_b2_fkey"
-            columns: ["team_b2"]
+            foreignKeyName: 'match_results_team_b2_fkey'
+            columns: ['team_b2']
             isOneToOne: false
-            referencedRelation: "player_profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -314,11 +447,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "match_sessions_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'match_sessions_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -346,11 +479,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "members_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'members_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -390,25 +523,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "pair_ratings_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'pair_ratings_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "pair_ratings_player1_id_fkey"
-            columns: ["player1_id"]
+            foreignKeyName: 'pair_ratings_player1_id_fkey'
+            columns: ['player1_id']
             isOneToOne: false
-            referencedRelation: "player_profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "pair_ratings_player2_id_fkey"
-            columns: ["player2_id"]
+            foreignKeyName: 'pair_ratings_player2_id_fkey'
+            columns: ['player2_id']
             isOneToOne: false
-            referencedRelation: "player_profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -454,11 +587,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "player_profiles_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'player_profiles_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -492,18 +625,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "player_ratings_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'player_ratings_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "player_ratings_player_id_fkey"
-            columns: ["player_id"]
+            foreignKeyName: 'player_ratings_player_id_fkey'
+            columns: ['player_id']
             isOneToOne: true
-            referencedRelation: "player_profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -537,11 +670,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "products_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'products_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -578,18 +711,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "purchases_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'purchases_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "purchases_product_id_fkey"
-            columns: ["product_id"]
+            foreignKeyName: 'purchases_product_id_fkey'
+            columns: ['product_id']
             isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            referencedRelation: 'products'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -617,25 +750,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "session_attendance_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'session_attendance_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "session_attendance_player_id_fkey"
-            columns: ["player_id"]
+            foreignKeyName: 'session_attendance_player_id_fkey'
+            columns: ['player_id']
             isOneToOne: false
-            referencedRelation: "player_profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "session_attendance_session_id_fkey"
-            columns: ["session_id"]
+            foreignKeyName: 'session_attendance_session_id_fkey'
+            columns: ['session_id']
             isOneToOne: false
-            referencedRelation: "match_sessions"
-            referencedColumns: ["id"]
+            referencedRelation: 'match_sessions'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -645,69 +778,92 @@ export type Database = {
           id: string
           logged_by: string | null
           occurred_at: string
+          recorded_by: string | null
+          session_id: string | null
         }
         Insert: {
           club_id: string
           id?: string
           logged_by?: string | null
           occurred_at?: string
+          recorded_by?: string | null
+          session_id?: string | null
         }
         Update: {
           club_id?: string
           id?: string
           logged_by?: string | null
           occurred_at?: string
+          recorded_by?: string | null
+          session_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "usage_entries_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'usage_entries_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'usage_entries_session_id_fkey'
+            columns: ['session_id']
+            isOneToOne: false
+            referencedRelation: 'match_sessions'
+            referencedColumns: ['id']
           },
         ]
       }
       usage_items: {
         Row: {
           club_id: string
+          holder_id: string | null
           product_id: string
           shuttles_used: number
           usage_id: string
         }
         Insert: {
           club_id: string
+          holder_id?: string | null
           product_id: string
           shuttles_used: number
           usage_id: string
         }
         Update: {
           club_id?: string
+          holder_id?: string | null
           product_id?: string
           shuttles_used?: number
           usage_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "usage_items_club_id_fkey"
-            columns: ["club_id"]
+            foreignKeyName: 'usage_items_club_id_fkey'
+            columns: ['club_id']
             isOneToOne: false
-            referencedRelation: "clubs"
-            referencedColumns: ["id"]
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "usage_items_product_id_fkey"
-            columns: ["product_id"]
+            foreignKeyName: 'usage_items_holder_id_fkey'
+            columns: ['holder_id']
             isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "usage_items_usage_id_fkey"
-            columns: ["usage_id"]
+            foreignKeyName: 'usage_items_product_id_fkey'
+            columns: ['product_id']
             isOneToOne: false
-            referencedRelation: "usage_entries"
-            referencedColumns: ["id"]
+            referencedRelation: 'products'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'usage_items_usage_id_fkey'
+            columns: ['usage_id']
+            isOneToOne: false
+            referencedRelation: 'usage_entries'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -728,33 +884,33 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] &
+        DefaultSchema['Views'])
+    ? (DefaultSchema['Tables'] &
+        DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -763,23 +919,23 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+    | keyof DefaultSchema['Tables']
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -788,23 +944,23 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+    | keyof DefaultSchema['Tables']
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -813,36 +969,36 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
+    | keyof DefaultSchema['Enums']
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
+    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
+    | keyof DefaultSchema['CompositeTypes']
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
+    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
@@ -853,4 +1009,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

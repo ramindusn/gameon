@@ -45,6 +45,20 @@ function renderHome() {
 }
 
 describe('Home (TASK-9.5)', () => {
+  // Home used to render a header of its own, so the shell's nav — and on a
+  // phone the bottom tab bar — simply were not there (TASK-76.1).
+  it('renders inside the app shell, so navigation matches every other page', () => {
+    state.players = []
+    state.pairs = []
+    state.sessions = []
+    renderHome()
+    expect(screen.getByTestId('app-shell')).toBeInTheDocument()
+    expect(screen.getByTestId('bottom-nav')).toBeInTheDocument()
+    // Signed out, the shell offers the public destinations and the logins.
+    expect(screen.getByTestId('nav-admin-login')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-matchmaker-login')).toBeInTheDocument()
+  })
+
   it('shows only the leaderboard when there is no game day yet', () => {
     state.players = []
     state.pairs = []
@@ -93,7 +107,7 @@ describe('Home (TASK-9.5)', () => {
     ] as MatchSession[]
     renderHome()
     expect(screen.getByText('Live now')).toBeInTheDocument()
-    expect(screen.getByTestId('live-now-live-1')).toHaveAttribute('href', '/play/live-1')
+    expect(screen.getByTestId('live-now-live-1')).toHaveAttribute('href', '/game-days/live-1')
     expect(screen.queryByTestId('live-now-live-hidden')).toBeNull()
   })
 

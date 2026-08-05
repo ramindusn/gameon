@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
 import { Card } from '@gameon/ui'
+import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import {
   useInactivePlayers,
@@ -15,9 +15,11 @@ import {
   PlayerBoardList,
 } from '../ranking/Leaderboard'
 
-// Public leaderboard (E05 / TASK-6.4) — full individual + doubles boards. Like
-// the player profile it is public (no AppShell): the boards are RLS public-read,
-// so logged-out visitors can browse the rankings.
+// Public leaderboard (E05 / TASK-6.4) — full individual + doubles boards. The
+// boards are RLS public-read, so logged-out visitors can browse the rankings;
+// the shell adapts to that rather than the page dropping its navigation
+// (TASK-76.1), which mattered doubly here since "Leaderboards" is itself one of
+// the public nav destinations.
 export function LeaderboardPage() {
   const players = usePlayerBoard()
   const pairs = usePairBoard()
@@ -26,20 +28,8 @@ export function LeaderboardPage() {
   const nameOf = usePlayerNames()
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-fg" data-testid="leaderboard">
-      <header className="border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link to="/" className="font-display text-lg font-bold text-accent-strong">
-            BadmintonDuo
-          </Link>
-          <Link to="/" className="text-sm text-fg-muted hover:text-fg">
-            ← Home
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
-        <h1 className="mb-4 font-display text-2xl font-bold">Leaderboards</h1>
+    <AppShell title="Leaderboards">
+      <div className="mx-auto w-full max-w-5xl" data-testid="leaderboard">
         <LeaderboardLegend />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card title="Individual Ranking" icon={<Icon name="ranking" />}>
@@ -71,7 +61,7 @@ export function LeaderboardPage() {
             )}
           </Card>
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   )
 }
