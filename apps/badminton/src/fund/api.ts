@@ -179,53 +179,22 @@ export interface StockChangeInput {
 }
 
 /**
- * Pure mapping from a stock change to the two rows it writes: the updated
- * holding and its audit-log entry. Kept separate from the I/O so the mapping
- * (especially the deltas and the denormalised names) is unit-testable.
+ * Apply a stock change. The holding write and its audit row happen inside
+ * change_stock() so they cannot come apart (TASK-79) — as two client calls the
+ * stock could move with nothing recording it. Labels are derived in the
+ * database, so the history cannot disagree with the rows it describes.
  */
-export function buildStockChange(input: StockChangeInput) {
-  const holding = {
-    club_id: input.clubId,
-    product_id: input.product.id,
-    holder_id: input.holder.id,
-    barrels: input.barrels,
-    loose_shuttles: input.looseShuttles,
-    updated_at: new Date().toISOString(),
-  }
-  const log = {
-    club_id: input.clubId,
-    actor_user_id: input.actorUserId ?? null,
-    actor_name: input.actorName ?? null,
-    holder_id: input.holder.id,
-    product_id: input.product.id,
-    // Denormalised so the history still reads correctly if the holder or
-    // product is later removed.
-    holder_name: input.holder.name,
-    product_label: `${input.product.brand} ${input.product.model}`.trim(),
-    action: input.action,
-    barrels_delta: input.barrels - input.prevBarrels,
-    loose_delta: input.looseShuttles - input.prevLooseShuttles,
-    barrels_after: input.barrels,
-    loose_after: input.looseShuttles,
-    note: input.note ?? null,
-  }
-  return { holding, log }
-}
-
-/** Apply a stock change: upsert the holding, then append the audit entry. */
 export async function saveStockChange(input: StockChangeInput): Promise<void> {
   const db = client()
-  const { holding, log } = buildStockChange(input)
-
-  const { error: hErr } = await db
-    .from('holdings')
-    .upsert(holding, { onConflict: 'product_id,holder_id' })
-  if (hErr) throw hErr
-
-  // The log is append-only and never blocks the stock change itself, but a
-  // failure here means an unaudited change — surface it rather than swallow it.
-  const { error: lErr } = await db.from('inventory_log').insert(log)
-  if (lErr) throw lErr
+  const { error } = await db.rpc('change_stock', {
+    p_holder_id: input.holder.id,
+    p_product_id: input.product.id,
+    p_barrels: input.barrels,
+    p_loose: input.looseShuttles,
+    p_action: input.action === 'allocate' ? 'allocate' : 'adjust',
+    p_note: input.note ?? undefined,
+  })
+  if (error) throw error
 }
 
 export interface TransferInput {
@@ -246,44 +215,27 @@ export interface TransferInput {
 }
 
 /**
- * Hand barrels from one matchmaker to another. Written as two stock changes so
- * both sides of the move are audited: the giver's holding goes down and the
- * receiver's goes up by the same amount.
+ * Hand barrels from one matchmaker to another. Both sides move in a single
+ * transaction inside transfer_stock(): as two separate saves the giver could be
+ * debited without the receiver being credited (TASK-79).
  */
 export async function transferStock(input: TransferInput): Promise<void> {
-  const common = {
-    clubId: input.clubId,
-    actorUserId: input.actorUserId,
-    actorName: input.actorName,
-    product: input.product,
-    action: 'transfer' as const,
-  }
-  const note = input.note ?? `Transferred to ${input.to.name}`
-
-  await saveStockChange({
-    ...common,
-    holder: input.from,
-    barrels: input.fromBarrels - input.barrels,
-    looseShuttles: input.fromLooseShuttles - input.looseShuttles,
-    prevBarrels: input.fromBarrels,
-    prevLooseShuttles: input.fromLooseShuttles,
-    note,
+  const db = client()
+  const { error } = await db.rpc('transfer_stock', {
+    p_product_id: input.product.id,
+    p_from_id: input.from.id,
+    p_to_id: input.to.id,
+    p_barrels: input.barrels,
+    p_loose: input.looseShuttles,
+    p_note: input.note ?? undefined,
   })
-  await saveStockChange({
-    ...common,
-    holder: input.to,
-    barrels: input.toBarrels + input.barrels,
-    looseShuttles: input.toLooseShuttles + input.looseShuttles,
-    prevBarrels: input.toBarrels,
-    prevLooseShuttles: input.toLooseShuttles,
-    note: `Received from ${input.from.name}`,
-  })
+  if (error) throw error
 }
 
 /**
  * Remove a matchmaker's stock record for one product. The holding row goes, but
  * an audit entry stays: the log is the history of what happened, so a removal
- * has to be recorded rather than vanish.
+ * has to be recorded rather than vanish. Both happen inside delete_holding().
  */
 export async function deleteHolding(input: {
   clubId: string
@@ -296,29 +248,11 @@ export async function deleteHolding(input: {
   note?: string
 }): Promise<void> {
   const db = client()
-
-  const { error: lErr } = await db.from('inventory_log').insert({
-    club_id: input.clubId,
-    actor_user_id: input.actorUserId ?? null,
-    actor_name: input.actorName ?? null,
-    holder_id: input.holder.id,
-    product_id: input.product.id,
-    holder_name: input.holder.name,
-    product_label: `${input.product.brand} ${input.product.model}`.trim(),
-    action: 'adjust',
-    barrels_delta: -input.prevBarrels,
-    loose_delta: -input.prevLooseShuttles,
-    barrels_after: 0,
-    loose_after: 0,
-    note: input.note ?? 'Removed the stock record',
+  const { error } = await db.rpc('delete_holding', {
+    p_holder_id: input.holder.id,
+    p_product_id: input.product.id,
+    p_note: input.note ?? undefined,
   })
-  if (lErr) throw lErr
-
-  const { error } = await db
-    .from('holdings')
-    .delete()
-    .eq('product_id', input.product.id)
-    .eq('holder_id', input.holder.id)
   if (error) throw error
 }
 

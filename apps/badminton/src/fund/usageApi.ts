@@ -4,9 +4,10 @@
 //
 // This is a matchmaker-facing path, so it deliberately does not go through
 // loadFund (which starts from the admins table and returns null for them). RLS
-// backs each read: matchmakers may SELECT products/holdings and write usage.
+// backs each read; every write goes through an audited database function so the
+// stock change and its log entry cannot come apart (TASK-79).
 
-import { deductUsage, type Product, type StockHolder } from '@gameon/domain'
+import type { Product, StockHolder } from '@gameon/domain'
 import { supabase } from '@gameon/supabase'
 
 function client() {
@@ -147,99 +148,39 @@ export async function loadSessionUsage(sessionId: string): Promise<RecordedUsage
 }
 
 /**
- * Record a game day's usage: one entry, its per-brand items, and the stock
- * deduction for each line plus an audit entry naming who recorded it.
+ * Record a game day's shuttle usage.
  *
- * Stock is checked against what the holder actually has before anything is
- * written, so a line that would take someone below zero fails the whole record
- * rather than leaving a half-applied deduction behind.
+ * The entry, its items, the drawdown from each holder and the audit rows all
+ * happen inside record_game_day_usage() (TASK-79). As separate client calls the
+ * stock could be deducted with nothing recording it, or an entry could be left
+ * behind with no drawdown; the database now does the lot or none of it, and
+ * checks the caller is a matchmaker or an admin.
+ *
+ * `none: true` — some days are played on shuttles brought from outside. Writes
+ * the entry with no items, so the day counts as answered and drops off the
+ * missing-usage list, while nothing is deducted or costed.
  */
 export async function recordGameDayUsage(input: {
   ctx: StockContext
   sessionId: string
   lines: UsageLine[]
   occurredAt?: string
-  /**
-   * "No club stock was used" — some days are played on shuttles brought from
-   * outside. Writes the entry with no items, so the day counts as answered and
-   * drops off the missing-usage list, while nothing is deducted or costed.
-   */
   none?: boolean
 }): Promise<void> {
   const db = client()
-  const { ctx, sessionId } = input
   const lines = input.none ? [] : input.lines.filter((l) => l.shuttlesUsed > 0)
   if (lines.length === 0 && !input.none) return
 
-  // Work out every deduction first — if any is impossible, write nothing.
-  const deductions = lines.map((line) => {
-    const held = ctx.holdings.find(
-      (h) => h.productId === line.product.id && h.holderId === line.holder.id,
-    ) ?? { barrels: 0, looseShuttles: 0 }
-    const next = deductUsage(line.product, held, line.shuttlesUsed)
-    if (!next) {
-      throw new Error(
-        `${line.holder.name} does not have ${line.shuttlesUsed} ${line.product.brand} shuttles.`,
-      )
-    }
-    return { line, held, next }
-  })
-
-  const { data: entry, error: eErr } = await db
-    .from('usage_entries')
-    .insert({
-      club_id: ctx.clubId,
-      session_id: sessionId,
-      recorded_by: ctx.userId ?? null,
-      logged_by: ctx.myName ?? null,
-      occurred_at: input.occurredAt ?? new Date().toISOString(),
-    })
-    .select()
-    .single()
-  if (eErr) throw eErr
-
-  if (deductions.length === 0) return // "none from stock": the entry alone says it
-
-  const { error: iErr } = await db.from('usage_items').insert(
-    deductions.map(({ line }) => ({
-      club_id: ctx.clubId,
-      usage_id: entry.id,
-      product_id: line.product.id,
-      shuttles_used: line.shuttlesUsed,
-      holder_id: line.holder.id,
+  const { error } = await db.rpc('record_game_day_usage', {
+    p_session_id: input.sessionId,
+    p_lines: lines.map((l) => ({
+      product_id: l.product.id,
+      holder_id: l.holder.id,
+      shuttles_used: l.shuttlesUsed,
     })),
-  )
-  if (iErr) throw iErr
-
-  for (const { line, held, next } of deductions) {
-    const { error: hErr } = await db
-      .from('holdings')
-      .update({
-        barrels: next.barrels,
-        loose_shuttles: next.looseShuttles,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('product_id', line.product.id)
-      .eq('holder_id', line.holder.id)
-    if (hErr) throw hErr
-
-    const { error: lErr } = await db.from('inventory_log').insert({
-      club_id: ctx.clubId,
-      actor_user_id: ctx.userId ?? null,
-      actor_name: ctx.myName ?? null,
-      holder_id: line.holder.id,
-      product_id: line.product.id,
-      holder_name: line.holder.name,
-      product_label: `${line.product.brand} ${line.product.model}`.trim(),
-      action: 'usage',
-      barrels_delta: next.barrels - held.barrels,
-      loose_delta: next.looseShuttles - held.looseShuttles,
-      barrels_after: next.barrels,
-      loose_after: next.looseShuttles,
-      note: `${line.shuttlesUsed} shuttles used on a game day`,
-    })
-    if (lErr) throw lErr
-  }
+    p_occurred_at: input.occurredAt ?? new Date().toISOString(),
+  })
+  if (error) throw error
 }
 
 /** Session ids that already have usage recorded (including a "none" marker). */

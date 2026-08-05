@@ -1,9 +1,11 @@
 ---
 id: TASK-79
 title: Make the stock audit trail un-skippable
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-08-05 20:39'
+updated_date: '2026-08-05 20:47'
 labels:
   - security
 dependencies: []
@@ -31,8 +33,8 @@ NOT URGENT: none of this is reachable by an outsider — signed-out access to ev
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every holdings write goes through a database function that logs it in the same transaction
-- [ ] #2 A stock change cannot be made without its inventory_log entry
-- [ ] #3 The direct UPDATE grant on holdings is revoked from authenticated once no client path needs it
-- [ ] #4 Functions that raise stock still work under the drawdown trigger
+- [x] #1 Every holdings write goes through a database function that logs it in the same transaction
+- [x] #2 A stock change cannot be made without its inventory_log entry
+- [x] #3 The direct UPDATE grant on holdings is revoked from authenticated once no client path needs it
+- [x] #4 Functions that raise stock still work under the drawdown trigger
 <!-- AC:END -->

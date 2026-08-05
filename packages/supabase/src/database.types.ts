@@ -875,6 +875,37 @@ export type Database = {
       is_admin: { Args: { club: string }; Returns: boolean }
       is_matchmaker: { Args: { club: string }; Returns: boolean }
       restore_usage_holdings: { Args: { p_usage_id: string }; Returns: number }
+      stock_actor_name: { Args: Record<string, never>; Returns: string }
+      change_stock: {
+        Args: {
+          p_holder_id: string
+          p_product_id: string
+          p_barrels: number
+          p_loose: number
+          p_action: string
+          p_note?: string
+        }
+        Returns: undefined
+      }
+      transfer_stock: {
+        Args: {
+          p_product_id: string
+          p_from_id: string
+          p_to_id: string
+          p_barrels: number
+          p_loose: number
+          p_note?: string
+        }
+        Returns: undefined
+      }
+      delete_holding: {
+        Args: { p_holder_id: string; p_product_id: string; p_note?: string }
+        Returns: undefined
+      }
+      record_game_day_usage: {
+        Args: { p_session_id: string; p_lines: Json; p_occurred_at?: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
