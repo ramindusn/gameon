@@ -83,7 +83,10 @@ export function PlayPage() {
   const addMatch = useAddCustomMatch(id)
   const deleteMatch = useDeleteMatch(id)
 
-  const [tab, setTab] = useState<Tab>('matches')
+  // Null until the viewer picks a tab themselves; until then it follows the
+  // game day (see `tab` below), rather than being pinned at mount — the session
+  // has not loaded yet at this point.
+  const [pickedTab, setPickedTab] = useState<Tab | null>(null)
   const [roundIdx, setRoundIdx] = useState(0)
   // Matchmaker is building a brand-new round (the RoundBuilder is shown).
   const [addingRound, setAddingRound] = useState(false)
@@ -206,6 +209,11 @@ export function PlayPage() {
 
   const live = data?.session.status === 'live'
 
+  // A finished game day opens on the standings — that is the result everyone
+  // came for; a live one opens on the matches still being played. Either way an
+  // explicit tap wins from then on.
+  const tab: Tab = pickedTab ?? (data && !live ? 'points' : 'matches')
+
   // Share a finished game day's results to the club chat: native share sheet on
   // phones (WhatsApp etc.), wa.me fallback on desktop.
   const shareResults = () => {
@@ -310,7 +318,7 @@ export function PlayPage() {
                   {/* Divider lives on the sticky header (not the content) so the
                       seam stays a single crisp hairline while pinned. */}
                   <div className="sticky top-14 z-[9] rounded-t-xl border-b border-line bg-surface/95 px-2 pb-2 pt-2 shadow-sm backdrop-blur">
-                    <Tabs active={tab} onChange={setTab} />
+                    <Tabs active={tab} onChange={setPickedTab} />
                     {tab === 'matches' && current && !addingRound && (
                       <RoundPager
                         round={current.round}

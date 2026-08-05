@@ -162,6 +162,29 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('points-p7')).toHaveTextContent('-12.4')
   })
 
+  it('opens a finished game day on the standings, not the matches (TASK-70)', () => {
+    sessionData.session.status = 'finished'
+    renderPage()
+    // The result is what people came for once the day is done.
+    expect(screen.getByTestId('points-table')).toBeInTheDocument()
+    sessionData.session.status = 'live'
+  })
+
+  it('opens a live game day on the matches', () => {
+    renderPage()
+    expect(screen.getByTestId('matches-tab')).toBeInTheDocument()
+    expect(screen.queryByTestId('points-table')).toBeNull()
+  })
+
+  it('lets the viewer tab back to the matches on a finished day', () => {
+    sessionData.session.status = 'finished'
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-matches'))
+    expect(screen.getByTestId('matches-tab')).toBeInTheDocument()
+    expect(screen.queryByTestId('points-table')).toBeNull()
+    sessionData.session.status = 'live'
+  })
+
   it('has two tabs (Matches + Points), not separate Schedule/Score', () => {
     renderPage()
     expect(screen.getByTestId('tab-matches')).toBeInTheDocument()
