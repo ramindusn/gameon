@@ -295,3 +295,27 @@ describe('the game day page usage panel (TASK-70)', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+// Some days are played on shuttles from outside the club, so "none" has to be
+// sayable — otherwise the day never leaves the admin's missing-usage list.
+describe('recording none from stock (TASK-72)', () => {
+  it('records an explicit none without asking for a holder or counts', async () => {
+    renderUsage()
+    fireEvent.click(await screen.findByTestId('usage-none'))
+    await waitFor(() => expect(record).toHaveBeenCalledTimes(1))
+    expect(record.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ sessionId: 's1', none: true, lines: [] }),
+    )
+  })
+
+  it('shows a day answered as none as such, not as unrecorded', async () => {
+    // An entry with no items is the "none" answer.
+    recorded.current = [
+      { entryId: 'e1', sessionId: 's1', occurredAt: '2026-08-05T10:00:00Z', items: [] },
+    ]
+    renderIn(<GameDayUsagePanel sessionId="s1" onOpen={vi.fn()} />)
+    expect(await screen.findByTestId('usage-none-recorded')).toBeInTheDocument()
+    expect(screen.queryByTestId('usage-empty')).toBeNull()
+    expect(screen.getByTestId('open-usage')).toHaveTextContent('Update usage')
+  })
+})

@@ -11,6 +11,7 @@ import { StatCard, DualStatCard } from '../app/StatCard'
 import { useFund } from '../fund/useFund'
 import { QuickAdd } from '../fund/QuickAdd'
 import { TodayUsage } from '../fund/TodayUsage'
+import { AdminGameDayUsage } from '../fund/AdminGameDayUsage'
 import { FundSummary } from '../fund/FundSummary'
 import { Inventory } from '../fund/Inventory'
 import { StockPanel } from '../fund/StockPanel'
@@ -81,7 +82,8 @@ export function DashboardPage() {
 
         {/* Today's usage paired with the compact fund summary */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+          <div className="space-y-6 lg:col-span-2">
+            <AdminGameDayUsage />
             <TodayUsage />
           </div>
           <div className="lg:col-span-1">

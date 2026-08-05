@@ -49,8 +49,8 @@ export function GameDayUsage({
   const { data: ctx } = useStockContext()
   const { data: recorded } = useSessionUsage(sessionId)
 
-  // Only matchmakers record usage; everyone else gets nothing at all.
-  if (!ctx?.myHolderId) return null
+  // Matchmakers record their own days; admins record on anyone's behalf.
+  if (!ctx || !(ctx.myHolderId || ctx.isAdmin)) return null
 
   return (
     <>
@@ -148,8 +148,8 @@ export function GameDayUsagePanel({
   const { data: ctx } = useStockContext()
   const { data: recorded } = useSessionUsage(sessionId)
 
-  // Only matchmakers record usage; everyone else gets nothing at all.
-  if (!ctx?.myHolderId) return null
+  // Matchmakers record their own days; admins record on anyone's behalf.
+  if (!ctx || !(ctx.myHolderId || ctx.isAdmin)) return null
 
   // One line per brand+holder, summed across however many times it was recorded.
   const totals = new Map<string, { brand: string; holder: string; used: number }>()
@@ -163,6 +163,9 @@ export function GameDayUsagePanel({
     }
   }
   const lines = [...totals.values()]
+  // An entry with no items is the explicit "none from stock" answer — quite
+  // different from never having been asked.
+  const markedNone = lines.length === 0 && (recorded?.length ?? 0) > 0
 
   return (
     <Card
@@ -170,11 +173,15 @@ export function GameDayUsagePanel({
       icon={<Icon name="inventory" />}
       action={
         <Button onClick={onOpen} data-testid="open-usage">
-          {lines.length ? 'Update usage' : 'Record usage'}
+          {lines.length || markedNone ? 'Update usage' : 'Record usage'}
         </Button>
       }
     >
-      {lines.length === 0 ? (
+      {markedNone ? (
+        <p className="text-sm text-fg-muted" data-testid="usage-none-recorded">
+          No club shuttles were used this game day.
+        </p>
+      ) : lines.length === 0 ? (
         <p className="text-sm text-fg-muted" data-testid="usage-empty">
           No shuttles recorded for this game day yet.
         </p>
@@ -234,7 +241,8 @@ function UsageForm({
   const items = stock?.items ?? []
 
   const save = useMutation({
-    mutationFn: (lines: UsageLine[]) => recordGameDayUsage({ ctx, sessionId, lines }),
+    mutationFn: (v: { lines: UsageLine[]; none?: boolean }) =>
+      recordGameDayUsage({ ctx, sessionId, lines: v.lines, none: v.none }),
     onSuccess: () => {
       setCounts({})
       setError('')
@@ -259,7 +267,7 @@ function UsageForm({
       lines.push({ product: item.product, holder, shuttlesUsed: used })
     }
     if (lines.length === 0) return setError('Enter how many shuttles were used.')
-    save.mutate(lines)
+    save.mutate({ lines })
   }
 
   return (
@@ -354,7 +362,20 @@ function UsageForm({
           {error}
         </p>
       )}
-      <div className="flex justify-end gap-2">
+      {/* Some days are played on shuttles brought from outside the club, so
+          there has to be a way to answer "none" — otherwise the day sits on the
+          admin's missing-usage list for good. */}
+      <button
+        type="button"
+        className="text-sm text-fg-muted underline underline-offset-2 hover:text-fg disabled:opacity-50"
+        data-testid="usage-none"
+        disabled={save.isPending}
+        onClick={() => save.mutate({ lines: [], none: true })}
+      >
+        No club shuttles were used this game day
+      </button>
+
+      <div className="flex flex-wrap justify-end gap-2">
         {secondary}
         <Button type="submit" data-testid="save-usage" disabled={save.isPending}>
           {save.isPending ? 'Saving…' : 'Record usage'}

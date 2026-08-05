@@ -23,6 +23,8 @@ export interface StockContext {
   myHolderId?: string
   myName?: string
   userId?: string
+  /** Admins record on other people's behalf, so nothing is preselected for them. */
+  isAdmin?: boolean
 }
 
 /** Products, holders and holdings as a matchmaker is allowed to see them. */
@@ -38,7 +40,12 @@ export async function loadStockContext(): Promise<StockContext | null> {
     .select('id, nickname, club_id, is_matchmaker')
     .eq('user_id', user.id)
     .maybeSingle()
-  if (!me) return null
+
+  // An admin need not be on the roster at all, so fall back to the admins table
+  // for their club — they record usage on other people's behalf (TASK-72).
+  const { data: admin } = await db.from('admins').select('club_id').limit(1).maybeSingle()
+  const clubId = me?.club_id ?? admin?.club_id
+  if (!clubId) return null
 
   const [{ data: products }, { data: holdings }, { data: holders }] = await Promise.all([
     db.from('products').select('*'),
@@ -46,12 +53,12 @@ export async function loadStockContext(): Promise<StockContext | null> {
     db
       .from('player_profiles')
       .select('id, nickname, user_id')
-      .eq('club_id', me.club_id)
+      .eq('club_id', clubId)
       .eq('is_matchmaker', true),
   ])
 
   return {
-    clubId: me.club_id,
+    clubId,
     products: (products ?? []).map((p) => ({
       id: p.id,
       brand: p.brand,
@@ -69,9 +76,10 @@ export async function loadStockContext(): Promise<StockContext | null> {
       barrels: h.barrels,
       looseShuttles: h.loose_shuttles,
     })),
-    myHolderId: me.is_matchmaker ? me.id : undefined,
-    myName: me.nickname,
+    myHolderId: me?.is_matchmaker ? me.id : undefined,
+    myName: me?.nickname,
     userId: user.id,
+    isAdmin: !!admin,
   }
 }
 
@@ -151,11 +159,17 @@ export async function recordGameDayUsage(input: {
   sessionId: string
   lines: UsageLine[]
   occurredAt?: string
+  /**
+   * "No club stock was used" — some days are played on shuttles brought from
+   * outside. Writes the entry with no items, so the day counts as answered and
+   * drops off the missing-usage list, while nothing is deducted or costed.
+   */
+  none?: boolean
 }): Promise<void> {
   const db = client()
   const { ctx, sessionId } = input
-  const lines = input.lines.filter((l) => l.shuttlesUsed > 0)
-  if (lines.length === 0) return
+  const lines = input.none ? [] : input.lines.filter((l) => l.shuttlesUsed > 0)
+  if (lines.length === 0 && !input.none) return
 
   // Work out every deduction first — if any is impossible, write nothing.
   const deductions = lines.map((line) => {
@@ -183,6 +197,8 @@ export async function recordGameDayUsage(input: {
     .select()
     .single()
   if (eErr) throw eErr
+
+  if (deductions.length === 0) return // "none from stock": the entry alone says it
 
   const { error: iErr } = await db.from('usage_items').insert(
     deductions.map(({ line }) => ({
@@ -224,4 +240,12 @@ export async function recordGameDayUsage(input: {
     })
     if (lErr) throw lErr
   }
+}
+
+/** Session ids that already have usage recorded (including a "none" marker). */
+export async function loadSessionsWithUsage(): Promise<string[]> {
+  const db = client()
+  const { data, error } = await db.from('usage_entries').select('session_id')
+  if (error) throw error
+  return [...new Set((data ?? []).map((r) => r.session_id).filter((id): id is string => !!id))]
 }
