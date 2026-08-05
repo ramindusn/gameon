@@ -1,10 +1,10 @@
 ---
 id: TASK-76
 title: Streamline the admin and matchmaker views
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-05 17:58'
-updated_date: '2026-08-05 18:25'
+updated_date: '2026-08-05 20:39'
 labels:
   - ui
 dependencies: []
