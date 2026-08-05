@@ -2,7 +2,6 @@
 export { Button } from './components/Button'
 export { Card } from './components/Card'
 export { Field } from './components/Field'
-export { Select } from './components/Select'
 export { Modal } from './components/Modal'
 export { ToastProvider, useToast } from './components/Toast'
 export { ConfirmProvider, useConfirm } from './components/ConfirmDialog'

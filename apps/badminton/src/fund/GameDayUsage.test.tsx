@@ -66,7 +66,10 @@ beforeEach(() => {
 describe('who the shuttles come out of', () => {
   it('defaults to the signed-in matchmaker when they hold stock', async () => {
     renderUsage()
-    await waitFor(() => expect(screen.getByTestId('usage-holder')).toHaveValue('h1'))
+    await waitFor(() =>
+      expect(screen.getByTestId('holder-h1')).toHaveAttribute('aria-checked', 'true'),
+    )
+    expect(screen.getByTestId('holder-h2')).toHaveAttribute('aria-checked', 'false')
   })
 
   it('preselects nobody when the signed-in matchmaker holds nothing', async () => {
@@ -75,7 +78,9 @@ describe('who the shuttles come out of', () => {
       ...base,
       holdings: [{ productId: 'p2', holderId: 'h2', barrels: 1, looseShuttles: 0 }],
     })
-    await waitFor(() => expect(screen.getByTestId('usage-holder')).toHaveValue(''))
+    // Nothing is preselected — he has to say whose barrels these were.
+    await waitFor(() => expect(screen.getByTestId('holder-h2')).toBeInTheDocument())
+    expect(screen.getByTestId('holder-h2')).toHaveAttribute('aria-checked', 'false')
   })
 
   it('asks instead of recording when no holder is chosen', async () => {
@@ -92,9 +97,9 @@ describe('who the shuttles come out of', () => {
 
   it('can be overridden even when the recorder does hold stock', async () => {
     renderUsage()
-    const who = await screen.findByTestId('usage-holder')
-    expect(who).toHaveValue('h1') // defaulted to me…
-    fireEvent.change(who, { target: { value: 'h2' } }) // …but overridable
+    // Defaulted to me…
+    expect(await screen.findByTestId('holder-h1')).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByTestId('holder-h2')) // …but overridable
     // Sahan's brands replace Ramboo's.
     expect(await screen.findByTestId('used-p2')).toBeInTheDocument()
     fireEvent.change(screen.getByTestId('used-p2'), { target: { value: '5' } })
@@ -119,6 +124,7 @@ describe('who the shuttles come out of', () => {
     expect(who).toHaveTextContent('Sahan')
     // Nimal holds nothing, so there is nothing to take off him.
     expect(who).not.toHaveTextContent('Nimal')
+    expect(screen.queryByTestId('holder-h3')).toBeNull()
   })
 })
 
