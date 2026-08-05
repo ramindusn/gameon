@@ -154,7 +154,7 @@ describe('held-by breakdown', () => {
     // ...but he is still a candidate to receive a transfer.
     fireEvent.click(screen.getByTestId('transfer-stock'))
     expect(
-      within(screen.getByTestId('transfer-to')).getByRole('option', { name: 'Uditha' }),
+      within(screen.getByTestId('transfer-to')).getByRole('radio', { name: 'Uditha' }),
     ).toBeInTheDocument()
   })
 
@@ -174,9 +174,9 @@ describe('transferring stock', () => {
   it('moves barrels from one matchmaker to another', async () => {
     renderPanel()
     fireEvent.click(screen.getByTestId('transfer-stock'))
-    fireEvent.change(screen.getByTestId('stock-product'), { target: { value: 'p1' } })
-    fireEvent.change(screen.getByTestId('transfer-from'), { target: { value: 'h1' } })
-    fireEvent.change(screen.getByTestId('transfer-to'), { target: { value: 'h2' } })
+    fireEvent.click(screen.getByTestId('stock-product-p1'))
+    fireEvent.click(screen.getByTestId('transfer-from-h1'))
+    fireEvent.click(screen.getByTestId('transfer-to-h2'))
     fireEvent.change(screen.getByTestId('transfer-barrels'), { target: { value: '4' } })
     fireEvent.click(screen.getByTestId('save-transfer'))
 
@@ -198,22 +198,23 @@ describe('transferring stock', () => {
     fireEvent.click(screen.getByTestId('transfer-stock'))
 
     // Before a product is chosen there is nobody to give it.
-    const from = screen.getByTestId('transfer-from')
-    expect(
-      within(from).getByRole('option', { name: /Pick a product first/ }),
-    ).toBeInTheDocument()
-    expect(within(from).queryByRole('option', { name: 'Ramboo' })).toBeNull()
+    expect(screen.getByTestId('transfer-from')).toHaveTextContent(/Pick a product first/)
+    expect(screen.queryByTestId('transfer-from-h1')).toBeNull()
 
     // Victor (p2) is held only by Kasun.
-    fireEvent.change(screen.getByTestId('stock-product'), { target: { value: 'p2' } })
-    expect(within(from).getByRole('option', { name: 'Kasun' })).toBeInTheDocument()
-    expect(within(from).queryByRole('option', { name: 'Ramboo' })).toBeNull()
-    expect(within(from).queryByRole('option', { name: 'Uditha' })).toBeNull()
+    fireEvent.click(screen.getByTestId('stock-product-p2'))
+    expect(
+      within(screen.getByTestId('transfer-from')).getByRole('radio', { name: 'Kasun' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('transfer-from-h1')).toBeNull()
+    expect(screen.queryByTestId('transfer-from-h3')).toBeNull()
 
     // RSL (p1) is held by both Ramboo and Kasun, but never by Uditha.
-    fireEvent.change(screen.getByTestId('stock-product'), { target: { value: 'p1' } })
-    expect(within(from).getByRole('option', { name: 'Ramboo' })).toBeInTheDocument()
-    expect(within(from).queryByRole('option', { name: 'Uditha' })).toBeNull()
+    fireEvent.click(screen.getByTestId('stock-product-p1'))
+    expect(
+      within(screen.getByTestId('transfer-from')).getByRole('radio', { name: 'Ramboo' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('transfer-from-h3')).toBeNull()
   })
 
   it('offers only products somebody is actually holding', () => {
@@ -223,8 +224,8 @@ describe('transferring stock', () => {
     fireEvent.click(screen.getByTestId('transfer-stock'))
 
     const picker = screen.getByTestId('stock-product')
-    expect(within(picker).getByRole('option', { name: 'RSL Classic' })).toBeInTheDocument()
-    expect(within(picker).queryByRole('option', { name: 'Li-Ning A+90' })).toBeNull()
+    expect(within(picker).getByRole('radio', { name: 'RSL Classic' })).toBeInTheDocument()
+    expect(within(picker).queryByRole('radio', { name: 'Li-Ning A+90' })).toBeNull()
   })
 
   it('disables transfer entirely when nothing is held', () => {
@@ -242,26 +243,27 @@ describe('transferring stock', () => {
     })
     fireEvent.click(screen.getByTestId('transfer-stock'))
     const picker = screen.getByTestId('stock-product')
-    expect(within(picker).queryByRole('option', { name: 'Victor Pro' })).toBeNull()
+    expect(within(picker).queryByRole('radio', { name: 'Victor Pro' })).toBeNull()
   })
 
   it('clears a chosen giver when the product changes to one they do not hold', async () => {
     renderPanel()
     fireEvent.click(screen.getByTestId('transfer-stock'))
-    fireEvent.change(screen.getByTestId('stock-product'), { target: { value: 'p1' } })
-    fireEvent.change(screen.getByTestId('transfer-from'), { target: { value: 'h1' } })
-    expect(screen.getByTestId('transfer-from')).toHaveValue('h1')
+    fireEvent.click(screen.getByTestId('stock-product-p1'))
+    fireEvent.click(screen.getByTestId('transfer-from-h1'))
+    expect(screen.getByTestId('transfer-from-h1')).toHaveAttribute('aria-checked', 'true')
     // Ramboo holds no Victor, so the selection cannot stand.
-    fireEvent.change(screen.getByTestId('stock-product'), { target: { value: 'p2' } })
-    expect(screen.getByTestId('transfer-from')).toHaveValue('')
+    fireEvent.click(screen.getByTestId('stock-product-p2'))
+    expect(screen.queryByTestId('transfer-from-h1')).toBeNull()
+    expect(screen.getByTestId('transfer-from-h2')).toHaveAttribute('aria-checked', 'false')
   })
 
   it('refuses to move more than the giver is holding', async () => {
     renderPanel()
     fireEvent.click(screen.getByTestId('transfer-stock'))
-    fireEvent.change(screen.getByTestId('stock-product'), { target: { value: 'p1' } })
-    fireEvent.change(screen.getByTestId('transfer-from'), { target: { value: 'h2' } })
-    fireEvent.change(screen.getByTestId('transfer-to'), { target: { value: 'h1' } })
+    fireEvent.click(screen.getByTestId('stock-product-p1'))
+    fireEvent.click(screen.getByTestId('transfer-from-h2'))
+    fireEvent.click(screen.getByTestId('transfer-to-h1'))
     fireEvent.change(screen.getByTestId('transfer-barrels'), { target: { value: '99' } })
     fireEvent.click(screen.getByTestId('save-transfer'))
 

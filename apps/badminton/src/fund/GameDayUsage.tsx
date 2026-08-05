@@ -1,6 +1,6 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button, Card, cx, Field, Modal } from '@gameon/ui'
+import { Button, Card, ChipPicker, Field, Modal } from '@gameon/ui'
 import { holderStock, type FundState } from '@gameon/domain'
 import { Icon } from '../app/Icon'
 import {
@@ -234,7 +234,6 @@ function UsageForm({
   const [holderId, setHolderId] = useState(iHoldStock ? (ctx.myHolderId ?? '') : '')
   const [counts, setCounts] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
-  const holderLabelId = useId()
 
   // Only the brands that person actually has, with what they have left.
   const stock = holderId ? holderStock(stockState, holderId) : null
@@ -272,53 +271,22 @@ function UsageForm({
 
   return (
     <form onSubmit={submit} className="space-y-4" data-testid="usage-form">
-      {/* Chips rather than a <select>: a phone renders a native select's list as
-          OS chrome (an iOS wheel / an Android dialog) away from the control, and
-          there are only ever a few holders — so the choices sit inline, one tap,
-          exactly where they are read. */}
-      <div>
-        <p id={holderLabelId} className="mb-1.5 text-sm font-medium text-fg-muted">
-          From whose stock
-        </p>
-        {candidates.length === 0 ? (
-          <p className="text-sm text-fg-muted" data-testid="usage-holder">
-            Nobody is holding stock.
-          </p>
-        ) : (
-          <div
-            role="radiogroup"
-            aria-labelledby={holderLabelId}
-            className="flex flex-wrap gap-2"
-            data-testid="usage-holder"
-          >
-            {candidates.map((h) => {
-              const on = h.id === holderId
-              return (
-                <button
-                  key={h.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  data-testid={`holder-${h.id}`}
-                  onClick={() => {
-                    setHolderId(h.id)
-                    setCounts({}) // counts belong to the previous person's brands
-                    setError('')
-                  }}
-                  className={cx(
-                    'min-h-[2.75rem] rounded-full border px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent',
-                    on
-                      ? 'border-accent bg-accent text-neutral-950'
-                      : 'border-line bg-surface text-fg hover:bg-surface-muted',
-                  )}
-                >
-                  {h.id === ctx.myHolderId ? `${h.name} (you)` : h.name}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
+      <ChipPicker
+        label="From whose stock"
+        data-testid="usage-holder"
+        chipTestId={(id) => `holder-${id}`}
+        value={holderId}
+        onChange={(id) => {
+          setHolderId(id)
+          setCounts({}) // counts belong to the previous person's brands
+          setError('')
+        }}
+        empty="Nobody is holding stock."
+        options={candidates.map((h) => ({
+          id: h.id,
+          label: h.id === ctx.myHolderId ? `${h.name} (you)` : h.name,
+        }))}
+      />
 
       {holderId && items.length === 0 && (
         <p className="text-sm text-fg-muted" data-testid="holder-has-nothing">

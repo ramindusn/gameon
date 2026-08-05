@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Button, Card, Field, Modal, useConfirm } from '@gameon/ui'
+import { Button, Card, ChipPicker, Field, Modal, useConfirm } from '@gameon/ui'
 import {
   isProductLowStock,
   stockByHolder,
@@ -290,40 +290,22 @@ function Pickers({
 }) {
   return (
     <>
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium text-fg-muted">Product</span>
-        <select
-          data-testid="stock-product"
-          className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-fg"
-          value={productId}
-          onChange={(e) => setProductId(e.target.value)}
-        >
-          <option value="">{productPlaceholder}</option>
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.brand} {p.model}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium text-fg-muted">
-          {holderLabel}
-        </span>
-        <select
-          data-testid={holderTestId}
-          className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-fg"
-          value={holderId}
-          onChange={(e) => setHolderId(e.target.value)}
-        >
-          <option value="">{holderPlaceholder}</option>
-          {holders.map((h) => (
-            <option key={h.id} value={h.id}>
-              {h.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ChipPicker
+        label="Product"
+        data-testid="stock-product"
+        value={productId}
+        onChange={setProductId}
+        empty={productPlaceholder}
+        options={products.map((p) => ({ id: p.id, label: `${p.brand} ${p.model}` }))}
+      />
+      <ChipPicker
+        label={holderLabel}
+        data-testid={holderTestId}
+        value={holderId}
+        onChange={setHolderId}
+        empty={holderPlaceholder}
+        options={holders.map((h) => ({ id: h.id, label: h.name }))}
+      />
     </>
   )
 }
@@ -441,24 +423,16 @@ function TransferModal({
                 : 'Select a matchmaker…'
           }
         />
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-fg-muted">To</span>
-          <select
-            data-testid="transfer-to"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-fg"
-            value={toId}
-            onChange={(e) => setToId(e.target.value)}
-          >
-            <option value="">Select a matchmaker…</option>
-            {holders
-              .filter((h) => h.id !== fromId)
-              .map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-          </select>
-        </label>
+        <ChipPicker
+          label="To"
+          data-testid="transfer-to"
+          value={toId}
+          onChange={setToId}
+          empty="Nobody else to hand it to"
+          options={holders
+            .filter((h) => h.id !== fromId)
+            .map((h) => ({ id: h.id, label: h.name }))}
+        />
         <div className="grid grid-cols-2 gap-3">
           <Field
             label="Barrels"
