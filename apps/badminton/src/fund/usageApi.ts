@@ -257,83 +257,26 @@ export async function loadSessionsWithUsage(): Promise<string[]> {
  * TASK-69) and logs it. Deleting used to credit `products.barrels` instead —
  * the deprecated club-wide pool, which nothing displays — so the shuttles
  * vanished from every total and the holder never got them back, while the
- * audit trail still showed the deduction standing. This is the mirror of the
- * deduction in recordGameDayUsage.
+ * audit trail still showed the deduction standing.
  *
- * `holder_id` is null on entries written before per-holder stock existed. Those
- * never came out of a holding, so there is correctly nothing to give back.
+ * The work happens in restore_usage_holdings() rather than here (TASK-78): as
+ * three client-side writes the audit entry was advisory, and nothing made a
+ * caller write it. In the database the credit and its log entry are one
+ * transaction that cannot be half-done or skipped, it checks the caller owned
+ * the entry, and it is the only route by which a matchmaker may increase a
+ * holding — direct increases are refused by a trigger.
+ *
+ * Entries predating per-holder stock have no holder, so nothing is credited and
+ * this returns 0.
  *
  * Call this BEFORE removing the entry: if the credit fails, the entry stays and
  * the numbers stay consistent.
+ *
+ * @returns how many holdings were credited.
  */
-export async function restoreUsageHoldings(usageId: string): Promise<void> {
+export async function restoreUsageHoldings(usageId: string): Promise<number> {
   const db = client()
-
-  const { data: items, error: iErr } = await db
-    .from('usage_items')
-    .select('product_id, holder_id, shuttles_used, club_id')
-    .eq('usage_id', usageId)
-  if (iErr) throw iErr
-  const lines = (items ?? [])
-    .filter((i) => i.holder_id && i.shuttles_used > 0)
-    .map((i) => ({ ...i, holder_id: i.holder_id as string }))
-  if (lines.length === 0) return
-
-  const productIds = [...new Set(lines.map((i) => i.product_id))]
-  const [{ data: products, error: pErr }, { data: holdings, error: hErr }] = await Promise.all([
-    db.from('products').select('id, brand, model, shuttles_per_barrel').in('id', productIds),
-    db.from('holdings').select('*').in('product_id', productIds),
-  ])
-  if (pErr) throw pErr
-  if (hErr) throw hErr
-
-  const productById = new Map((products ?? []).map((p) => [p.id, p]))
-  const holderNames = new Map(
-    ((
-      await db
-        .from('player_profiles')
-        .select('id, nickname')
-        .in('id', [...new Set(lines.map((i) => i.holder_id))])
-    ).data ?? []).map((p) => [p.id, p.nickname as string]),
-  )
-
-  for (const line of lines) {
-    const product = productById.get(line.product_id)
-    if (!product) continue // product since deleted — nothing to credit it to
-    const per = product.shuttles_per_barrel || 1
-    const held = (holdings ?? []).find(
-      (h) => h.product_id === line.product_id && h.holder_id === line.holder_id,
-    ) ?? { barrels: 0, loose_shuttles: 0 }
-
-    // Re-derive from the shuttle total so returned loose shuttles roll back up
-    // into whole barrels, the same way the deduction breaks them down.
-    const total = held.barrels * per + held.loose_shuttles + line.shuttles_used
-    const next = { barrels: Math.floor(total / per), looseShuttles: total % per }
-
-    const { error: uErr } = await db
-      .from('holdings')
-      .update({
-        barrels: next.barrels,
-        loose_shuttles: next.looseShuttles,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('product_id', line.product_id)
-      .eq('holder_id', line.holder_id)
-    if (uErr) throw uErr
-
-    const { error: lErr } = await db.from('inventory_log').insert({
-      club_id: line.club_id,
-      holder_id: line.holder_id,
-      product_id: line.product_id,
-      holder_name: holderNames.get(line.holder_id) ?? 'Unknown',
-      product_label: `${product.brand} ${product.model}`.trim(),
-      action: 'adjust',
-      barrels_delta: next.barrels - held.barrels,
-      loose_delta: next.looseShuttles - held.loose_shuttles,
-      barrels_after: next.barrels,
-      loose_after: next.looseShuttles,
-      note: `${line.shuttles_used} shuttles returned — game-day usage deleted`,
-    })
-    if (lErr) throw lErr
-  }
+  const { data, error } = await db.rpc('restore_usage_holdings', { p_usage_id: usageId })
+  if (error) throw error
+  return typeof data === 'number' ? data : 0
 }

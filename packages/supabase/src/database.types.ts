@@ -874,6 +874,7 @@ export type Database = {
     Functions: {
       is_admin: { Args: { club: string }; Returns: boolean }
       is_matchmaker: { Args: { club: string }; Returns: boolean }
+      restore_usage_holdings: { Args: { p_usage_id: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never
