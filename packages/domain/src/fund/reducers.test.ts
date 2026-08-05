@@ -267,6 +267,29 @@ describe('deleteTransaction', () => {
     expect(remainingFund(reverted)).toBe(remainingFund(s))
   })
 
+  // With per-matchmaker holdings the deduction was written against the holder's
+  // row, so crediting the deprecated club-wide pool here put the shuttles where
+  // no total reads them — the holder stayed short and the two figures drifted
+  // apart (TASK-77). The API layer gives them back to the holder instead.
+  it('usage: leaves the deprecated pool alone once holdings exist', () => {
+    const s = seeded()
+    const productId = s.products[0].id
+    const used = recordUsage(s, '2026-01-02', [{ productId, shuttlesUsed: 6 }])
+    const withHoldings = {
+      ...used,
+      holders: [{ id: 'h1', name: 'Ramboo' }],
+      holdings: [{ productId, holderId: 'h1', barrels: 0, looseShuttles: 6 }],
+    }
+    const reverted = deleteTransaction(withHoldings, {
+      kind: 'usage',
+      id: used.usage[0].id,
+    })
+    expect(reverted.usage).toHaveLength(0)
+    // products untouched — the holder's row is restored in the API layer.
+    expect(reverted.products[0].barrels).toBe(used.products[0].barrels)
+    expect(reverted.products[0].looseShuttles).toBe(used.products[0].looseShuttles)
+  })
+
   it('purchase: last batch removed drops the product entirely', () => {
     const s = seeded()
     const purchaseId = s.purchases[0].id

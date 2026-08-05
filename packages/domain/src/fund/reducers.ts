@@ -258,18 +258,31 @@ export function deleteTransaction(s: FundState, ref: TxRef): FundState {
     }
     case 'usage': {
       const entry = s.usage.find((u) => u.id === ref.id)
-      const products = entry
-        ? s.products.map((p) => {
-            const item = entry.items.find((i) => i.productId === p.id)
-            if (!item) return p
-            const total = productShuttleCount(p) + item.shuttlesUsed
-            return {
-              ...p,
-              barrels: Math.floor(total / p.shuttlesPerBarrel),
-              looseShuttles: total % p.shuttlesPerBarrel,
-            }
-          })
-        : s.products
+      // Where the shuttles go back to depends on where they came out of, and
+      // that is the same split productStock() reads by: once per-matchmaker
+      // holdings exist they are the stock, and the club-wide pool on `products`
+      // is the deprecated fallback for states that predate them.
+      //
+      // With holdings, the deduction was written against the holder's row by
+      // recordGameDayUsage, so crediting `products` here put the shuttles
+      // somewhere no total reads — leaving the holder short and the two figures
+      // drifting apart. restoreUsageHoldings() in the API layer gives them back
+      // to the holder named on the usage item; this reducer only drops the
+      // entry. Without holdings the pool IS the stock and recordUsage deducted
+      // it, so the credit belongs here.
+      const products =
+        entry && s.holdings.length === 0
+          ? s.products.map((p) => {
+              const item = entry.items.find((i) => i.productId === p.id)
+              if (!item) return p
+              const total = productShuttleCount(p) + item.shuttlesUsed
+              return {
+                ...p,
+                barrels: Math.floor(total / p.shuttlesPerBarrel),
+                looseShuttles: total % p.shuttlesPerBarrel,
+              }
+            })
+          : s.products
       return { ...s, products, usage: s.usage.filter((u) => u.id !== ref.id) }
     }
   }

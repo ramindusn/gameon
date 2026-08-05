@@ -26,6 +26,7 @@ import {
   type StockChangeInput,
   type TransferInput,
 } from './api'
+import { restoreUsageHoldings } from './usageApi'
 import { syncState } from './sync'
 
 const FUND_KEY = ['fund'] as const
@@ -146,7 +147,26 @@ export function useFund() {
       apply((s) => rAddCash(s, memberId, amount, when, loggedBy)),
     addExpense: (description: string, amount: number, when?: string) =>
       apply((s) => rAddExpense(s, description, amount, when, loggedBy)),
-    deleteTransaction: (ref: TxRef) => apply((s) => rDeleteTransaction(s, ref)),
+    /**
+     * Deleting usage has to give the shuttles back to the matchmaker they came
+     * out of, which lives in `holdings` — the reducer only drops the entry.
+     * The credit goes first: if it fails, the entry stays and the numbers stay
+     * consistent rather than the stock silently going missing.
+     */
+    deleteTransaction: async (ref: TxRef) => {
+      if (ref.kind === 'usage' && cloudBacked) {
+        await restoreUsageHoldings(ref.id)
+      }
+      const next = await apply((s) => rDeleteTransaction(s, ref))
+      if (ref.kind === 'usage' && cloudBacked) {
+        // Stock totals and the audit log are read through their own queries.
+        void qc.invalidateQueries({ queryKey: FUND_KEY })
+        void qc.invalidateQueries({ queryKey: ['my-stock'] })
+        void qc.invalidateQueries({ queryKey: ['stock-context'] })
+        void qc.invalidateQueries({ queryKey: ['inventory-log'] })
+      }
+      return next
+    },
     // Stock (TASK-69): written directly so each change is audited.
     changeStock,
     /** Remove a matchmaker's stock record for one product (audited). */
