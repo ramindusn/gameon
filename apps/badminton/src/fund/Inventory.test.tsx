@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ConfirmProvider } from '@gameon/ui'
-import { LOW_STOCK_THRESHOLD, type FundState, type Product, type Purchase } from '@gameon/domain'
+import type { FundState, Product, Purchase } from '@gameon/domain'
 
 // Inventory reads its data through useFund and gates edit controls on the admin
 // role; both are stubbed so the test drives the pure rendering.
@@ -44,7 +44,10 @@ function renderInv(state: FundState) {
 }
 
 describe('Inventory (TASK-34)', () => {
-  it('shows remaining unopened barrels and loose shuttles separately, plus the derived total', () => {
+  // Remaining barrels / loose / total and the low-stock flag moved to
+  // StockPanel with TASK-76.3 — they were rendered in both panels on the same
+  // tab. This panel now covers products, batches and prices only.
+  it('shows what a batch cost, and leaves remaining stock to StockPanel', () => {
     const p: Product = {
       id: 'p1',
       brand: 'Yonex',
@@ -53,8 +56,6 @@ describe('Inventory (TASK-34)', () => {
       barrels: 3,
       looseShuttles: 5,
     }
-    // A historical purchase batch of 10 barrels — distinct from the 3 unopened
-    // barrels currently remaining.
     const batch: Purchase = {
       id: 'pu1',
       productId: 'p1',
@@ -64,44 +65,12 @@ describe('Inventory (TASK-34)', () => {
     }
     renderInv(makeState([p], [batch]))
 
-    expect(screen.getByTestId('barrels-left-p1')).toHaveTextContent('3')
-    expect(screen.getByTestId('loose-left-p1')).toHaveTextContent('5')
-    // Total is derived: 3 barrels * 12 + 5 loose = 41.
-    expect(screen.getByTestId('total-shuttles-p1')).toHaveTextContent('41')
-  })
-
-  it('renders a clean zero state (0 barrels, 0 loose → total 0)', () => {
-    const p: Product = {
-      id: 'p2',
-      brand: 'Li-Ning',
-      model: 'A+62',
-      shuttlesPerBarrel: 12,
-      barrels: 0,
-      looseShuttles: 0,
-    }
-    renderInv(makeState([p]))
-
-    expect(screen.getByTestId('barrels-left-p2')).toHaveTextContent('0')
-    expect(screen.getByTestId('loose-left-p2')).toHaveTextContent('0')
-    expect(screen.getByTestId('total-shuttles-p2')).toHaveTextContent('0')
-  })
-
-  it('flags low stock off the derived total, not the barrel count', () => {
-    // 1 unopened barrel * 12 + 0 loose = 12 shuttles, under the threshold.
-    const p: Product = {
-      id: 'p3',
-      brand: 'RSL',
-      model: 'No.3',
-      shuttlesPerBarrel: 12,
-      barrels: 1,
-      looseShuttles: 0,
-    }
-    renderInv(makeState([p]))
-
-    expect(12).toBeLessThan(LOW_STOCK_THRESHOLD)
-    expect(screen.getByTestId('barrels-left-p3')).toHaveTextContent('1')
-    // Shown in both the mobile card and the desktop table.
-    expect(screen.getAllByText('Low stock').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Yonex').length).toBeGreaterThan(0)
+    // 24 € a barrel over 12 shuttles is 2 € each — the number this panel is for.
+    expect(screen.getAllByText('2.00 €').length).toBeGreaterThan(0)
+    // Remaining stock belongs to the other panel now.
+    expect(screen.queryByTestId('barrels-left-p1')).toBeNull()
+    expect(screen.queryByTestId('total-shuttles-p1')).toBeNull()
   })
 })
 

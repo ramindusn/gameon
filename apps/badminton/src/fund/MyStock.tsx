@@ -6,12 +6,30 @@ import { loadMyStock } from './api'
 /**
  * The stock in the signed-in matchmaker's own hands (TASK-69). Read-only by
  * design: allocation, transfers and corrections are an admin job, so this view
- * has no controls. Renders nothing at all when they hold no stock, so it never
- * adds an empty card to the matchmaker's home.
+ * has no controls.
+ *
+ * Someone who is not a matchmaker gets nothing (loadMyStock returns null) — the
+ * card would be meaningless. A matchmaker holding nothing does get the card,
+ * saying so: it used to vanish, which left them with no explanation for the
+ * "Nobody is holding stock" they then meet in the usage form (TASK-76.2).
  */
 export function MyStock() {
   const { data } = useQuery({ queryKey: ['my-stock'], queryFn: loadMyStock })
-  if (!data || data.items.length === 0) return null
+  if (!data) return null
+
+  if (data.items.length === 0) {
+    return (
+      <Card title="Shuttles in your hands" icon={<Icon name="inventory" />}>
+        <p className="text-sm text-fg-muted" data-testid="my-stock-empty">
+          You are not holding any shuttles right now, so you cannot record usage
+          against your own stock yet.
+        </p>
+        <p className="mt-1 text-xs text-fg-subtle">
+          An admin allocates barrels to a matchmaker. Ask them to hand you some.
+        </p>
+      </Card>
+    )
+  }
 
   return (
     <Card title="Shuttles in your hands" icon={<Icon name="inventory" />}>

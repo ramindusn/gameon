@@ -4,9 +4,7 @@ import { Icon } from '../app/Icon'
 import {
   euro,
   formatDateTime,
-  isProductLowStock,
   nowLocalInput,
-  productStock,
   type Product,
   type Purchase,
   type StockHolder,
@@ -39,7 +37,6 @@ export function Inventory() {
 
   // Stock now lives per custodian, so the club-wide figures shown here are the
   // sum across everyone holding that product (TASK-69).
-  const stockOf = (p: Product) => productStock(state, p)
 
   const rows: RowData[] = state.products.flatMap((product): RowData[] => {
     const batches = state.purchases
@@ -51,7 +48,7 @@ export function Inventory() {
 
   return (
     <Card
-      title="Inventory Left"
+      title="Products & pricing"
       icon={<Icon name="inventory" />}
       action={
         isAuthenticated ? (
@@ -64,8 +61,6 @@ export function Inventory() {
       {/* Mobile: stacked cards */}
       <ul className="space-y-3 sm:hidden">
         {rows.map(({ product: p, batch }, i) => {
-          const low = isProductLowStock(state, p)
-          const firstOfProduct = rows.findIndex((r) => r.product.id === p.id) === i
           const perShuttle =
             batch && p.shuttlesPerBarrel > 0
               ? batch.pricePerBarrel / p.shuttlesPerBarrel
@@ -80,11 +75,6 @@ export function Inventory() {
                   <span className="font-semibold text-fg">{p.brand}</span>{' '}
                   <span className="text-fg-muted">{p.model}</span>
                 </div>
-                {firstOfProduct && low && (
-                  <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-400">
-                    Low stock
-                  </span>
-                )}
               </div>
               <dl className="divide-y divide-line px-3 text-sm">
                 <DetailRow
@@ -101,17 +91,6 @@ export function Inventory() {
                   value={batch ? formatDateTime(batch.date) : '—'}
                   muted
                 />
-                {firstOfProduct && (
-                  <>
-                    <DetailRow label="Barrels remaining" value={String(stockOf(p).barrels)} />
-                    <DetailRow label="Loose shuttles" value={String(stockOf(p).looseShuttles)} />
-                    <DetailRow
-                      label="Total shuttles"
-                      value={String(stockOf(p).shuttles)}
-                      emphasis
-                    />
-                  </>
-                )}
               </dl>
               {isAuthenticated && (
                 <div className="flex gap-2 border-t border-line bg-surface-muted px-3 py-2">
@@ -149,16 +128,11 @@ export function Inventory() {
               <th className="py-2 pr-3 font-medium">€/barrel</th>
               <th className="py-2 pr-3 font-medium">€/shuttle</th>
               <th className="py-2 pr-3 font-medium">Added</th>
-              <th className="py-2 pr-3 font-medium">Barrels left</th>
-              <th className="py-2 pr-3 font-medium">Loose</th>
-              <th className="py-2 pr-3 font-medium">Total shuttles</th>
               {isAuthenticated && <th className="py-2 font-medium">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {rows.map(({ product: p, batch }, i) => {
-              const low = isProductLowStock(state, p)
-              const firstOfProduct = rows.findIndex((r) => r.product.id === p.id) === i
               const perShuttle =
                 batch && p.shuttlesPerBarrel > 0
                   ? batch.pricePerBarrel / p.shuttlesPerBarrel
@@ -183,37 +157,6 @@ export function Inventory() {
                   </td>
                   <td className="py-2 pr-3 text-fg-muted">
                     {batch ? formatDateTime(batch.date) : '—'}
-                  </td>
-                  <td className="py-2 pr-3 text-fg-muted">
-                    {firstOfProduct ? (
-                      <span data-testid={`barrels-left-${p.id}`}>{stockOf(p).barrels}</span>
-                    ) : (
-                      ''
-                    )}
-                  </td>
-                  <td className="py-2 pr-3 text-fg-muted">
-                    {firstOfProduct ? (
-                      <span data-testid={`loose-left-${p.id}`}>{stockOf(p).looseShuttles}</span>
-                    ) : (
-                      ''
-                    )}
-                  </td>
-                  <td className="py-2 pr-3">
-                    {firstOfProduct && (
-                      <>
-                        <span
-                          className="font-semibold text-fg"
-                          data-testid={`total-shuttles-${p.id}`}
-                        >
-                          {stockOf(p).shuttles}
-                        </span>
-                        {low && (
-                          <span className="ml-2 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">
-                            Low stock
-                          </span>
-                        )}
-                      </>
-                    )}
                   </td>
                   {isAuthenticated && (
                     <td className="py-2">

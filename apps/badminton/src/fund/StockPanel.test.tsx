@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConfirmProvider } from '@gameon/ui'
+import { LOW_STOCK_THRESHOLD } from '@gameon/domain'
 import type { FundState, Holding, Product, StockHolder } from '@gameon/domain'
 
 // StockPanel reads through useFund and the audit log through the api; both are
@@ -124,6 +125,25 @@ describe('club summary', () => {
     expect(screen.getByTestId('summary-barrels-p1')).toHaveTextContent('12') // 10 + 2
     expect(screen.getByTestId('summary-loose-p1')).toHaveTextContent('8') // 5 + 3
     expect(screen.getByTestId('summary-p1')).toHaveTextContent('152') // 12*12 + 8
+  })
+
+  // Remaining stock used to be shown here AND in the Inventory panel on the
+  // same tab; StockPanel is now its only home (TASK-76.3).
+  it('derives each brand\'s shuttle total from barrels and loose', () => {
+    renderPanel()
+    // p1: (10 + 2) barrels * 12 + (5 + 3) loose = 152.
+    expect(within(screen.getByTestId('summary-p1')).getByText(/152/)).toBeInTheDocument()
+  })
+
+  it('flags low stock off the derived total, not the barrel count', () => {
+    // 1 barrel * 12 + 0 loose = 12 shuttles, under the threshold.
+    renderPanel({
+      ...state,
+      holdings: [holding({ productId: 'p1', holderId: 'h1', barrels: 1 })],
+      products: [rsl],
+    })
+    expect(12).toBeLessThan(LOW_STOCK_THRESHOLD)
+    expect(screen.getAllByText('Low stock').length).toBeGreaterThan(0)
   })
 
   it('renders cleanly with no products', () => {

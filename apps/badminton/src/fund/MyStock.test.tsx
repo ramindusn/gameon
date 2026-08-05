@@ -46,12 +46,15 @@ describe('MyStock', () => {
     expect(screen.getByTestId('my-stock-total')).toHaveTextContent('125 shuttles in total')
   })
 
-  it('renders nothing when they hold no stock, rather than an empty card', async () => {
+  // Vanishing left them with no explanation for the "Nobody is holding stock"
+  // they then meet in the usage form (TASK-76.2).
+  it('explains itself when they are a matchmaker holding nothing', async () => {
     stock.current = { holderName: 'Ramboo', items: [], totalShuttles: 0 }
-    const { container } = renderCard()
-    await Promise.resolve()
+    renderCard()
+    expect(await screen.findByTestId('my-stock-empty')).toHaveTextContent(
+      /not holding any shuttles/i,
+    )
     expect(screen.queryByTestId('my-stock')).not.toBeInTheDocument()
-    expect(container).toBeEmptyDOMElement()
   })
 
   it('renders nothing for someone who is not a matchmaker', async () => {

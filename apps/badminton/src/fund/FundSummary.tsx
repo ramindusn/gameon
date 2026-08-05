@@ -67,9 +67,12 @@ export function FundSummary() {
         </div>
       </div>
 
+      {/* Game-day usage left this flow with TASK-73 — QuickAdd offers cash and
+          expenses only, and usage belongs to a game day now. */}
       <p className="mt-4 text-xs text-fg-subtle">
         Use <span className="font-medium">+ Add transaction</span> in the header to log
-        cash, expenses or game-day usage.
+        cash or expenses. Shuttle usage is recorded under{' '}
+        <span className="font-medium">Game days</span>.
       </p>
     </Card>
   )

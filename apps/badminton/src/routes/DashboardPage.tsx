@@ -82,10 +82,13 @@ export function DashboardPage() {
             hint="all game days"
             testId="stat-shuttles-used"
           />
+          {/* "Members" are the people who put money into the fund — they carry
+              the contributions the balances are split across. This used to be
+              labelled "Admins", which counted something else entirely. */}
           <DualStatCard
             icon={<Icon name="players" />}
             rows={[
-              { label: 'Admins', value: String(state.members.length) },
+              { label: 'Fund members', value: String(state.members.length) },
               { label: 'Players', value: String(playerCount) },
             ]}
             testId="stat-people"
