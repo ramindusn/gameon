@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { MatchResult, MatchSession } from '../play/api'
 
-const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole, usageCtx, lastUsageModalProps, ratingDeltas } =
+const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole, usageCtx, lastUsageModalProps, ratingDeltas, teams, substitute } =
   vi.hoisted(() => {
   const session: MatchSession = {
     id: 's1',
@@ -42,6 +42,8 @@ const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, ses
   ]
   return {
     setScore: vi.fn(),
+    teams: { current: [] as { id: string; player1Id: string; player2Id: string }[] },
+    substitute: vi.fn(),
     setStatus: vi.fn(),
     setHidden: vi.fn(),
     updateLineup: vi.fn(),
@@ -71,6 +73,8 @@ vi.mock('../play/useMatchPlay', () => ({
   useUpdateMatchLineup: () => ({ mutate: updateLineup, isPending: false }),
   useAddCustomMatch: () => ({ mutate: addMatch, isPending: false }),
   useDeleteMatch: () => ({ mutate: deleteMatch, isPending: false }),
+  useTournamentTeams: () => ({ data: teams.current }),
+  useSubstituteTeamPlayer: () => ({ mutate: substitute, isPending: false }),
 }))
 vi.mock('../roster/useRoster', () => ({
   useRoster: () => ({
@@ -501,5 +505,46 @@ describe('PlayPage', () => {
     expect(screen.queryByTestId('add-custom-match')).toBeNull()
     expect(screen.queryByTestId('save-score-r1')).toBeNull()
     sessionData.session.status = 'live'
+  })
+})
+
+describe('changing a pair (TASK-80)', () => {
+  beforeEach(() => {
+    sessionData.session.kind = 'tournament'
+    teams.current = [
+      { id: 't1', player1Id: 'p1', player2Id: 'p2' },
+      { id: 't2', player1Id: 'p3', player2Id: 'p4' },
+    ]
+    authRole.current = 'matchmaker'
+  })
+
+  it('substitutes one member, keeping the team', async () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-points'))
+    fireEvent.click(screen.getByTestId('change-pair-t1'))
+    // p2 out, p9 in — p9 is on the roster but in no pair.
+    fireEvent.click(screen.getByTestId('sub-out-p2'))
+    fireEvent.click(screen.getByTestId('sub-in-p9'))
+    fireEvent.click(screen.getByTestId('save-substitution'))
+    expect(substitute).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: 't1', outPlayerId: 'p2', inPlayerId: 'p9' }),
+      expect.anything(),
+    )
+  })
+
+  it('will not offer someone already in another pair', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-points'))
+    fireEvent.click(screen.getByTestId('change-pair-t1'))
+    // p3 and p4 are team t2, so they must not beofferable as substitutes.
+    expect(screen.queryByTestId('sub-in-p3')).toBeNull()
+    expect(screen.queryByTestId('sub-in-p4')).toBeNull()
+  })
+
+  it('stays hidden for a player who cannot edit', () => {
+    authRole.current = null
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-points'))
+    expect(screen.queryByTestId('pairs-editor')).toBeNull()
   })
 })

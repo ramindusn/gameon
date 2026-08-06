@@ -21,6 +21,8 @@ import {
   updateSessionPlayedAt,
   type Mode,
   type SessionStatus,
+  loadTournamentTeams,
+  substituteTeamPlayer,
   type TournamentFixture,
 } from './api'
 
@@ -128,6 +130,26 @@ export function useCreateTournamentWithMatches() {
 }
 
 /** Record a court's point scores (winner derived); refreshes the owning session. */
+export function useTournamentTeams(sessionId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['tournament-teams', sessionId],
+    queryFn: () => loadTournamentTeams(sessionId as string),
+    enabled: !!sessionId && enabled,
+  })
+}
+
+/** Swap one member of a pair; the team keeps its record (TASK-80). */
+export function useSubstituteTeamPlayer(sessionId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: Parameters<typeof substituteTeamPlayer>[0]) => substituteTeamPlayer(v),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournament-teams', sessionId] })
+      void qc.invalidateQueries({ queryKey: ['session', sessionId] })
+    },
+  })
+}
+
 export function useSetScore(sessionId: string | undefined) {
   const qc = useQueryClient()
   const { success, error } = useToast()

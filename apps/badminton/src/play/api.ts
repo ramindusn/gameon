@@ -322,6 +322,29 @@ export async function createTournamentWithMatches(
   return session.id
 }
 
+/** A fixed-pairs team on one game day, with its CURRENT members. */
+export interface TournamentTeam {
+  id: string
+  player1Id: string
+  player2Id: string
+}
+
+/** The teams of a fixed-pairs game day. Empty for a casual one. */
+export async function loadTournamentTeams(sessionId: string): Promise<TournamentTeam[]> {
+  const db = client()
+  const { data, error } = await db
+    .from('tournament_teams')
+    .select('id, player1_id, player2_id')
+    .eq('session_id', sessionId)
+    .order('created_at')
+  if (error) throw error
+  return (data ?? []).map((t) => ({
+    id: t.id,
+    player1Id: t.player1_id,
+    player2Id: t.player2_id,
+  }))
+}
+
 /**
  * Swap one member of a fixed-pairs team from a round onward (TASK-80).
  *

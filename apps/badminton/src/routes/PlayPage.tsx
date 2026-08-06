@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, cx, SkeletonCard } from '@gameon/ui'
+import { Button, ChipPicker, cx, Modal, SkeletonCard } from '@gameon/ui'
 import {
   generateRounds,
   nextTournamentRound,
@@ -21,6 +21,8 @@ import {
   useSetScore,
   useSetSessionHidden,
   useSetSessionStatus,
+  useSubstituteTeamPlayer,
+  useTournamentTeams,
   useUpdateMatchLineup,
   useUpdateSessionPlayedAt,
 } from '../play/useMatchPlay'
@@ -50,7 +52,7 @@ import {
   useStockContext,
 } from '../fund/GameDayUsage'
 import { POINTS_DOT, POINTS_PILL, POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
-import type { MatchResult, MatchSession, Side } from '../play/api'
+import type { MatchResult, MatchSession, Side, TournamentTeam } from '../play/api'
 
 /** A roster player reduced to what the live editors need. */
 interface PresentPlayer {
@@ -397,7 +399,16 @@ export function PlayPage() {
                       <>
                         <MetricKey />
                         {data.session.kind === 'tournament' ? (
-                          <PairPointsTab standings={pairStandings} />
+                          <>
+                            <PairPointsTab standings={pairStandings} />
+                            {canEdit && live && (
+                              <PairsEditor
+                                sessionId={data.session.id}
+                                roster={roster?.players ?? []}
+                                nameOf={nameOf}
+                              />
+                            )}
+                          </>
                         ) : (
                           <PointsTab standings={standings} />
                         )}
@@ -954,6 +965,137 @@ function PairPointsTab({
         </tbody>
       </table>
     </div>
+  )
+}
+
+/**
+ * Change who is in a pair, mid-tournament (TASK-80).
+ *
+ * A substitution, not a re-pairing: the team keeps its identity and its record,
+ * matches already scored keep the players who actually played them, and only
+ * fixtures still to come are rewritten. That is why this asks "who is coming
+ * out" rather than offering to rebuild the pairs.
+ */
+function PairsEditor({
+  sessionId,
+  roster,
+  nameOf,
+}: {
+  sessionId: string
+  /** The whole active roster, not the players already on court: in a
+   *  fixed-pairs day everyone playing is already in a pair, so a substitute is
+   *  by definition someone who is not. */
+  roster: { id: string; nickname: string; absent: boolean }[]
+  nameOf: (id: string | null) => string
+}) {
+  const teams = useTournamentTeams(sessionId, true)
+  const substitute = useSubstituteTeamPlayer(sessionId)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [outId, setOutId] = useState<string>('')
+  const [inId, setInId] = useState<string>('')
+  const [error, setError] = useState<string | null>(null)
+
+  const rows = teams.data ?? []
+  if (rows.length === 0) return null
+
+  // Anyone already in a pair on this day cannot be substituted in — that would
+  // quietly merge two teams. The database refuses it too; this just avoids
+  // offering it.
+  const taken = new Set(rows.flatMap((t: TournamentTeam) => [t.player1Id, t.player2Id]))
+  const candidates = roster.filter((p) => !p.absent && !taken.has(p.id))
+
+  const team = rows.find((t: TournamentTeam) => t.id === editing)
+
+  const submit = () => {
+    if (!team || !outId || !inId) {
+      setError('Pick who is coming out and who is coming in.')
+      return
+    }
+    setError(null)
+    substitute.mutate(
+      { teamId: team.id, outPlayerId: outId, inPlayerId: inId },
+      {
+        onSuccess: () => {
+          setEditing(null)
+          setOutId('')
+          setInId('')
+        },
+        onError: (e: unknown) =>
+          setError(e instanceof Error ? e.message : 'Could not change the pair.'),
+      },
+    )
+  }
+
+  return (
+    <section className="mt-5" data-testid="pairs-editor">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
+        Pairs
+      </h3>
+      <ul className="mt-2 divide-y divide-line">
+        {rows.map((t) => (
+          <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+            <span className="text-sm text-fg">
+              {nameOf(t.player1Id)} &amp; {nameOf(t.player2Id)}
+            </span>
+            <Button
+              variant="secondary"
+              className="px-2.5 py-1 text-xs"
+              data-testid={`change-pair-${t.id}`}
+              onClick={() => {
+                setEditing(t.id)
+                setOutId('')
+                setInId('')
+                setError(null)
+              }}
+            >
+              Change
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      {team && (
+        <Modal open title="Change a pair" onClose={() => setEditing(null)}>
+          <div className="space-y-4">
+            <p className="text-sm text-fg-muted">
+              Matches already played keep {nameOf(team.player1Id)} &amp;{' '}
+              {nameOf(team.player2Id)}. Only rounds still to come change.
+            </p>
+            <ChipPicker
+              label="Coming out"
+              data-testid="sub-out"
+              value={outId}
+              onChange={setOutId}
+              options={[team.player1Id, team.player2Id].map((id) => ({
+                id,
+                label: nameOf(id),
+              }))}
+            />
+            <ChipPicker
+              label="Coming in"
+              data-testid="sub-in"
+              value={inId}
+              onChange={setInId}
+              empty="Everyone here is already in a pair"
+              options={candidates.map((p) => ({ id: p.id, label: p.nickname }))}
+            />
+            {error && <p className="text-sm font-medium text-negative">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={submit}
+                disabled={substitute.isPending}
+                data-testid="save-substitution"
+              >
+                {substitute.isPending ? 'Changing…' : 'Change pair'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </section>
   )
 }
 
