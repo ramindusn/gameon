@@ -133,6 +133,9 @@ export function buildFormMap(rows: FormResultRow[], limit = FORM_LIMIT): FormMap
 export interface GameDayResultRow {
   teamA: [string | null, string | null]
   teamB: [string | null, string | null]
+  /** Fixed-pairs team identity, when the day has one (TASK-80). */
+  teamAId?: string | null
+  teamBId?: string | null
   scoreA: number
   scoreB: number
   winner: 'a' | 'b'
@@ -156,10 +159,12 @@ export interface GameDayStanding {
  * is ranked (TASK-80).
  */
 export interface GameDayPairStanding {
-  /** The two players, ordered so the same pair always yields the same key. */
+  /** The team's players — its CURRENT members when a substitution happened. */
   players: [string, string]
-  /** `a|b` with the ids sorted — stable across teamA/teamB and round order. */
+  /** The team id when the day has teams, else `a|b` with the ids sorted. */
   pairId: string
+  /** Anyone who played for this team but is not in it now (substituted out). */
+  alsoPlayed: string[]
   played: number
   wins: number
   diff: number
@@ -180,23 +185,33 @@ export function pairKey(a: string, b: string): string {
  * is the honest reading — the two line-ups did not play the same matches.
  */
 export function buildGameDayPairBoard(rows: GameDayResultRow[]): GameDayPairStanding[] {
-  const byPair = new Map<string, GameDayPairStanding>()
+  const byPair = new Map<string, GameDayPairStanding & { seen: Set<string> }>()
   const bump = (
     team: [string | null, string | null],
+    teamId: string | null | undefined,
     scoreFor: number,
     scoreAgainst: number,
     won: boolean,
   ) => {
     const [x, y] = team
     if (!x || !y) return
-    const key = pairKey(x, y)
+    // Group by the team when the day has teams: a substitution changes who is
+    // on court but not which team it is, so the record stays in one row. Days
+    // created before teams existed fall back to the pair itself.
+    const key = teamId ?? pairKey(x, y)
     const s = byPair.get(key) ?? {
       players: (x < y ? [x, y] : [y, x]) as [string, string],
       pairId: key,
+      alsoPlayed: [],
       played: 0,
       wins: 0,
       diff: 0,
+      seen: new Set<string>(),
     }
+    s.seen.add(x)
+    s.seen.add(y)
+    // The most recent line-up is the team as it stands now.
+    s.players = (x < y ? [x, y] : [y, x]) as [string, string]
     s.played += 1
     s.wins += won ? 1 : 0
     s.diff += scoreFor - scoreAgainst
@@ -204,12 +219,15 @@ export function buildGameDayPairBoard(rows: GameDayResultRow[]): GameDayPairStan
   }
   for (const r of rows) {
     const aWon = r.winner === 'a'
-    bump(r.teamA, r.scoreA, r.scoreB, aWon)
-    bump(r.teamB, r.scoreB, r.scoreA, !aWon)
+    bump(r.teamA, r.teamAId, r.scoreA, r.scoreB, aWon)
+    bump(r.teamB, r.teamBId, r.scoreB, r.scoreA, !aWon)
   }
-  return [...byPair.values()].sort(
-    (a, b) => b.diff - a.diff || a.pairId.localeCompare(b.pairId),
-  )
+  return [...byPair.values()]
+    .map(({ seen, ...s }) => ({
+      ...s,
+      alsoPlayed: [...seen].filter((p) => !s.players.includes(p)).sort(),
+    }))
+    .sort((a, b) => b.diff - a.diff || a.pairId.localeCompare(b.pairId))
 }
 
 /** The latest game day's standings, surfaced on the public home (TASK-33). */

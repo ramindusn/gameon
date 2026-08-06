@@ -52,6 +52,9 @@ describe('mapResultRow', () => {
       round: 2,
       court: 1,
       teamA: ['p1', 'p2'],
+      // Casual rows carry no team identity; tournaments do (TASK-80).
+      teamAId: null,
+      teamBId: null,
       teamB: ['p3', 'p4'],
       scoreA: 21,
       scoreB: 15,

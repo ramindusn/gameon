@@ -227,6 +227,8 @@ export function PlayPage() {
       .map((r) => ({
         teamA: r.teamA,
         teamB: r.teamB,
+        teamAId: r.teamAId,
+        teamBId: r.teamBId,
         scoreA: r.scoreA ?? 0,
         scoreB: r.scoreB ?? 0,
         winner: r.winner === 'b' ? 'b' : 'a',
@@ -234,6 +236,7 @@ export function PlayPage() {
     return buildGameDayPairBoard(rows).map((s) => ({
       ...s,
       names: [nameOf(s.players[0]), nameOf(s.players[1])] as [string, string],
+      alsoNames: s.alsoPlayed.map(nameOf),
     }))
   }, [data, nameOf])
 
@@ -884,6 +887,7 @@ function PairPointsTab({
     pairId: string
     players: [string, string]
     names: [string, string]
+    alsoNames: string[]
     wins: number
     played: number
     diff: number
@@ -931,6 +935,13 @@ function PairPointsTab({
                 >
                   {s.names[1]}
                 </Link>
+                {/* A substituted team is still one team; say who else played
+                    for it rather than leave the record looking wrong. */}
+                {s.alsoNames.length > 0 && (
+                  <span className="block text-xs font-normal text-fg-subtle">
+                    earlier: {s.alsoNames.join(', ')}
+                  </span>
+                )}
               </td>
               <td className="py-2.5 tabular-nums text-fg-muted">
                 {s.wins}–{s.played - s.wins}

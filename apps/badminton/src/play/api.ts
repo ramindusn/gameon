@@ -52,6 +52,10 @@ export interface MatchResult {
   court: number
   teamA: [string | null, string | null]
   teamB: [string | null, string | null]
+  /** Fixed-pairs team identity, so standings survive a substitution (TASK-80).
+   *  Absent on casual days, which have no teams. */
+  teamAId?: string | null
+  teamBId?: string | null
   scoreA: number | null
   scoreB: number | null
   winner: Side | null
@@ -98,6 +102,8 @@ export const mapResultRow = (r: {
   score_a: number | null
   score_b: number | null
   winner: string | null
+  team_a_id?: string | null
+  team_b_id?: string | null
 }): MatchResult => ({
   id: r.id,
   sessionId: r.session_id,
@@ -105,6 +111,8 @@ export const mapResultRow = (r: {
   court: r.court,
   teamA: [r.team_a1, r.team_a2],
   teamB: [r.team_b1, r.team_b2],
+  teamAId: r.team_a_id ?? null,
+  teamBId: r.team_b_id ?? null,
   scoreA: r.score_a,
   scoreB: r.score_b,
   winner: (r.winner as Side | null) ?? null,
@@ -155,7 +163,7 @@ export function planToResultRows(
 
 const SESSION_COLS = 'id, club_id, status, mode, kind, rounds, hidden, played_at, created_at'
 const RESULT_COLS =
-  'id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, score_a, score_b, winner'
+  'id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, team_a_id, team_b_id, score_a, score_b, winner'
 
 /**
  * Persist a generated draw as a live game day: insert the session (with the
@@ -269,12 +277,76 @@ export async function createTournamentWithMatches(
     .select('id')
     .single()
   if (error) throw error
-  const rows = toRows(session.id)
+  // Register the pairs as teams first, so every fixture can name the team that
+  // plays it. That identity is what lets a substitution keep the team's record
+  // instead of splitting it in two (TASK-80).
+  const pairs = new Map<string, [string, string]>()
+  for (const f of fixtures) {
+    for (const [x, y] of [f.teamA, f.teamB]) {
+      const key = x < y ? `${x}|${y}` : `${y}|${x}`
+      if (!pairs.has(key)) pairs.set(key, x < y ? [x, y] : [y, x])
+    }
+  }
+  const { data: teams, error: tErr } = await db
+    .from('tournament_teams')
+    .insert(
+      [...pairs.values()].map(([p1, p2]) => ({
+        club_id: clubId,
+        session_id: session.id,
+        player1_id: p1,
+        player2_id: p2,
+      })),
+    )
+    .select('id, player1_id, player2_id')
+  if (tErr) throw tErr
+
+  const teamIdOf = new Map(
+    (teams ?? []).map((t) => [
+      t.player1_id < t.player2_id
+        ? `${t.player1_id}|${t.player2_id}`
+        : `${t.player2_id}|${t.player1_id}`,
+      t.id,
+    ]),
+  )
+  const key = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`)
+
+  const rows = toRows(session.id).map((r, i) => ({
+    ...r,
+    team_a_id: teamIdOf.get(key(fixtures[i].teamA[0], fixtures[i].teamA[1])) ?? null,
+    team_b_id: teamIdOf.get(key(fixtures[i].teamB[0], fixtures[i].teamB[1])) ?? null,
+  }))
   if (rows.length > 0) {
     const { error: rErr } = await db.from('match_results').insert(rows)
     if (rErr) throw rErr
   }
   return session.id
+}
+
+/**
+ * Swap one member of a fixed-pairs team from a round onward (TASK-80).
+ *
+ * The team keeps its identity and its record — matches already scored keep the
+ * players who actually played them, and only unplayed fixtures are rewritten.
+ * Done in the database so the membership change and the fixture rewrite cannot
+ * come apart.
+ *
+ * @returns how many fixtures were rewritten.
+ */
+export async function substituteTeamPlayer(input: {
+  teamId: string
+  outPlayerId: string
+  inPlayerId: string
+  fromRound?: number
+}): Promise<number> {
+  const db = client()
+  const { data, error } = await db.rpc('substitute_team_player', {
+    p_team_id: input.teamId,
+    p_out_player: input.outPlayerId,
+    p_in_player: input.inPlayerId,
+    p_from_round: input.fromRound,
+  })
+  if (error) throw error
+  return typeof data === 'number' ? data : 0
 }
 
 /** All game days for the club(s) the caller can read, newest game day first. */

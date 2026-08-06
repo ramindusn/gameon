@@ -324,6 +324,8 @@ export type Database = {
           score_a: number | null
           score_b: number | null
           session_id: string
+          team_a_id: string | null
+          team_b_id: string | null
           team_a1: string | null
           team_a2: string | null
           team_b1: string | null
@@ -339,6 +341,8 @@ export type Database = {
           score_a?: number | null
           score_b?: number | null
           session_id: string
+          team_a_id?: string | null
+          team_b_id?: string | null
           team_a1?: string | null
           team_a2?: string | null
           team_b1?: string | null
@@ -354,6 +358,8 @@ export type Database = {
           score_a?: number | null
           score_b?: number | null
           session_id?: string
+          team_a_id?: string | null
+          team_b_id?: string | null
           team_a1?: string | null
           team_a2?: string | null
           team_b1?: string | null
@@ -404,6 +410,33 @@ export type Database = {
             referencedColumns: ['id']
           },
         ]
+      }
+      tournament_teams: {
+        Row: {
+          id: string
+          club_id: string
+          session_id: string
+          player1_id: string
+          player2_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          club_id: string
+          session_id: string
+          player1_id: string
+          player2_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          club_id?: string
+          session_id?: string
+          player1_id?: string
+          player2_id?: string
+          created_at?: string
+        }
+        Relationships: []
       }
       match_sessions: {
         Row: {
@@ -875,6 +908,15 @@ export type Database = {
       is_admin: { Args: { club: string }; Returns: boolean }
       is_matchmaker: { Args: { club: string }; Returns: boolean }
       restore_usage_holdings: { Args: { p_usage_id: string }; Returns: number }
+      substitute_team_player: {
+        Args: {
+          p_team_id: string
+          p_out_player: string
+          p_in_player: string
+          p_from_round?: number
+        }
+        Returns: number
+      }
       stock_actor_name: { Args: Record<string, never>; Returns: string }
       change_stock: {
         Args: {

@@ -145,6 +145,28 @@ describe('buildGameDayPairBoard (TASK-80)', () => {
     expect(board[0].players).toEqual(['p3', 'p4'])
   })
 
+  // The substitution case: the team carries on, so its record stays in one row
+  // rather than splitting when a member changes (TASK-80).
+  it('keeps one row when a member is substituted mid-day', () => {
+    const board = buildGameDayPairBoard([
+      { ...row(['p1', 'p2'], ['p3', 'p4'], 21, 15), teamAId: 't1', teamBId: 't2' },
+      // p2 out, p5 in — same team id.
+      { ...row(['p1', 'p5'], ['p3', 'p4'], 21, 10), teamAId: 't1', teamBId: 't2' },
+    ])
+    expect(board).toHaveLength(2)
+    const team = board.find((b) => b.pairId === 't1')!
+    expect(team.played).toBe(2)
+    expect(team.wins).toBe(2)
+    expect(team.players).toEqual(['p1', 'p5']) // as it stands now
+    expect(team.alsoPlayed).toEqual(['p2']) // who played earlier
+  })
+
+  it('falls back to the pair when a day has no team ids', () => {
+    const board = buildGameDayPairBoard([row(['p1', 'p2'], ['p3', 'p4'], 21, 15)])
+    expect(board[0].pairId).toBe('p1|p2')
+    expect(board[0].alsoPlayed).toEqual([])
+  })
+
   it('ranks by net differential', () => {
     const board = buildGameDayPairBoard([
       row(['p1', 'p2'], ['p3', 'p4'], 21, 5),
