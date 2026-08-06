@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFormMap,
   buildGameDayBoard,
+  buildGameDayPairBoard,
   computeAttendance,
   computeInactivePlayers,
   computeRank,
@@ -100,6 +101,57 @@ describe('buildFormMap', () => {
     ])
     expect(form.p1).toEqual(['W'])
     expect(Object.keys(form)).not.toContain('null')
+  })
+})
+
+describe('buildGameDayPairBoard (TASK-80)', () => {
+  const row = (
+    a: [string | null, string | null],
+    b: [string | null, string | null],
+    scoreA: number,
+    scoreB: number,
+  ): GameDayResultRow => ({
+    teamA: a,
+    teamB: b,
+    scoreA,
+    scoreB,
+    winner: scoreA > scoreB ? 'a' : 'b',
+  })
+
+  // In fixed pairs both partners always have identical numbers, so per-player
+  // standings list every pair twice. The pair is what competes.
+  it('gives one row per pair, not one per player', () => {
+    const board = buildGameDayPairBoard([row(['p1', 'p2'], ['p3', 'p4'], 21, 15)])
+    expect(board).toHaveLength(2)
+    expect(board[0].players).toEqual(['p1', 'p2'])
+    expect(board[0].diff).toBe(6)
+    expect(board[0].wins).toBe(1)
+    expect(board[1].diff).toBe(-6)
+    expect(board[1].wins).toBe(0)
+  })
+
+  it('treats a pair the same whichever side of the net it is on', () => {
+    const board = buildGameDayPairBoard([
+      row(['p1', 'p2'], ['p3', 'p4'], 21, 15),
+      row(['p4', 'p3'], ['p1', 'p2'], 21, 10), // same pairs, sides and order swapped
+    ])
+    expect(board).toHaveLength(2)
+    expect(board.every((b) => b.played === 2)).toBe(true)
+  })
+
+  it('skips a half-empty team rather than inventing a pair', () => {
+    const board = buildGameDayPairBoard([row(['p1', null], ['p3', 'p4'], 21, 15)])
+    expect(board).toHaveLength(1)
+    expect(board[0].players).toEqual(['p3', 'p4'])
+  })
+
+  it('ranks by net differential', () => {
+    const board = buildGameDayPairBoard([
+      row(['p1', 'p2'], ['p3', 'p4'], 21, 5),
+      row(['p5', 'p6'], ['p3', 'p4'], 21, 19),
+    ])
+    expect(board[0].players).toEqual(['p1', 'p2'])
+    expect(board.at(-1)?.players).toEqual(['p3', 'p4'])
   })
 })
 

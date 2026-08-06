@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, cx, SkeletonCard } from '@gameon/ui'
-import { generateRounds, validateLineup, validateScores, type MatchPlayer } from '@gameon/domain'
+import {
+  generateRounds,
+  nextTournamentRound,
+  validateLineup,
+  validateScores,
+  type MatchPlayer,
+} from '@gameon/domain'
 import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import { useAuth } from '../auth/useAuth'
@@ -32,7 +38,12 @@ import {
   MATCH_POINTS_K,
   type MatchOdds,
 } from '../ranking/effectiveSkill'
-import { buildGameDayBoard, type GameDayResultRow } from '../ranking/api'
+import {
+  buildGameDayBoard,
+  buildGameDayPairBoard,
+  pairKey,
+  type GameDayResultRow,
+} from '../ranking/api'
 import {
   GameDayUsageModal,
   GameDayUsagePanel,
@@ -207,6 +218,42 @@ export function PlayPage() {
       .sort((a, b) => b.diff - a.diff || a.name.localeCompare(b.name))
   }, [data, nameOf, rankingPoints, ratingDeltas])
 
+  // Fixed pairs compete as a pair, so that is what is ranked. Per-player rows
+  // would list each pair twice with identical numbers (TASK-80).
+  const pairStandings = useMemo(() => {
+    if (data?.session.kind !== 'tournament') return []
+    const rows: GameDayResultRow[] = (data?.results ?? [])
+      .filter((r) => r.winner !== null && r.scoreA !== null && r.scoreB !== null)
+      .map((r) => ({
+        teamA: r.teamA,
+        teamB: r.teamB,
+        scoreA: r.scoreA ?? 0,
+        scoreB: r.scoreB ?? 0,
+        winner: r.winner === 'b' ? 'b' : 'a',
+      }))
+    return buildGameDayPairBoard(rows).map((s) => ({
+      ...s,
+      names: [nameOf(s.players[0]), nameOf(s.players[1])] as [string, string],
+    }))
+  }, [data, nameOf])
+
+  // A fixed-pairs day's partners are whatever teams are already on the
+  // schedule. Auto-fill uses them so adding a round re-matches the pairs
+  // instead of re-pairing the players (TASK-80).
+  const tournamentPairs = useMemo<[string, string][]>(() => {
+    if (data?.session.kind !== 'tournament') return []
+    const seen = new Map<string, [string, string]>()
+    for (const r of data?.results ?? []) {
+      for (const team of [r.teamA, r.teamB]) {
+        const [x, y] = team
+        if (!x || !y) continue
+        const key = pairKey(x, y)
+        if (!seen.has(key)) seen.set(key, x < y ? [x, y] : [y, x])
+      }
+    }
+    return [...seen.values()]
+  }, [data])
+
   const live = data?.session.status === 'live'
 
   // A finished game day opens on the standings — that is the result everyone
@@ -346,7 +393,11 @@ export function PlayPage() {
                     {tab === 'points' && (
                       <>
                         <MetricKey />
-                        <PointsTab standings={standings} />
+                        {data.session.kind === 'tournament' ? (
+                          <PairPointsTab standings={pairStandings} />
+                        ) : (
+                          <PointsTab standings={standings} />
+                        )}
                       </>
                     )}
 
@@ -360,6 +411,7 @@ export function PlayPage() {
                             courts={templateCourts}
                             present={sessionPlayers}
                             skillOf={skillOf}
+                            pairs={tournamentPairs}
                             saving={addMatch.isPending}
                             onCancel={() => setAddingRound(false)}
                             onCreate={(courtsPlayers) => {
@@ -814,6 +866,82 @@ function PointsTab({
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * Standings for a fixed-pairs day, one row per pair (TASK-80).
+ *
+ * No Ranking column: that is a per-player rating delta, and adding two players'
+ * deltas together would be a number that means nothing. Individual ranking
+ * still moves — it just is not what this table is about.
+ */
+function PairPointsTab({
+  standings,
+}: {
+  standings: {
+    pairId: string
+    players: [string, string]
+    names: [string, string]
+    wins: number
+    played: number
+    diff: number
+  }[]
+}) {
+  const fmtSigned = (n: number) => (n > 0 ? `+${n}` : `${n}`)
+  if (standings.length === 0) {
+    return <p className="text-sm text-fg-muted">Standings appear once matches are scored.</p>
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm" data-testid="pair-points-table">
+        <thead>
+          <tr className="border-b border-line text-right text-[11px] font-semibold">
+            <th className="w-8 py-2 text-left font-medium text-fg-subtle">#</th>
+            <th className="py-2 text-left font-medium text-fg-subtle">Pair</th>
+            <th className="py-2 font-medium text-fg-subtle">Won–Lost</th>
+            <th className={cx('py-2 font-medium', POINTS_TEXT)}>Points</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {standings.map((s, i) => (
+            <tr key={s.pairId} data-testid={`pair-points-${s.pairId}`} className="text-right">
+              <td className="py-2.5 text-left">
+                <span
+                  className={cx(
+                    'grid h-6 w-6 place-items-center rounded-full font-display text-xs',
+                    i === 0 ? cx('font-bold', POINTS_PILL) : 'font-medium text-fg-subtle',
+                  )}
+                >
+                  {i + 1}
+                </span>
+              </td>
+              <td className="py-2.5 text-left font-medium text-fg">
+                <Link
+                  to={`/players/${s.players[0]}`}
+                  className="hover:text-accent-strong hover:underline"
+                >
+                  {s.names[0]}
+                </Link>
+                <span className="text-fg-muted"> &amp; </span>
+                <Link
+                  to={`/players/${s.players[1]}`}
+                  className="hover:text-accent-strong hover:underline"
+                >
+                  {s.names[1]}
+                </Link>
+              </td>
+              <td className="py-2.5 tabular-nums text-fg-muted">
+                {s.wins}–{s.played - s.wins}
+              </td>
+              <td className={cx('py-2.5 font-display font-bold tabular-nums', POINTS_TEXT)}>
+                {fmtSigned(s.diff)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -1335,6 +1463,7 @@ function RoundBuilder({
   courts,
   present,
   skillOf,
+  pairs,
   saving,
   onCreate,
   onCancel,
@@ -1343,6 +1472,8 @@ function RoundBuilder({
   courts: number
   present: PresentPlayer[]
   skillOf: SkillOf
+  /** Locked partners on a fixed-pairs day; empty on a casual one. */
+  pairs: [string, string][]
   saving: boolean
   onCreate: (courtsPlayers: [string, string, string, string][]) => void
   onCancel: () => void
@@ -1367,6 +1498,22 @@ function RoundBuilder({
   }
 
   const autoFill = () => {
+    // Fixed pairs: never run the skill balancer, which would re-pair everyone.
+    // Take the next matchups from the round-robin over the same partners, so
+    // only the opposition changes (TASK-80).
+    if (pairs.length >= 2) {
+      const matchups = nextTournamentRound(pairs.length, roundNumber - 1).slice(0, courts)
+      if (matchups.length === 0) {
+        setError('Need at least two pairs to build a round.')
+        return
+      }
+      setError(null)
+      setAssigned(
+        matchups.flatMap(([i, j]) => [pairs[i][0], pairs[i][1], pairs[j][0], pairs[j][1]]),
+      )
+      return
+    }
+
     const pool: MatchPlayer[] = present.map((p) => ({ id: p.id, skill: skillOf(p.id) ?? 5 }))
     const matches = generateRounds(pool, 1, { courts })?.rounds[0]?.matches ?? []
     if (matches.length === 0) {

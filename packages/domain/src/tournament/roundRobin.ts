@@ -29,3 +29,29 @@ export function roundRobin(n: number): Array<Array<[number, number]>> {
   }
   return rounds
 }
+
+/**
+ * The pair-vs-pair matchups for the next round of a fixed-pairs game day
+ * (TASK-80).
+ *
+ * Adding a round used to run the casual skill balancer, which re-paired
+ * everyone — the one thing a fixed-pairs day must never do. The partners are
+ * fixed; only the opponents change. So the next round is simply the next entry
+ * in the round-robin schedule over those same pairs, which keeps every pair
+ * meeting every other exactly once before anybody meets twice.
+ *
+ * `roundsPlayed` is how many rounds the game day already has. Once the schedule
+ * is exhausted it wraps, starting a second full pass over the same pairs.
+ *
+ * Returns index pairs into `pairs`; an empty array when there are fewer than
+ * two pairs to match up.
+ */
+export function nextTournamentRound(
+  pairCount: number,
+  roundsPlayed: number,
+): Array<[number, number]> {
+  const schedule = roundRobin(pairCount)
+  if (schedule.length === 0) return []
+  const idx = ((roundsPlayed % schedule.length) + schedule.length) % schedule.length
+  return schedule[idx]
+}

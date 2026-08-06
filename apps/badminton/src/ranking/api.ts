@@ -147,6 +147,71 @@ export interface GameDayStanding {
   diff: number
 }
 
+/**
+ * A pair's standing within one fixed-pairs game day.
+ *
+ * In a tournament both partners always have identical played/wins/diff — they
+ * are never apart — so per-player standings list every pair twice as two
+ * identical rows. The pair is the unit that competes, so it is the unit that
+ * is ranked (TASK-80).
+ */
+export interface GameDayPairStanding {
+  /** The two players, ordered so the same pair always yields the same key. */
+  players: [string, string]
+  /** `a|b` with the ids sorted — stable across teamA/teamB and round order. */
+  pairId: string
+  played: number
+  wins: number
+  diff: number
+}
+
+/** Sorted pair key, so Ann+Bob and Bob+Ann are the same pair. */
+export function pairKey(a: string, b: string): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`
+}
+
+/**
+ * Aggregate one fixed-pairs game day into per-pair standings, ranked by net
+ * point differential. Rows with a missing player are skipped: a pair needs both
+ * halves to be a pair, and a half-empty team is a casual-day artefact rather
+ * than a tournament entry.
+ *
+ * A pair changed mid-day becomes a separate row from the round it changed, which
+ * is the honest reading — the two line-ups did not play the same matches.
+ */
+export function buildGameDayPairBoard(rows: GameDayResultRow[]): GameDayPairStanding[] {
+  const byPair = new Map<string, GameDayPairStanding>()
+  const bump = (
+    team: [string | null, string | null],
+    scoreFor: number,
+    scoreAgainst: number,
+    won: boolean,
+  ) => {
+    const [x, y] = team
+    if (!x || !y) return
+    const key = pairKey(x, y)
+    const s = byPair.get(key) ?? {
+      players: (x < y ? [x, y] : [y, x]) as [string, string],
+      pairId: key,
+      played: 0,
+      wins: 0,
+      diff: 0,
+    }
+    s.played += 1
+    s.wins += won ? 1 : 0
+    s.diff += scoreFor - scoreAgainst
+    byPair.set(key, s)
+  }
+  for (const r of rows) {
+    const aWon = r.winner === 'a'
+    bump(r.teamA, r.scoreA, r.scoreB, aWon)
+    bump(r.teamB, r.scoreB, r.scoreA, !aWon)
+  }
+  return [...byPair.values()].sort(
+    (a, b) => b.diff - a.diff || a.pairId.localeCompare(b.pairId),
+  )
+}
+
 /** The latest game day's standings, surfaced on the public home (TASK-33). */
 export interface GameDayBoard {
   sessionId: string
