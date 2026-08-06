@@ -212,21 +212,27 @@ export function StockPanel() {
           {(log.data ?? []).map((e) => (
             <li key={e.id} className="py-1.5 text-sm">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                {/* The subject is whose stock moved. It used to be the actor,
+                    so an admin moving barrels between two matchmakers read as
+                    "Ramindu handed over … / Ramindu received …" — the one
+                    person who neither gave nor got anything. */}
                 <span className="text-fg">
-                  <b>{e.actorName ?? 'An admin'}</b>{' '}
+                  <b>{e.holderName}</b>{' '}
                   {describeChange(
                     e,
                     state.products.find((p) => p.id === e.productId)?.shuttlesPerBarrel,
                   )}{' '}
-                  <span className="text-fg-muted">
-                    ({e.productLabel} · {e.holderName})
-                  </span>
+                  <span className="text-fg-muted">({e.productLabel})</span>
                 </span>
                 <span className="shrink-0 text-xs text-fg-subtle">
                   {new Date(e.occurredAt).toLocaleString()}
                 </span>
               </div>
-              {e.note && <p className="text-xs text-fg-subtle">{e.note}</p>}
+              <p className="text-xs text-fg-subtle">
+                {e.note}
+                {e.note && e.actorName ? ' · ' : ''}
+                {e.actorName ? `recorded by ${e.actorName}` : ''}
+              </p>
             </li>
           ))}
           {(log.data ?? []).length === 0 && (
@@ -288,7 +294,7 @@ function describeChange(e: InventoryLogEntry, shuttlesPerBarrel?: number): strin
         ? `was given ${plural(e.barrelsDelta, 'barrel')}`
         : `was given ${plural(net, 'shuttle')}`
     case 'migrate':
-      return 'opening balance'
+      return per ? `started with ${plural(net, 'shuttle')}` : 'opening balance'
     default:
       // adjust: a correction, or shuttles handed back when usage was deleted.
       if (net === 0 && e.barrelsDelta === 0 && e.looseDelta === 0) {

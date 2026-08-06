@@ -314,6 +314,27 @@ describe('audit log wording (TASK-79 follow-up)', () => {
     expect(screen.getByTestId('inventory-log')).not.toHaveTextContent('added 9 loose')
   })
 
+  // An admin moving barrels between two matchmakers used to read as
+  // "Ramindu handed over … / Ramindu received …" — the one person who neither
+  // gave nor received anything.
+  it('names the matchmaker whose stock moved, not the admin who typed it', async () => {
+    logRows.current = [
+      entry({
+        action: 'transfer',
+        holderName: 'Sahan',
+        actorName: 'Ramindu',
+        barrelsDelta: 0,
+        looseDelta: 7,
+        note: 'Received from Ramboo',
+      }),
+    ]
+    renderPanel()
+    expect(await screen.findByText(/received 7 shuttles/)).toBeInTheDocument()
+    const log = screen.getByTestId('inventory-log')
+    expect(log).toHaveTextContent('Sahan')
+    expect(log).toHaveTextContent('recorded by Ramindu')
+  })
+
   it('names barrels for a whole-barrel transfer', async () => {
     logRows.current = [entry({ action: 'transfer', barrelsDelta: 1, looseDelta: 0 })]
     renderPanel()
@@ -344,11 +365,13 @@ describe('audit log', () => {
       },
     ]
     renderPanel()
-    expect(await screen.findByText('Ramindu')).toBeInTheDocument()
+    // Whose stock moved leads the line; who recorded it sits with the detail.
+    expect(await screen.findByText(/was given 58 shuttles/)).toBeInTheDocument()
     const log = screen.getByTestId('inventory-log')
+    expect(log).toHaveTextContent('Kasun')
+    expect(log).toHaveTextContent('recorded by Ramindu')
     // 5 barrels of 12 less 2 loose = 58 shuttles. It used to narrate the
     // bookkeeping instead ("added 5 barrels and removed 2 loose shuttles").
-    expect(within(log).getByText(/was given 58 shuttles/)).toBeInTheDocument()
   })
 
   it('shows an empty state when nothing has been logged', async () => {
