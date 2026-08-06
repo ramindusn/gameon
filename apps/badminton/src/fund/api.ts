@@ -308,6 +308,8 @@ export interface MyStockItem {
   barrels: number
   looseShuttles: number
   shuttles: number
+  /** The whole club's shuttles of this brand, across every matchmaker. */
+  clubShuttles: number
 }
 
 export interface MyStock {
@@ -347,6 +349,10 @@ export async function loadMyStock(): Promise<MyStock | null> {
     return p ? h.barrels * p.shuttles_per_barrel + h.loose_shuttles : 0
   }
   const clubTotalShuttles = (holdings ?? []).reduce((s, h) => s + shuttlesOf(h), 0)
+  const clubByProduct = new Map<string, number>()
+  for (const h of holdings ?? []) {
+    clubByProduct.set(h.product_id, (clubByProduct.get(h.product_id) ?? 0) + shuttlesOf(h))
+  }
 
   const items: MyStockItem[] = []
   for (const h of (holdings ?? []).filter((h) => h.holder_id === profile.id)) {
@@ -360,6 +366,7 @@ export async function loadMyStock(): Promise<MyStock | null> {
       barrels: h.barrels,
       looseShuttles: h.loose_shuttles,
       shuttles: h.barrels * p.shuttles_per_barrel + h.loose_shuttles,
+      clubShuttles: clubByProduct.get(p.id) ?? 0,
     })
   }
   items.sort((a, b) => a.brand.localeCompare(b.brand))

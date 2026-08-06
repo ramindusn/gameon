@@ -19,7 +19,10 @@ export function MyStock() {
 
   if (data.items.length === 0) {
     return (
-      <Card title="Shuttles in your hands" icon={<Icon name="inventory" />}>
+      <Card
+        title={`Shuttles in ${data.holderName}'s hands`}
+        icon={<Icon name="inventory" />}
+      >
         <p className="text-sm text-fg-muted" data-testid="my-stock-empty">
           You are not holding any shuttles right now, so you cannot record usage
           against your own stock yet.
@@ -32,7 +35,10 @@ export function MyStock() {
   }
 
   return (
-    <Card title="Shuttles in your hands" icon={<Icon name="inventory" />}>
+    <Card
+      title={`Shuttles in ${data.holderName}'s hands`}
+      icon={<Icon name="inventory" />}
+    >
       <ul className="space-y-2" data-testid="my-stock">
         {data.items.map((i) => (
           <li
@@ -44,14 +50,21 @@ export function MyStock() {
               <span className="font-semibold text-fg">{i.brand}</span>{' '}
               <span className="text-sm text-fg-muted">{i.model}</span>
             </div>
-            <div className="flex items-baseline gap-3 text-sm">
-              <span>
-                <b className="text-fg">{i.barrels}</b>{' '}
-                <span className="text-fg-muted">barrels</span>
-              </span>
-              <span>
-                <b className="text-fg">{i.looseShuttles}</b>{' '}
-                <span className="text-fg-muted">loose</span>
+            <div className="flex flex-col items-end text-sm">
+              <div className="flex items-baseline gap-3">
+                <span>
+                  <b className="text-fg">{i.barrels}</b>{' '}
+                  <span className="text-fg-muted">barrels</span>
+                </span>
+                <span>
+                  <b className="text-fg">{i.looseShuttles}</b>{' '}
+                  <span className="text-fg-muted">loose</span>
+                </span>
+              </div>
+              {/* The club figure per brand, so "have we got enough RSL?" is
+                  answerable here rather than only on the admin dashboard. */}
+              <span className="text-xs text-fg-subtle" data-testid={`club-${i.productId}`}>
+                {i.shuttles} of {i.clubShuttles} in the club
               </span>
             </div>
           </li>
@@ -61,7 +74,7 @@ export function MyStock() {
           under the same kind of heading, and the two looked like they
           disagreed when they were only counting different things. */}
       <p className="mt-3 text-sm font-semibold text-fg" data-testid="my-stock-total">
-        {data.totalShuttles} shuttles in your hands
+        {data.totalShuttles} shuttles in {data.holderName}'s hands
       </p>
       {data.clubTotalShuttles > data.totalShuttles && (
         <p className="mt-0.5 text-xs text-fg-muted" data-testid="my-stock-club-total">

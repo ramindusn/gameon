@@ -3,11 +3,11 @@ id: TASK-80
 title: >-
   Fixed-pairs tournaments: keep pairs across rounds, allow changing one, and
   stand by pair
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-08-06 04:26'
-updated_date: '2026-08-06 04:35'
+updated_date: '2026-08-06 05:55'
 labels:
   - feature
 dependencies: []
@@ -36,11 +36,13 @@ OPEN DESIGN QUESTIONS (agree before building):
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Adding a round to a fixed-pairs game day keeps the locked pairs
-- [ ] #2 A pair can be changed after the game day has started
-- [ ] #3 Tournament standings show one row per pair, not one per player
-- [ ] #4 Casual game days are unaffected
+- [x] #1 Adding a round to a fixed-pairs game day keeps the locked pairs
+- [x] #2 A pair can be changed after the game day has started
+- [x] #3 Tournament standings show one row per pair, not one per player
+- [x] #4 Casual game days are unaffected
 <!-- AC:END -->
+
+
 
 ## Implementation Notes
 

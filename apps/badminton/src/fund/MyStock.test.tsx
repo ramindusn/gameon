@@ -34,6 +34,7 @@ describe('MyStock', () => {
           barrels: 10,
           looseShuttles: 5,
           shuttles: 125,
+          clubShuttles: 250,
         },
       ],
       totalShuttles: 125,
@@ -47,8 +48,10 @@ describe('MyStock', () => {
     // "in your hands", not "in total" — the dashboard's club figure is shown
     // under a similar heading and the two read as a contradiction otherwise.
     expect(screen.getByTestId('my-stock-total')).toHaveTextContent(
-      '125 shuttles in your hands',
+      "125 shuttles in Ramboo's hands",
     )
+    // Per-brand club figure, so "have we enough RSL?" is answerable here.
+    expect(screen.getByTestId('club-p1')).toHaveTextContent('125 of 250 in the club')
     expect(screen.getByTestId('my-stock-club-total')).toHaveTextContent('of 200 in the club')
   })
 
@@ -67,7 +70,15 @@ describe('MyStock', () => {
     stock.current = {
       holderName: 'Ramboo',
       items: [
-        { productId: 'p1', brand: 'RSL', model: 'C', barrels: 1, looseShuttles: 0, shuttles: 12 },
+        {
+          productId: 'p1',
+          brand: 'RSL',
+          model: 'C',
+          barrels: 1,
+          looseShuttles: 0,
+          shuttles: 12,
+          clubShuttles: 12,
+        },
       ],
       totalShuttles: 12,
       clubTotalShuttles: 12,
@@ -95,6 +106,7 @@ describe('MyStock', () => {
           barrels: 1,
           looseShuttles: 0,
           shuttles: 12,
+          clubShuttles: 24,
         },
       ],
       totalShuttles: 12,

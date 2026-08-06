@@ -32,7 +32,10 @@ const NAV_BY_ROLE: Record<'admin' | 'matchmaker', NavItem[]> = {
     { to: '/game-days', label: 'Game Days', icon: 'schedule' },
   ],
   matchmaker: [
-    { to: '/matchmaker', label: 'Home', icon: 'home' },
+    // Not "Home": the brand in the header already goes to the public home, so
+    // two things called home led to two different places. The admin's first tab
+    // is "Dashboard" for the same reason — it names the area, not the site.
+    { to: '/matchmaker', label: 'My Area', icon: 'home' },
     { to: '/generate', label: 'Generate', icon: 'generate' },
     { to: '/players', label: 'Players', icon: 'players' },
     { to: '/game-days', label: 'Game Days', icon: 'schedule' },
