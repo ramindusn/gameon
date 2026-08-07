@@ -8,6 +8,10 @@ name: Deploy
 on:
   push:
     branches: [main]
+  # Lets a deploy be re-run without an empty commit. Added after a run sat
+  # queued for six hours having never been assigned a job — GitHub reported the
+  # run as both "queued" and "completed", and there was no way to retrigger it.
+  workflow_dispatch:
 
 permissions:
   contents: read
