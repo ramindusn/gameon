@@ -209,32 +209,43 @@ export function StockPanel() {
           Recent changes
         </h3>
         <ul className="mt-2 divide-y divide-line" data-testid="inventory-log">
-          {(log.data ?? []).map((e) => (
-            <li key={e.id} className="py-1.5 text-sm">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                {/* The subject is whose stock moved. It used to be the actor,
-                    so an admin moving barrels between two matchmakers read as
-                    "Ramindu handed over … / Ramindu received …" — the one
-                    person who neither gave nor got anything. */}
-                <span className="text-fg">
-                  <b>{e.holderName}</b>{' '}
-                  {describeChange(
-                    e,
-                    state.products.find((p) => p.id === e.productId)?.shuttlesPerBarrel,
-                  )}{' '}
-                  <span className="text-fg-muted">({e.productLabel})</span>
-                </span>
-                <span className="shrink-0 text-xs text-fg-subtle">
-                  {new Date(e.occurredAt).toLocaleString()}
-                </span>
-              </div>
-              <p className="text-xs text-fg-subtle">
-                {e.note}
-                {e.note && e.actorName ? ' · ' : ''}
-                {e.actorName ? `recorded by ${e.actorName}` : ''}
-              </p>
-            </li>
-          ))}
+          {pairTransfers(log.data ?? []).map((row) => {
+            const per = state.products.find((p) => p.id === row.entry.productId)
+              ?.shuttlesPerBarrel
+            return (
+              <li key={row.entry.id} className="py-1.5 text-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                  {/* The subject is whose stock moved. It used to be the actor,
+                      so an admin moving barrels between two matchmakers read as
+                      "Ramindu handed over … / Ramindu received …" — the one
+                      person who neither gave nor got anything. */}
+                  <span className="text-fg">
+                    {row.to ? (
+                      <>
+                        <b>{row.entry.holderName}</b>{' '}
+                        {describeMove(row.entry, per)}{' '}
+                        <span className="text-fg-muted">→</span> <b>{row.to}</b>{' '}
+                        <span className="text-fg-muted">({row.entry.productLabel})</span>
+                      </>
+                    ) : (
+                      <>
+                        <b>{row.entry.holderName}</b> {describeChange(row.entry, per)}{' '}
+                        <span className="text-fg-muted">({row.entry.productLabel})</span>
+                      </>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs text-fg-subtle">
+                    {new Date(row.entry.occurredAt).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-xs text-fg-subtle">
+                  {!row.to && row.entry.note}
+                  {!row.to && row.entry.note && row.entry.actorName ? ' · ' : ''}
+                  {row.entry.actorName ? `recorded by ${row.entry.actorName}` : ''}
+                </p>
+              </li>
+            )
+          })}
           {(log.data ?? []).length === 0 && (
             <li className="py-2 text-sm text-fg-muted">No changes logged yet.</li>
           )}
@@ -303,6 +314,59 @@ function describeChange(e: InventoryLogEntry, shuttlesPerBarrel?: number): strin
       if (!per) return e.barrelsDelta + e.looseDelta > 0 ? 'stock added' : 'stock removed'
       return net > 0 ? `got back ${plural(net, 'shuttle')}` : `lost ${plural(net, 'shuttle')}`
   }
+}
+
+/**
+ * Fold the two sides of a transfer into one line (TASK-79 follow-up).
+ *
+ * A transfer is deliberately TWO log rows: each records one holder's resulting
+ * balance, and a single row cannot carry two different "after" figures — that
+ * running balance is what makes the log auditable per matchmaker. But on screen
+ * it read as two separate events at the same second, as though the stock had
+ * moved twice.
+ *
+ * The rows pair unambiguously: same product and timestamp, action 'transfer',
+ * equal and opposite deltas. The giver's row leads and names the receiver; the
+ * receiver's row is dropped from the list, not from the database.
+ */
+function pairTransfers(
+  entries: InventoryLogEntry[],
+): { entry: InventoryLogEntry; to?: string }[] {
+  const consumed = new Set<string>()
+  const out: { entry: InventoryLogEntry; to?: string }[] = []
+  for (const e of entries) {
+    if (consumed.has(e.id)) continue
+    if (e.action === 'transfer' && e.barrelsDelta + e.looseDelta < 0) {
+      const other = entries.find(
+        (o) =>
+          !consumed.has(o.id) &&
+          o.id !== e.id &&
+          o.action === 'transfer' &&
+          o.occurredAt === e.occurredAt &&
+          o.productLabel === e.productLabel &&
+          o.barrelsDelta === -e.barrelsDelta &&
+          o.looseDelta === -e.looseDelta,
+      )
+      if (other) {
+        consumed.add(other.id)
+        out.push({ entry: e, to: other.holderName })
+        continue
+      }
+    }
+    out.push({ entry: e })
+  }
+  return out
+}
+
+/** "moved 7 shuttles" — a transfer stated once, from the giver's side. */
+function describeMove(e: InventoryLogEntry, shuttlesPerBarrel?: number): string {
+  const per = shuttlesPerBarrel && shuttlesPerBarrel > 0 ? shuttlesPerBarrel : 0
+  const n = Math.abs(per ? e.barrelsDelta * per + e.looseDelta : 0)
+  if (e.looseDelta === 0 && e.barrelsDelta !== 0) {
+    const b = Math.abs(e.barrelsDelta)
+    return `moved ${b} barrel${b === 1 ? '' : 's'}`
+  }
+  return per ? `moved ${n} shuttle${n === 1 ? '' : 's'}` : 'moved stock'
 }
 
 type HoldingLookup = (

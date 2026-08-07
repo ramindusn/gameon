@@ -335,6 +335,45 @@ describe('audit log wording (TASK-79 follow-up)', () => {
     expect(log).toHaveTextContent('recorded by Ramindu')
   })
 
+  // A transfer is two rows by design — each holds one holder's resulting
+  // balance — but on screen that read as the stock moving twice.
+  it('folds the two sides of a transfer into one line', async () => {
+    logRows.current = [
+      entry({
+        id: 'give',
+        action: 'transfer',
+        holderName: 'Ramboo',
+        actorName: 'Ramindu',
+        looseDelta: -7,
+        note: 'Transferred to Sahan',
+      }),
+      entry({
+        id: 'take',
+        action: 'transfer',
+        holderName: 'Sahan',
+        actorName: 'Ramindu',
+        looseDelta: 7,
+        note: 'Received from Ramboo',
+      }),
+    ]
+    renderPanel()
+    expect(await screen.findByText(/moved 7 shuttles/)).toBeInTheDocument()
+    const log = screen.getByTestId('inventory-log')
+    expect(log).toHaveTextContent('Ramboo')
+    expect(log).toHaveTextContent('Sahan')
+    // One line, not two: the receiving side is folded in, not listed again.
+    expect(log.querySelectorAll('li')).toHaveLength(1)
+    expect(log).not.toHaveTextContent('received 7 shuttles')
+  })
+
+  it('leaves a lone transfer row alone when it has no partner', async () => {
+    logRows.current = [
+      entry({ id: 'solo', action: 'transfer', holderName: 'Sahan', looseDelta: 7 }),
+    ]
+    renderPanel()
+    expect(await screen.findByText(/received 7 shuttles/)).toBeInTheDocument()
+  })
+
   it('names barrels for a whole-barrel transfer', async () => {
     logRows.current = [entry({ action: 'transfer', barrelsDelta: 1, looseDelta: 0 })]
     renderPanel()
