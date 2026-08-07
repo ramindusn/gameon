@@ -5,9 +5,7 @@ import {
   costPerShuttle,
   gameDaysRecorded,
   euro,
-  isLowStock,
   memberBalances,
-  productShuttleCount,
   remainingFund,
   totalCollected,
   totalExpenses,
@@ -114,33 +112,9 @@ describe('costPerShuttle', () => {
   })
 })
 
-describe('productShuttleCount', () => {
-  it('counts full barrels plus loose shuttles', () => {
-    expect(
-      productShuttleCount(
-        makeProduct({ barrels: 3, shuttlesPerBarrel: 12, looseShuttles: 5 }),
-      ),
-    ).toBe(41)
-  })
-})
-
-describe('isLowStock', () => {
-  it('flags a product below the threshold', () => {
-    expect(
-      isLowStock(makeProduct({ barrels: 1, shuttlesPerBarrel: 12, looseShuttles: 0 })),
-    ).toBe(true)
-  })
-
-  it('does not flag a well-stocked product', () => {
-    expect(isLowStock(makeProduct({ barrels: 5, shuttlesPerBarrel: 12 }))).toBe(false)
-  })
-
-  it('honours a custom threshold', () => {
-    const product = makeProduct({ barrels: 5, shuttlesPerBarrel: 12 }) // 60 shuttles
-    expect(isLowStock(product, 100)).toBe(true)
-    expect(isLowStock(product, 50)).toBe(false)
-  })
-})
+// productShuttleCount() and isLowStock() went with the club-wide pool they read
+// (TASK-83). Low stock is a club-level question answered from holdings, which
+// holders.test.ts covers — a product cannot answer it alone any more.
 
 describe('totalShuttlesUsed', () => {
   it('sums shuttles across every game day', () => {
@@ -199,8 +173,13 @@ describe('totalShuttlesInStock', () => {
   it('sums shuttles across products', () => {
     const state = makeState({
       products: [
-        makeProduct({ id: 'p1', barrels: 1, shuttlesPerBarrel: 12, looseShuttles: 0 }),
-        makeProduct({ id: 'p2', barrels: 0, shuttlesPerBarrel: 12, looseShuttles: 3 }),
+        makeProduct({ id: 'p1', shuttlesPerBarrel: 12 }),
+        makeProduct({ id: 'p2', shuttlesPerBarrel: 12 }),
+      ],
+      holders: [{ id: 'h1', name: 'Ramboo' }],
+      holdings: [
+        { productId: 'p1', holderId: 'h1', barrels: 1, looseShuttles: 0 },
+        { productId: 'p2', holderId: 'h1', barrels: 0, looseShuttles: 3 },
       ],
     })
     expect(totalShuttlesInStock(state)).toBe(15)
@@ -209,7 +188,7 @@ describe('totalShuttlesInStock', () => {
 
 describe('totalUsageIncome & remainingFund', () => {
   it('values usage at cost per shuttle and balances the fund', () => {
-    const product = makeProduct({ id: 'p1', shuttlesPerBarrel: 12, barrels: 10 })
+    const product = makeProduct({ id: 'p1', shuttlesPerBarrel: 12 })
     const state = makeState({
       members: [
         makeMember({ contributions: [{ id: 'c1', amount: 200, date: '2026-01-01' }] }),

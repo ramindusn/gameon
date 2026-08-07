@@ -44,8 +44,9 @@ describe('productStock', () => {
 
   it('reports zero for a product nobody holds', () => {
     const state = makeState({ products: [rsl], holders: [ram], holdings: [] })
-    // No holdings at all → falls back to the legacy per-product pool.
-    expect(productStock(state, makeProduct({ id: 'p9', barrels: 0, looseShuttles: 0 })))
+    // Nobody is holding it, so there is none — not a fallback to some other
+    // figure, which is what used to hide stock in the wrong place (TASK-83).
+    expect(productStock(state, makeProduct({ id: 'p9' })))
       .toEqual({ barrels: 0, looseShuttles: 0, shuttles: 0 })
   })
 })
@@ -119,21 +120,18 @@ describe('club totals derive from holdings', () => {
     expect(totalShuttlesInStock(split)).toBe(152 + 48)
   })
 
-  it('matches the legacy single-pool result for migrated stock', () => {
-    // Pre-custodian: one product, all stock in the club pool.
-    const legacy = makeState({
-      products: [makeProduct({ id: 'p1', barrels: 19, looseShuttles: 8 })],
-    })
-    // Post-migration: same stock, now held by a matchmaker.
-    const migrated = makeState({
-      products: [makeProduct({ id: 'p1', barrels: 19, looseShuttles: 8 })],
+  // The legacy-pool equivalence check retired with the pool itself (TASK-83):
+  // there is no second figure left to agree with. What matters now is that the
+  // total is the sum of what people are holding, and nothing else.
+  it('counts only what is held — a product nobody holds contributes nothing', () => {
+    const withUnheld = makeState({
+      products: [makeProduct({ id: 'p1' }), makeProduct({ id: 'p-unheld' })],
       holders: [ram],
       holdings: [
         makeHolding({ productId: 'p1', holderId: 'h1', barrels: 19, looseShuttles: 8 }),
       ],
     })
-    expect(totalShuttlesInStock(migrated)).toBe(totalShuttlesInStock(legacy))
-    expect(totalShuttlesInStock(migrated)).toBe(236) // 19*12 + 8
+    expect(totalShuttlesInStock(withUnheld)).toBe(236) // 19*12 + 8, and no more
   })
 
   it('low stock is judged club-wide, not per holder', () => {

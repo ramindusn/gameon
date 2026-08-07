@@ -53,8 +53,6 @@ describe('Inventory (TASK-34)', () => {
       brand: 'Yonex',
       model: 'AS-30',
       shuttlesPerBarrel: 12,
-      barrels: 3,
-      looseShuttles: 5,
     }
     const batch: Purchase = {
       id: 'pu1',

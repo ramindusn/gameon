@@ -7,12 +7,10 @@ import {
   deleteProduct,
   deleteTransaction,
   emptyFundState,
-  recordUsage,
   updateBatchPrice,
   updateProduct,
 } from './reducers'
 import {
-  productShuttleCount,
   remainingFund,
   totalCollected,
   totalExpenses,
@@ -36,7 +34,10 @@ describe('addProduct', () => {
     const s = seeded()
     expect(s.products).toHaveLength(1)
     expect(s.purchases).toHaveLength(1)
-    expect(totalShuttlesInStock(s)).toBe(12)
+    // The product and its cost exist; the stock does not yet, because nobody
+    // is holding it. Allocating to a matchmaker is a separate, audited step
+    // (change_stock) that addProduct triggers in the app layer (TASK-83).
+    expect(totalShuttlesInStock(s)).toBe(0)
     expect(remainingFund(s)).toBe(-24) // fund drops by the purchase
   })
 
@@ -87,12 +88,12 @@ describe('updateProduct', () => {
       brand: '  Li-Ning  ',
       model: '  A+90  ',
       shuttlesPerBarrel: 12,
-      barrels: 3,
-      looseShuttles: 4,
     })
     expect(next.products[0]).toMatchObject({ brand: 'Li-Ning', model: 'A+90' })
-    expect(totalShuttlesInStock(next)).toBe(40) // 3*12 + 4
-    expect(remainingFund(next)).toBe(remainingFund(s)) // fund unchanged
+    // A product describes what the shuttles are; how many there are belongs to
+    // whoever is holding them, so editing one changes neither stock nor fund.
+    expect(totalShuttlesInStock(next)).toBe(totalShuttlesInStock(s))
+    expect(remainingFund(next)).toBe(remainingFund(s))
   })
 
   it('leaves other products untouched', () => {
@@ -101,8 +102,6 @@ describe('updateProduct', () => {
       brand: 'X',
       model: 'Y',
       shuttlesPerBarrel: 12,
-      barrels: 0,
-      looseShuttles: 0,
     })
     expect(next.products).toEqual(s.products)
   })
@@ -127,7 +126,7 @@ describe('deleteProduct', () => {
   it('removes the product, its batches and its usage items', () => {
     let s = seeded()
     const id = s.products[0].id
-    s = recordUsage(s, '2026-01-02', [{ productId: id, shuttlesUsed: 6 }])
+    s = { ...s, usage: [{ id: 'u1', date: '2026-01-02', items: [{ productId: id, shuttlesUsed: 6 }] }] }
     const next = deleteProduct(s, id)
     expect(next.products).toHaveLength(0)
     expect(next.purchases).toHaveLength(0)
@@ -147,10 +146,19 @@ describe('deleteProduct', () => {
       barrels: 1,
     })
     const drop = s.products[1].id
-    s = recordUsage(s, '2026-01-02', [
-      { productId: keep, shuttlesUsed: 2 },
-      { productId: drop, shuttlesUsed: 3 },
-    ])
+    s = {
+      ...s,
+      usage: [
+        {
+          id: 'u1',
+          date: '2026-01-02',
+          items: [
+            { productId: keep, shuttlesUsed: 2 },
+            { productId: drop, shuttlesUsed: 3 },
+          ],
+        },
+      ],
+    }
     const next = deleteProduct(s, drop)
     expect(next.products).toHaveLength(1)
     expect(next.usage).toHaveLength(1)
@@ -204,34 +212,12 @@ describe('addExpense', () => {
   })
 })
 
-describe('recordUsage', () => {
-  it('is a no-op when no shuttles are actually used', () => {
-    const s = seeded()
-    const id = s.products[0].id
-    expect(recordUsage(s, '2026-01-02', [{ productId: id, shuttlesUsed: 0 }])).toBe(s)
-  })
-
-  it('keeps only the positive items it logs', () => {
-    const s = seeded()
-    const id = s.products[0].id
-    const next = recordUsage(s, '2026-01-02', [
-      { productId: id, shuttlesUsed: 4 },
-      { productId: id, shuttlesUsed: 0 },
-    ])
-    expect(next.usage[0].items).toEqual([{ productId: id, shuttlesUsed: 4 }])
-  })
-})
-
-describe('recordUsage', () => {
-  it('deducts shuttles from stock and credits usage income', () => {
-    const s = seeded()
-    const productId = s.products[0].id
-    const next = recordUsage(s, '2026-01-02', [{ productId, shuttlesUsed: 6 }])
-    expect(totalShuttlesInStock(next)).toBe(6)
-    // usage income 6 × 2 = 12, so fund recovers from -24 to -12
-    expect(remainingFund(next)).toBe(-12)
-  })
-})
+// The two recordUsage suites went with the function (TASK-83). It only ever
+// moved the club-wide pool, and nothing had called it since usage moved into
+// record_game_day_usage() in the database, which draws down the holder's stock
+// and audits it. What it used to assert — that usage lowers stock and credits
+// the fund — is covered against the real thing by the stock probes and by
+// totalUsageIncome's own test.
 
 describe('deleteTransaction', () => {
   it('contribution: removes the member cash and lowers the fund', () => {
@@ -257,13 +243,16 @@ describe('deleteTransaction', () => {
     expect(remainingFund(reverted)).toBe(0)
   })
 
-  it('usage: returns shuttles to stock and undoes the payment', () => {
+  it('usage: drops the entry and undoes the payment', () => {
     const s = seeded()
     const productId = s.products[0].id
-    const used = recordUsage(s, '2026-01-02', [{ productId, shuttlesUsed: 6 }])
-    const usageId = used.usage[0].id
-    const reverted = deleteTransaction(used, { kind: 'usage', id: usageId })
-    expect(totalShuttlesInStock(reverted)).toBe(12)
+    const used = {
+      ...s,
+      usage: [{ id: 'u1', date: '2026-01-02', items: [{ productId, shuttlesUsed: 6 }] }],
+    }
+    const reverted = deleteTransaction(used, { kind: 'usage', id: 'u1' })
+    expect(reverted.usage).toHaveLength(0)
+    // The usage income goes with it, so the fund is back where it started.
     expect(remainingFund(reverted)).toBe(remainingFund(s))
   })
 
@@ -274,20 +263,17 @@ describe('deleteTransaction', () => {
   it('usage: leaves the deprecated pool alone once holdings exist', () => {
     const s = seeded()
     const productId = s.products[0].id
-    const used = recordUsage(s, '2026-01-02', [{ productId, shuttlesUsed: 6 }])
-    const withHoldings = {
-      ...used,
+    const used = {
+      ...s,
+      usage: [{ id: 'u1', date: '2026-01-02', items: [{ productId, shuttlesUsed: 6 }] }],
       holders: [{ id: 'h1', name: 'Ramboo' }],
       holdings: [{ productId, holderId: 'h1', barrels: 0, looseShuttles: 6 }],
     }
-    const reverted = deleteTransaction(withHoldings, {
-      kind: 'usage',
-      id: used.usage[0].id,
-    })
+    const reverted = deleteTransaction(used, { kind: 'usage', id: 'u1' })
     expect(reverted.usage).toHaveLength(0)
-    // products untouched — the holder's row is restored in the API layer.
-    expect(reverted.products[0].barrels).toBe(used.products[0].barrels)
-    expect(reverted.products[0].looseShuttles).toBe(used.products[0].looseShuttles)
+    // Stock is untouched here: the holder's row is credited in the database.
+    // This reducer crediting a pool instead is what lost the shuttles.
+    expect(reverted.holdings).toEqual(used.holdings)
   })
 
   it('purchase: last batch removed drops the product entirely', () => {
@@ -309,11 +295,14 @@ describe('deleteTransaction', () => {
         ...s.purchases,
         { id: 'b2', productId, barrels: 1, pricePerBarrel: 24, date: '2026-01-03' },
       ],
-      products: s.products.map((p) => (p.id === productId ? { ...p, barrels: 2 } : p)),
     }
     const reverted = deleteTransaction(s, { kind: 'purchase', id: 'b2' })
+    // The product stays because another batch remains. Its cost goes; the
+    // barrels do not, because a purchase names no holder to take them from —
+    // that is an explicit Adjust on whoever has them (TASK-83).
     expect(reverted.products).toHaveLength(1)
-    expect(productShuttleCount(reverted.products[0])).toBe(12) // back to 1 barrel
+    expect(reverted.purchases).toHaveLength(1)
+    expect(totalPurchases(reverted)).toBe(24)
   })
 
   it('is a no-op for an unknown purchase id', () => {

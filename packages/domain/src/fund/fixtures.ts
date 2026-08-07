@@ -7,8 +7,6 @@ export function makeProduct(overrides: Partial<Product> = {}): Product {
     brand: 'Yonex',
     model: 'AS-30',
     shuttlesPerBarrel: 12,
-    barrels: 10,
-    looseShuttles: 0,
     ...overrides,
   }
 }

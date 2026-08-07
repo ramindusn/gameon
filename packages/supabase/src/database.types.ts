@@ -675,29 +675,23 @@ export type Database = {
       }
       products: {
         Row: {
-          barrels: number
           brand: string
           club_id: string
           id: string
-          loose_shuttles: number
           model: string
           shuttles_per_barrel: number
         }
         Insert: {
-          barrels?: number
           brand: string
           club_id: string
           id?: string
-          loose_shuttles?: number
           model: string
           shuttles_per_barrel?: number
         }
         Update: {
-          barrels?: number
           brand?: string
           club_id?: string
           id?: string
-          loose_shuttles?: number
           model?: string
           shuttles_per_barrel?: number
         }

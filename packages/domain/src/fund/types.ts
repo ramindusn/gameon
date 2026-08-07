@@ -24,15 +24,14 @@ export interface Product {
   brand: string
   model: string
   shuttlesPerBarrel: number
-  /**
-   * @deprecated Legacy club-wide pool, superseded by per-matchmaker `Holding`s.
-   * Still populated so states loaded before per-holder stock existed keep working;
-   * read stock through the holdings helpers in calc.ts instead.
-   */
-  barrels: number
-  /** @deprecated See `barrels` — use per-matchmaker holdings. */
-  looseShuttles: number
 }
+
+// A product used to carry `barrels` and `looseShuttles` — the club-wide pool
+// that WAS the stock before it was handed to individual matchmakers (TASK-69).
+// The columns outlived their purpose: nothing displayed them, but the reducers
+// kept writing them, so a code path could change a figure nobody could see
+// while the real stock sat untouched. Three separate bugs came from exactly
+// that (TASK-77, 81, 82). Stock lives in `holdings` and nowhere else now.
 
 /** A purchase of barrels for a product = one batch with a fixed unit price. */
 export interface Purchase {

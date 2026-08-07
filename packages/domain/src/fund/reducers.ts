@@ -3,7 +3,6 @@
 // stay thin and the reversal logic (delete a transaction, restore stock) is
 // unit-testable. Every function returns a new state and never mutates input.
 
-import { productShuttleCount } from './calc'
 import { nowLocalInput, uid } from './format'
 import type { FundState, Product } from './types'
 
@@ -18,11 +17,12 @@ export interface NewProductInput {
   loggedBy?: string
 }
 
-/** Editable fields of a product (descriptive + manual stock counts, no pricing). */
-export type ProductDetails = Pick<
-  Product,
-  'brand' | 'model' | 'shuttlesPerBarrel' | 'barrels' | 'looseShuttles'
->
+/**
+ * Editable fields of a product: what it is, not how much of it there is.
+ * Correcting a count is Adjust on the matchmaker holding it (TASK-82) — stock
+ * belongs to people now, so a product-level count would be correcting nobody's.
+ */
+export type ProductDetails = Pick<Product, 'brand' | 'model' | 'shuttlesPerBarrel'>
 
 /** Identifies a single deletable transaction in the fund log. */
 export type TxRef =
@@ -40,8 +40,6 @@ export function addProduct(s: FundState, input: NewProductInput): FundState {
     brand: input.brand.trim(),
     model: input.model.trim(),
     shuttlesPerBarrel: input.shuttlesPerBarrel,
-    barrels: input.barrels,
-    looseShuttles: 0,
   }
   const purchase = {
     id: uid(),
@@ -74,8 +72,6 @@ export function updateProduct(
             brand: details.brand.trim(),
             model: details.model.trim(),
             shuttlesPerBarrel: details.shuttlesPerBarrel,
-            barrels: details.barrels,
-            looseShuttles: details.looseShuttles,
           }
         : p,
     ),
@@ -108,31 +104,9 @@ export function deleteProduct(s: FundState, id: string): FundState {
   }
 }
 
-/** Record a game day's usage and deduct the shuttles from inventory. */
-export function recordUsage(
-  s: FundState,
-  date: string,
-  items: { productId: string; shuttlesUsed: number }[],
-  loggedBy?: string,
-): FundState {
-  const used = items.filter((i) => i.shuttlesUsed > 0)
-  if (used.length === 0) return s
-  const products = s.products.map((p) => {
-    const item = used.find((i) => i.productId === p.id)
-    if (!item) return p
-    const remaining = Math.max(0, productShuttleCount(p) - item.shuttlesUsed)
-    return {
-      ...p,
-      barrels: Math.floor(remaining / p.shuttlesPerBarrel),
-      looseShuttles: remaining % p.shuttlesPerBarrel,
-    }
-  })
-  return {
-    ...s,
-    products,
-    usage: [...s.usage, { id: uid(), date, items: used, loggedBy }],
-  }
-}
+// recordUsage() is gone with the pool it wrote (TASK-83). Usage is recorded by
+// record_game_day_usage() in the database, which draws down the holder's stock
+// and audits it; nothing in the app had called this since.
 
 export function addMember(
   s: FundState,
@@ -246,52 +220,17 @@ export function deleteTransaction(s: FundState, ref: TxRef): FundState {
             .filter((u) => u.items.length > 0),
         }
       }
-      // Same split productStock() reads by: once per-matchmaker holdings exist
-      // they ARE the stock, and products.barrels is the deprecated fallback.
-      // Subtracting the pool here changed a figure nothing displays while the
-      // holdings — and so the stock on screen — stayed exactly as they were, so
-      // deleting a purchase took the cost off the fund and left the barrels
-      // sitting there. A purchase names no holder, so there is no way to know
-      // whose stock to reduce; correcting it is an explicit Adjust instead.
-      if (s.holdings.length > 0) return { ...s, purchases }
-      return {
-        ...s,
-        purchases,
-        products: s.products.map((p) =>
-          p.id === purchase.productId
-            ? { ...p, barrels: Math.max(0, p.barrels - purchase.barrels) }
-            : p,
-        ),
-      }
+      // Only the cost. A purchase names no holder, so nothing can know whose
+      // stock to reduce — and stock is not a property of the product any more.
+      // Putting the barrels back is an explicit Adjust on whoever has them.
+      return { ...s, purchases }
     }
     case 'usage': {
-      const entry = s.usage.find((u) => u.id === ref.id)
-      // Where the shuttles go back to depends on where they came out of, and
-      // that is the same split productStock() reads by: once per-matchmaker
-      // holdings exist they are the stock, and the club-wide pool on `products`
-      // is the deprecated fallback for states that predate them.
-      //
-      // With holdings, the deduction was written against the holder's row by
-      // recordGameDayUsage, so crediting `products` here put the shuttles
-      // somewhere no total reads — leaving the holder short and the two figures
-      // drifting apart. restoreUsageHoldings() in the API layer gives them back
-      // to the holder named on the usage item; this reducer only drops the
-      // entry. Without holdings the pool IS the stock and recordUsage deducted
-      // it, so the credit belongs here.
-      const products =
-        entry && s.holdings.length === 0
-          ? s.products.map((p) => {
-              const item = entry.items.find((i) => i.productId === p.id)
-              if (!item) return p
-              const total = productShuttleCount(p) + item.shuttlesUsed
-              return {
-                ...p,
-                barrels: Math.floor(total / p.shuttlesPerBarrel),
-                looseShuttles: total % p.shuttlesPerBarrel,
-              }
-            })
-          : s.products
-      return { ...s, products, usage: s.usage.filter((u) => u.id !== ref.id) }
+      // Only drops the entry. The shuttles go back to the matchmaker they came
+      // out of, which restoreUsageHoldings() does in the database — this
+      // reducer has no holder to credit and, since TASK-83, no pool to credit
+      // either. Crediting that pool is what lost them in the first place.
+      return { ...s, usage: s.usage.filter((u) => u.id !== ref.id) }
     }
   }
 }

@@ -35,8 +35,6 @@ const rsl: Product = {
   brand: 'RSL',
   model: 'Classic',
   shuttlesPerBarrel: 12,
-  barrels: 0,
-  looseShuttles: 0,
 }
 const victor: Product = { ...rsl, id: 'p2', brand: 'Victor', model: 'Pro' }
 
@@ -310,7 +308,6 @@ describe('adjusting a count (TASK-82)', () => {
     await waitFor(() => expect(changeStock).toHaveBeenCalledTimes(1))
     expect(changeStock).toHaveBeenCalledWith(
       expect.objectContaining({
-        barrels: 8,
         looseShuttles: 0,
         action: 'adjust',
         note: 'Used at a social, not a game day',

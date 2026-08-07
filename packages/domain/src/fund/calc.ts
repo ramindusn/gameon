@@ -83,18 +83,13 @@ export function costPerShuttle(state: FundState, product: Product): number {
   return avgBarrelPrice(state, product.id) / product.shuttlesPerBarrel
 }
 
-/** Total shuttles in stock for a product (barrels * perBarrel + loose). */
-export function productShuttleCount(product: Product): number {
-  return product.barrels * product.shuttlesPerBarrel + product.looseShuttles
-}
-
 /** Default threshold (in shuttles) below which a product is "low stock". */
 export const LOW_STOCK_THRESHOLD = 24
 
-/** Whether a product is running low on shuttles (legacy club-wide pool only). */
-export function isLowStock(product: Product, threshold = LOW_STOCK_THRESHOLD): boolean {
-  return productShuttleCount(product) < threshold
-}
+// productShuttleCount(product) and isLowStock(product) are gone with the
+// club-wide pool they read (TASK-83): a product no longer knows its own stock,
+// because stock belongs to the matchmakers holding it. Ask the state instead —
+// productStock() and isProductLowStock().
 
 /**
  * Whether a product is running low club-wide, counting every holder's stock.
@@ -110,13 +105,10 @@ export function isProductLowStock(
 }
 
 // ---------------------------------------------------------------------------
-// Per-matchmaker stock. Barrels are handed to the matchmakers who run game
-// days, so stock is summed from holdings rather than a single club-wide pool.
-//
-// Each helper falls back to the legacy Product.barrels/looseShuttles when a
-// state carries no holdings at all — that is exactly a pre-allocation state, and
-// the fallback keeps older callers and fixtures correct until every read path
-// has moved over.
+// Stock. Barrels are handed to the matchmakers who run game days, so stock is
+// summed from holdings — the only place it lives. A product with no holdings
+// has no stock, which is the truth rather than a special case: nobody is
+// holding any.
 // ---------------------------------------------------------------------------
 
 /** Shuttle count for a barrels + loose pair of a given product. */
@@ -136,9 +128,6 @@ function holdingsFor(state: FundState, productId: string): Holding[] {
 /** Stock of one product across every matchmaker holding it. */
 export function productStock(state: FundState, product: Product): StockLevel {
   const held = holdingsFor(state, product.id)
-  if (state.holdings.length === 0) {
-    return levelOf(product, product.barrels, product.looseShuttles)
-  }
   return levelOf(
     product,
     held.reduce((s, h) => s + h.barrels, 0),

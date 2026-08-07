@@ -33,8 +33,6 @@ function rowsFromState(state: FundState, clubId: string) {
     brand: p.brand,
     model: p.model,
     shuttles_per_barrel: p.shuttlesPerBarrel,
-    barrels: p.barrels,
-    loose_shuttles: p.looseShuttles,
   }))
   const purchases = state.purchases.map((p) => ({
     id: p.id,

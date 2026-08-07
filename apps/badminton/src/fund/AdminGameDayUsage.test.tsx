@@ -38,7 +38,7 @@ const day = (id: string, playedAt: string) => ({
 const adminCtx: StockContext = {
   clubId: 'c1',
   products: [
-    { id: 'p1', brand: 'RSL', model: 'C', shuttlesPerBarrel: 12, barrels: 0, looseShuttles: 0 },
+    { id: 'p1', brand: 'RSL', model: 'C', shuttlesPerBarrel: 12 },
   ],
   holders: [{ id: 'h1', name: 'Ramboo', userId: 'u1' }],
   holdings: [{ productId: 'p1', holderId: 'h1', barrels: 2, looseShuttles: 0 }],

@@ -270,13 +270,7 @@ function ProductModal({
   ) => Promise<void>
   onUpdate: (
     id: string,
-    data: {
-      brand: string
-      model: string
-      shuttlesPerBarrel: number
-      barrels: number
-      looseShuttles: number
-    },
+    data: { brand: string; model: string; shuttlesPerBarrel: number },
   ) => void
 }) {
   const isEdit = product !== null
@@ -284,7 +278,7 @@ function ProductModal({
   const [model, setModel] = useState(product?.model ?? '')
   const [perBarrel, setPerBarrel] = useState(String(product?.shuttlesPerBarrel ?? 12))
   const [price, setPrice] = useState('')
-  const [barrels, setBarrels] = useState(String(product?.barrels ?? ''))
+  const [barrels, setBarrels] = useState('')
   const [loose, setLoose] = useState('')
   const [holderId, setHolderId] = useState('')
   const [when, setWhen] = useState(nowLocalInput())
@@ -298,14 +292,13 @@ function ProductModal({
       return
     }
     if (isEdit) {
-      // Stock counts are held per matchmaker now, so editing a product only
-      // changes its description — the barrel/loose figures pass through.
+      // A product describes what the shuttles are, not how many there are:
+      // stock belongs to the matchmakers holding it, and correcting a count is
+      // Adjust on that holding (TASK-83).
       onUpdate(product.id, {
         brand,
         model,
         shuttlesPerBarrel: Number(perBarrel) || 1,
-        barrels: product.barrels,
-        looseShuttles: product.looseShuttles,
       })
     } else {
       if (Number(barrels) <= 0) {

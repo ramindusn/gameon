@@ -65,8 +65,6 @@ export async function loadStockContext(): Promise<StockContext | null> {
       brand: p.brand,
       model: p.model,
       shuttlesPerBarrel: p.shuttles_per_barrel,
-      barrels: p.barrels,
-      looseShuttles: p.loose_shuttles,
     })),
     holders: (holders ?? [])
       .map((h) => ({ id: h.id, name: h.nickname, userId: h.user_id ?? undefined }))
