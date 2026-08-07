@@ -561,7 +561,11 @@ export async function deleteSession(
 ): Promise<void> {
   if (isE2E()) return e2eDelete(id)
   const db = client()
-  const { error } = await db.from('match_sessions').delete().eq('id', id)
+  // delete_game_day() reverses any shuttle usage recorded against the day
+  // before removing it (TASK-81). Deleting the session alone left the usage
+  // behind with no day attached: the holder stayed short and the shuttles kept
+  // counting against the fund for a day that no longer existed.
+  const { error } = await db.rpc('delete_game_day', { p_session_id: id })
   if (error) throw error
   if (wasFinished) {
     try {

@@ -907,6 +907,7 @@ export type Database = {
     Functions: {
       is_admin: { Args: { club: string }; Returns: boolean }
       is_matchmaker: { Args: { club: string }; Returns: boolean }
+      delete_game_day: { Args: { p_session_id: string }; Returns: number }
       restore_usage_holdings: { Args: { p_usage_id: string }; Returns: number }
       substitute_team_player: {
         Args: {
