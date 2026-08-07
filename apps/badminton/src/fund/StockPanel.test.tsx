@@ -7,10 +7,11 @@ import type { FundState, Holding, Product, StockHolder } from '@gameon/domain'
 
 // StockPanel reads through useFund and the audit log through the api; both are
 // stubbed so the test drives rendering plus the allocate/transfer wiring.
-const { fundState, transfer, removeHolding, myHolder, logRows } = vi.hoisted(() => ({
+const { fundState, transfer, removeHolding, changeStock, myHolder, logRows } = vi.hoisted(() => ({
   fundState: { current: null as FundState | null },
   transfer: vi.fn(),
   removeHolding: vi.fn(),
+  changeStock: vi.fn(),
   myHolder: { current: undefined as StockHolder | undefined },
   logRows: { current: [] as unknown[] },
 }))
@@ -21,6 +22,7 @@ vi.mock('./useFund', () => ({
     myHolder: myHolder.current,
     transfer,
     removeHolding,
+    changeStock,
     cloudBacked: true,
   }),
 }))
@@ -289,6 +291,49 @@ describe('transferring stock', () => {
 
     expect(await screen.findByText(/only holds 2 barrels/)).toBeInTheDocument()
     expect(transfer).not.toHaveBeenCalled()
+  })
+})
+
+describe('adjusting a count (TASK-82)', () => {
+  // Deleting a game day now gives its shuttles back, which is right when the day
+  // was a mistake — but left nowhere to say "these were genuinely used outside a
+  // game day", or "we miscounted", or "a tube got crushed". This is that place.
+  it('records an absolute correction with a reason', async () => {
+    renderPanel()
+    fireEvent.click(screen.getByTestId('adjust-h1-p1'))
+    fireEvent.change(screen.getByTestId('adjust-barrels'), { target: { value: '8' } })
+    fireEvent.change(screen.getByTestId('adjust-loose'), { target: { value: '0' } })
+    fireEvent.change(screen.getByTestId('adjust-note'), {
+      target: { value: 'Used at a social, not a game day' },
+    })
+    fireEvent.click(screen.getByTestId('save-adjust'))
+    await waitFor(() => expect(changeStock).toHaveBeenCalledTimes(1))
+    expect(changeStock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        barrels: 8,
+        looseShuttles: 0,
+        action: 'adjust',
+        note: 'Used at a social, not a game day',
+      }),
+    )
+  })
+
+  it('insists on a reason — an unexplained correction is not an audit trail', () => {
+    renderPanel()
+    fireEvent.click(screen.getByTestId('adjust-h1-p1'))
+    fireEvent.change(screen.getByTestId('adjust-barrels'), { target: { value: '8' } })
+    fireEvent.click(screen.getByTestId('save-adjust'))
+    expect(screen.getByText(/Say why/)).toBeInTheDocument()
+    expect(changeStock).not.toHaveBeenCalled()
+  })
+
+  it('refuses a no-op correction', () => {
+    renderPanel()
+    fireEvent.click(screen.getByTestId('adjust-h1-p1'))
+    fireEvent.change(screen.getByTestId('adjust-note'), { target: { value: 'x' } })
+    fireEvent.click(screen.getByTestId('save-adjust'))
+    expect(screen.getByText(/same as the current count/)).toBeInTheDocument()
+    expect(changeStock).not.toHaveBeenCalled()
   })
 })
 

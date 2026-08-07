@@ -87,11 +87,14 @@ export function TransactionLog() {
 
   async function handleDelete(row: LogRow) {
     const sign = row.amount >= 0 ? '+' : '−'
+    // A purchase names no holder, so deleting it cannot know whose stock to
+    // reduce — it used to claim otherwise while quietly changing nothing on
+    // screen. Say what it does, and point at the Adjust that does the rest.
     const detail =
       row.kind === 'purchase'
-        ? 'This also removes those barrels from inventory.'
+        ? 'This removes the cost from the fund. The barrels stay with whoever is holding them — use Adjust in Shuttle stock if they are going back.'
         : row.kind === 'usage'
-          ? 'This returns those shuttles to inventory and undoes the payment.'
+          ? 'This returns those shuttles to whoever they came from and undoes the payment.'
           : 'This updates the fund accordingly.'
     const ok = await confirm({
       title: 'Delete entry',

@@ -246,6 +246,14 @@ export function deleteTransaction(s: FundState, ref: TxRef): FundState {
             .filter((u) => u.items.length > 0),
         }
       }
+      // Same split productStock() reads by: once per-matchmaker holdings exist
+      // they ARE the stock, and products.barrels is the deprecated fallback.
+      // Subtracting the pool here changed a figure nothing displays while the
+      // holdings — and so the stock on screen — stayed exactly as they were, so
+      // deleting a purchase took the cost off the fund and left the barrels
+      // sitting there. A purchase names no holder, so there is no way to know
+      // whose stock to reduce; correcting it is an explicit Adjust instead.
+      if (s.holdings.length > 0) return { ...s, purchases }
       return {
         ...s,
         purchases,

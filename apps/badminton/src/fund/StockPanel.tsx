@@ -17,10 +17,17 @@ import { loadInventoryLog, type InventoryLogEntry } from './api'
 // see the club picture; matchmakers only ever read their own (see MyStock).
 
 export function StockPanel() {
-  const { state, myHolder, transfer, removeHolding, cloudBacked } = useFund()
+  const { state, myHolder, transfer, removeHolding, changeStock, cloudBacked } = useFund()
   const confirm = useConfirm()
 
   const [transferring, setTransferring] = useState(false)
+  // Correcting one matchmaker's count directly (TASK-82): shuttles used outside
+  // a game day, a miscount, breakages. Deliberately not tied to a game day —
+  // game-day usage has its own flow, and deleting a day gives its shuttles back.
+  const [adjusting, setAdjusting] = useState<{
+    holder: StockHolder
+    product: Product
+  } | null>(null)
 
   const summary = stockOverview(state)
   // Only people actually holding something: a matchmaker with no barrels is
@@ -184,6 +191,14 @@ export function StockPanel() {
                     </span>
                     <Button
                       variant="ghost"
+                      className="px-2 py-0.5 text-xs"
+                      data-testid={`adjust-${holder.id}-${i.product.id}`}
+                      onClick={() => setAdjusting({ holder, product: i.product })}
+                    >
+                      Adjust
+                    </Button>
+                    <Button
+                      variant="ghost"
                       className="px-2 py-0.5 text-xs text-red-500 hover:bg-red-500/10"
                       data-testid={`remove-${holder.id}-${i.product.id}`}
                       onClick={() => void confirmRemove(holder.id, i.product.id)}
@@ -251,6 +266,30 @@ export function StockPanel() {
           )}
         </ul>
       </section>
+
+      {adjusting && (
+        <AdjustModal
+          holder={adjusting.holder}
+          product={adjusting.product}
+          held={holdingOf(adjusting.product.id, adjusting.holder.id)}
+          onClose={() => setAdjusting(null)}
+          onSave={async (barrels, looseShuttles, note) => {
+            const prev = holdingOf(adjusting.product.id, adjusting.holder.id)
+            await changeStock({
+              holder: adjusting.holder,
+              product: adjusting.product,
+              barrels,
+              looseShuttles,
+              prevBarrels: prev?.barrels ?? 0,
+              prevLooseShuttles: prev?.looseShuttles ?? 0,
+              action: 'adjust',
+              note,
+            })
+            setAdjusting(null)
+            void log.refetch()
+          }}
+        />
+      )}
 
       {transferring && (
         <TransferModal
@@ -417,6 +456,113 @@ function Pickers({
         options={holders.map((h) => ({ id: h.id, label: h.name }))}
       />
     </>
+  )
+}
+
+/**
+ * Correct one matchmaker's count of one product (TASK-82).
+ *
+ * Deliberately not tied to a game day. Game-day usage has its own flow, and
+ * deleting a day now gives its shuttles back — which is right when the day was a
+ * mistake, but leaves nowhere to say "these were genuinely used" outside a day,
+ * or "we counted wrong", or "a tube got crushed". This is that place.
+ *
+ * It sets absolute counts rather than a delta: an admin correcting stock is
+ * looking at what is physically there, not working out a difference. The log
+ * records the delta either way.
+ */
+function AdjustModal({
+  holder,
+  product,
+  held,
+  onClose,
+  onSave,
+}: {
+  holder: StockHolder
+  product: Product
+  held?: { barrels: number; looseShuttles: number }
+  onClose: () => void
+  onSave: (barrels: number, looseShuttles: number, note: string) => Promise<void>
+}) {
+  const [barrels, setBarrels] = useState(String(held?.barrels ?? 0))
+  const [loose, setLoose] = useState(String(held?.looseShuttles ?? 0))
+  const [note, setNote] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const b = Number(barrels || 0)
+  const l = Number(loose || 0)
+  const before = (held?.barrels ?? 0) * product.shuttlesPerBarrel + (held?.looseShuttles ?? 0)
+  const after = b * product.shuttlesPerBarrel + l
+  const diff = after - before
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!Number.isInteger(b) || b < 0 || !Number.isInteger(l) || l < 0) {
+      return setError('Barrels and loose shuttles must be whole numbers, 0 or more.')
+    }
+    if (diff === 0) return setError('That is the same as the current count.')
+    if (!note.trim()) return setError('Say why — the log is only useful if it explains itself.')
+    setError('')
+    setSaving(true)
+    try {
+      await onSave(b, l, note.trim())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save the correction.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open title={`Adjust ${holder.name}'s ${product.brand}`} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3" data-testid="adjust-form">
+        <p className="text-sm text-fg-muted">
+          Currently {held?.barrels ?? 0} barrels and {held?.looseShuttles ?? 0} loose
+          ({before} shuttles). Enter what is actually there.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label="Barrels"
+            type="number"
+            min={0}
+            data-testid="adjust-barrels"
+            value={barrels}
+            onChange={(e) => setBarrels(e.target.value)}
+          />
+          <Field
+            label="Loose shuttles"
+            type="number"
+            min={0}
+            data-testid="adjust-loose"
+            value={loose}
+            onChange={(e) => setLoose(e.target.value)}
+          />
+        </div>
+        <Field
+          label="Why"
+          placeholder="Used outside a game day, miscount, damaged…"
+          data-testid="adjust-note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+        {diff !== 0 && (
+          <p className="text-xs text-fg-subtle" data-testid="adjust-diff">
+            {diff > 0 ? 'Adds' : 'Removes'} {Math.abs(diff)} shuttle
+            {Math.abs(diff) === 1 ? '' : 's'} — {before} → {after}.
+          </p>
+        )}
+        {error && <p className="text-sm font-medium text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" data-testid="save-adjust" disabled={saving}>
+            {saving ? 'Saving…' : 'Save correction'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
