@@ -312,13 +312,19 @@ describe('PlayPage', () => {
     sessionData.results[0].winner = null
   })
 
-  it('finishes straight to the leaderboard for someone holding no stock (TASK-70)', () => {
+  // Finishing used to jump to the leaderboard, throwing away the thing just
+  // finished — this day's own standings, which the page switches to by itself.
+  it('stays on the game day it just finished, for someone holding no stock', () => {
     usageCtx.current = null
     sessionData.results[0].winner = 'a'
     renderPage()
     fireEvent.click(screen.getByTestId('finish-session'))
     act(() => setStatus.mock.calls[0][1].onSuccess())
-    expect(screen.getByTestId('leaderboard-page')).toBeInTheDocument()
+    // Still on the game day, not bounced to the leaderboard. (The session is
+    // static in these tests, so it stays on the matches tab; in the app the
+    // refetched 'finished' status switches it to the standings.)
+    expect(screen.queryByTestId('leaderboard-page')).toBeNull()
+    expect(screen.getByTestId('matches-tab')).toBeInTheDocument()
     sessionData.results[0].winner = null
   })
 

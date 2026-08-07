@@ -47,10 +47,11 @@ test('matchmaker starts a session, scores a match, and finds it in history', asy
   await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
   await expect(page.getByTestId('finish-hint')).toHaveCount(0)
 
-  // Finishing succeeds and routes to the leaderboard (the recompute landing).
+  // Finishing stays on the game day just finished, showing its standings —
+  // it used to jump to the leaderboard, losing the result that was wanted.
   await expect(page.getByTestId('finish-session')).toBeEnabled()
   await page.getByTestId('finish-session').click()
-  await expect(page).toHaveURL(/\/leaderboard$/)
+  await expect(page).toHaveURL(/\/game-days\//)
 
   // The finished game day persists (sessionStorage) and shows in the
   // matchmaker's game-day history.
@@ -157,11 +158,11 @@ test('matchmaker edits a line-up, adds a custom match, scores all, and finishes'
   await expect(page.getByText(/2 \/ 2 recorded/)).toBeVisible()
   await expect(page.getByTestId('finish-hint')).toHaveCount(0)
 
-  // Now finishing succeeds (which, in production, triggers the ranking
-  // recompute) and routes to the leaderboard.
+  // Finishing (which, in production, triggers the ranking recompute) leaves
+  // you on the game day just finished rather than jumping to the leaderboard.
   await expect(page.getByTestId('finish-session')).toBeEnabled()
   await page.getByTestId('finish-session').click()
-  await expect(page).toHaveURL(/\/leaderboard$/)
+  await expect(page).toHaveURL(/\/game-days\//)
 })
 
 test('signed-out visitor gets the public, read-only game-day page (TASK-50)', async ({ page }) => {

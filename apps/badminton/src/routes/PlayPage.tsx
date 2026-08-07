@@ -336,10 +336,16 @@ export function PlayPage() {
               onFinish={() =>
                 setStatus.mutate('finished', {
                   // Ask for the shuttles used while the day is still fresh; only
-                  // someone holding stock can record it, so everyone else moves
-                  // straight on as before.
-                  onSuccess: () =>
-                    canRecordUsage ? setUsagePrompt('finish') : navigate('/leaderboard'),
+                  // someone holding stock can record it.
+                  //
+                  // Nobody is sent anywhere. Finishing used to jump to the
+                  // leaderboard, which threw away the thing just finished — the
+                  // day's own standings, the page already switches to them, and
+                  // it is what a matchmaker wants to see and share. The
+                  // leaderboard is a tap away in the nav for anyone who wants it.
+                  onSuccess: () => {
+                    if (canRecordUsage) setUsagePrompt('finish')
+                  },
                 })
               }
               onReopen={() => setStatus.mutate('live')}
@@ -498,13 +504,9 @@ export function PlayPage() {
             <GameDayUsageModal
               sessionId={data.session.id}
               open={usagePrompt !== 'closed'}
-              onClose={() => {
-                // Recording it finishes the job, so finishing the day moves on to
-                // the leaderboard.
-                const cameFromFinish = usagePrompt === 'finish'
-                setUsagePrompt('closed')
-                if (cameFromFinish) navigate('/leaderboard')
-              }}
+              // Closing it leaves you on the game day that was just finished,
+              // now showing its standings.
+              onClose={() => setUsagePrompt('closed')}
               // Deferring stays put and reveals the panel below: that is the way
               // back in, and leaving for the leaderboard would strand it.
               onLater={() => {
