@@ -306,9 +306,12 @@ export interface MyStockItem {
   barrels: number
   looseShuttles: number
   shuttles: number
-  /** The whole club's stock of this brand, across every matchmaker. */
+  /** The whole club's stock of this brand, across every matchmaker — the same
+   *  two quantities as above, so the card can put them in the same columns.
+   *  It used to carry the club's TOTAL shuttles here while the line above showed
+   *  loose only, which stacked 1 over 205 as though they were comparable. */
   clubBarrels: number
-  clubShuttles: number
+  clubLooseShuttles: number
 }
 
 export interface MyStock {
@@ -348,11 +351,11 @@ export async function loadMyStock(): Promise<MyStock | null> {
     return p ? h.barrels * p.shuttles_per_barrel + h.loose_shuttles : 0
   }
   const clubTotalShuttles = (holdings ?? []).reduce((s, h) => s + shuttlesOf(h), 0)
-  const clubByProduct = new Map<string, { barrels: number; shuttles: number }>()
+  const clubByProduct = new Map<string, { barrels: number; loose: number }>()
   for (const h of holdings ?? []) {
-    const c = clubByProduct.get(h.product_id) ?? { barrels: 0, shuttles: 0 }
+    const c = clubByProduct.get(h.product_id) ?? { barrels: 0, loose: 0 }
     c.barrels += h.barrels
-    c.shuttles += shuttlesOf(h)
+    c.loose += h.loose_shuttles
     clubByProduct.set(h.product_id, c)
   }
 
@@ -369,7 +372,7 @@ export async function loadMyStock(): Promise<MyStock | null> {
       looseShuttles: h.loose_shuttles,
       shuttles: h.barrels * p.shuttles_per_barrel + h.loose_shuttles,
       clubBarrels: clubByProduct.get(p.id)?.barrels ?? 0,
-      clubShuttles: clubByProduct.get(p.id)?.shuttles ?? 0,
+      clubLooseShuttles: clubByProduct.get(p.id)?.loose ?? 0,
     })
   }
   items.sort((a, b) => a.brand.localeCompare(b.brand))

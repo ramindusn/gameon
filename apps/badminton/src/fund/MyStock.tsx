@@ -44,7 +44,7 @@ export function MyStock() {
           <li
             key={i.productId}
             data-testid={`my-stock-${i.productId}`}
-            className="flex items-start justify-between gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2"
+            className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2"
           >
             {/* The name wraps inside its own column and the figures keep a fixed
                 one on the right, so every row lines up whatever the model is
@@ -55,36 +55,47 @@ export function MyStock() {
               <span className="font-semibold text-fg">{i.brand}</span>{' '}
               <span className="text-sm text-fg-muted">{i.model}</span>
             </div>
-            {/* One grid for both lines, with each icon in its own column, so
-                the barrels column and the shuttles column line up between
-                "mine" and "club". They were two separate flex rows before,
-                which let every figure sit wherever its own width put it.
-
-                The number columns carry a min width so the grids are the same
-                shape in every row: sized to their contents, a row reading 205
-                would push its icons left of a row reading 27, and the card
-                looked ragged down the right-hand side. */}
+            {/* Both lines share one grid, each icon in its own column, so the
+                barrels and the loose shuttles line up between "mine" and
+                "club" — and the min widths keep every row the same shape, so
+                a row reading 205 cannot shove its icons left of a row reading
+                7. The whole block stays narrow on purpose: when it carried the
+                word "loose" and the club's full shuttle count it ate enough
+                width to wrap "Victor New Carbonsonic Pro" onto three lines. */}
             <div className="grid shrink-0 grid-cols-[auto_auto_auto_auto_auto] items-center gap-x-1.5 whitespace-nowrap">
               <span />
               <Icon name="barrel" className="h-[18px] w-[18px] text-fg-subtle" />
-              <b className="min-w-[1.5rem] text-right text-sm tabular-nums text-fg">{i.barrels}</b>
+              <b
+                className="min-w-[1.5rem] text-right text-sm tabular-nums text-fg"
+                title="Unopened barrels in your hands"
+              >
+                {i.barrels}
+              </b>
               <Icon name="shuttle" className="ml-1.5 h-[18px] w-[18px] text-fg-subtle" />
-              <span className="min-w-[4rem] text-right text-sm tabular-nums">
-                <b className="text-fg">{i.looseShuttles}</b>{' '}
-                <span className="text-fg-muted">loose</span>
-              </span>
+              <b
+                className="min-w-[1.5rem] text-right text-sm tabular-nums text-fg"
+                title="Loose shuttles in your hands"
+              >
+                {i.looseShuttles}
+              </b>
 
               {/* `contents` so the four cells still land in the grid's own
                   columns — this is only here to keep the club line one node. */}
               <div className="contents" data-testid={`club-${i.productId}`}>
                 <span className="text-xs text-fg-subtle">club</span>
                 <Icon name="barrel" className="h-3.5 w-3.5 text-fg-subtle" />
-                <span className="min-w-[1.5rem] text-right text-xs tabular-nums text-fg-subtle">
+                <span
+                  className="min-w-[1.5rem] text-right text-xs tabular-nums text-fg-subtle"
+                  title="Unopened barrels across the club"
+                >
                   {i.clubBarrels}
                 </span>
                 <Icon name="shuttle" className="ml-1.5 h-3.5 w-3.5 text-fg-subtle" />
-                <span className="min-w-[4rem] text-right text-xs tabular-nums text-fg-subtle">
-                  {i.clubShuttles}
+                <span
+                  className="min-w-[1.5rem] text-right text-xs tabular-nums text-fg-subtle"
+                  title="Loose shuttles across the club"
+                >
+                  {i.clubLooseShuttles}
                 </span>
               </div>
             </div>

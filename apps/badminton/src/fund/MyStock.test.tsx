@@ -35,7 +35,7 @@ describe('MyStock', () => {
           looseShuttles: 5,
           shuttles: 125,
           clubBarrels: 20,
-          clubShuttles: 250,
+          clubLooseShuttles: 9,
         },
       ],
       totalShuttles: 125,
@@ -51,9 +51,12 @@ describe('MyStock', () => {
     // One line, and the per-brand row says the club figure plainly rather than
     // repeating the personal one beside it.
     expect(screen.getByTestId('my-stock-total')).toHaveTextContent('125 of 200 in the club')
-    // Club barrels and club shuttles, as icons rather than repeated words.
+    // The club line carries the same two quantities as the personal one —
+    // barrels and loose — so the columns compare like with like. It used to
+    // show the club's TOTAL shuttles against the personal LOOSE count.
     expect(screen.getByTestId('club-p1')).toHaveTextContent('club')
-    expect(screen.getByTestId('club-p1')).toHaveTextContent('250')
+    expect(screen.getByTestId('club-p1')).toHaveTextContent('20')
+    expect(screen.getByTestId('club-p1')).toHaveTextContent('9')
   })
 
   // Vanishing left them with no explanation for the "Nobody is holding stock"
@@ -79,7 +82,7 @@ describe('MyStock', () => {
           looseShuttles: 0,
           shuttles: 12,
           clubBarrels: 1,
-          clubShuttles: 12,
+          clubLooseShuttles: 0,
         },
       ],
       totalShuttles: 12,
@@ -109,7 +112,7 @@ describe('MyStock', () => {
           looseShuttles: 0,
           shuttles: 12,
           clubBarrels: 2,
-          clubShuttles: 24,
+          clubLooseShuttles: 0,
         },
       ],
       totalShuttles: 12,
