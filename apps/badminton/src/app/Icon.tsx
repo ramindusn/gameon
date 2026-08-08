@@ -46,10 +46,12 @@ function Shuttle(props: LucideProps) {
   )
 }
 
-// A shuttle tube — the cylinder shuttles are sold and carried in. lucide's
-// Package is a cube, which read as a parcel rather than a barrel of shuttles.
+// A shuttle tube with shuttles stacked inside it — an empty cylinder read as a
+// tin or a battery, and lucide's Package (used before) read as a parcel. The
+// corks inside are what say "shuttles", so the glyph means a barrel OF
+// shuttles rather than a container of anything.
 function Barrel(props: LucideProps) {
-  const { className, strokeWidth = 1.75, ...rest } = props
+  const { className, strokeWidth = 1.6, ...rest } = props
   return (
     <svg
       viewBox="0 0 24 24"
@@ -62,11 +64,17 @@ function Barrel(props: LucideProps) {
       aria-hidden
       {...rest}
     >
-      {/* Lid, body, and the line under the lid that makes it read as a tube
-          rather than a plain cylinder. */}
-      <ellipse cx="12" cy="4.5" rx="5.5" ry="2.5" />
-      <path d="M6.5 4.5v15c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-15" />
-      <path d="M6.5 8.5c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5" />
+      {/* Tube: lid, body, and the seam under the lid. */}
+      <ellipse cx="12" cy="4.2" rx="5.2" ry="2.2" />
+      <path d="M6.8 4.2v15.6c0 1.2 2.3 2.2 5.2 2.2s5.2-1 5.2-2.2V4.2" />
+      <path d="M6.8 7.6c0 1.2 2.3 2.2 5.2 2.2s5.2-1 5.2-2.2" />
+      {/* Two shuttles nested inside, drawn the way they pack in a tube: skirt
+          flaring up, cork below. Plain dots read as "some contents"; the skirt
+          is what makes them shuttles. */}
+      <path d="M9.6 10.6 12 13.7l2.4-3.1" />
+      <circle cx="12" cy="14.5" r="1.15" fill="currentColor" stroke="none" />
+      <path d="M9.6 16 12 19.1l2.4-3.1" />
+      <circle cx="12" cy="19.9" r="1.15" fill="currentColor" stroke="none" />
     </svg>
   )
 }

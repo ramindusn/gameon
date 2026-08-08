@@ -55,33 +55,35 @@ export function MyStock() {
               <span className="font-semibold text-fg">{i.brand}</span>{' '}
               <span className="text-sm text-fg-muted">{i.model}</span>
             </div>
-            <div className="shrink-0 whitespace-nowrap text-right">
-              {/* Icons instead of repeating "barrels" and "loose" on every row.
-                  "loose" keeps its word: on the club line the shuttle figure is
-                  the brand's whole count, so the two would otherwise read as
-                  the same thing when they are not. */}
-              <div className="flex items-center justify-end gap-3 text-sm tabular-nums">
-                <span className="inline-flex items-center gap-1" title="Unopened barrels">
-                  <Icon name="barrel" className="h-4 w-4 text-fg-subtle" />
-                  <b className="text-fg">{i.barrels}</b>
-                </span>
-                <span className="inline-flex items-center gap-1" title="Loose shuttles">
-                  <Icon name="shuttle" className="h-4 w-4 text-fg-subtle" />
-                  <b className="text-fg">{i.looseShuttles}</b>
-                  <span className="text-fg-muted">loose</span>
-                </span>
-              </div>
-              <div
-                className="mt-0.5 flex items-center justify-end gap-3 text-xs tabular-nums text-fg-subtle"
-                data-testid={`club-${i.productId}`}
-              >
-                <span>club</span>
-                <span className="inline-flex items-center gap-1" title="Barrels across the club">
-                  <Icon name="barrel" className="h-4 w-4" />
+            {/* One grid for both lines, with each icon in its own column, so
+                the barrels column and the shuttles column line up between
+                "mine" and "club". They were two separate flex rows before,
+                which let every figure sit wherever its own width put it.
+
+                The number columns carry a min width so the grids are the same
+                shape in every row: sized to their contents, a row reading 205
+                would push its icons left of a row reading 27, and the card
+                looked ragged down the right-hand side. */}
+            <div className="grid shrink-0 grid-cols-[auto_auto_auto_auto_auto] items-center gap-x-1.5 whitespace-nowrap">
+              <span />
+              <Icon name="barrel" className="h-[18px] w-[18px] text-fg-subtle" />
+              <b className="min-w-[1.5rem] text-right text-sm tabular-nums text-fg">{i.barrels}</b>
+              <Icon name="shuttle" className="ml-1.5 h-[18px] w-[18px] text-fg-subtle" />
+              <span className="min-w-[4rem] text-right text-sm tabular-nums">
+                <b className="text-fg">{i.looseShuttles}</b>{' '}
+                <span className="text-fg-muted">loose</span>
+              </span>
+
+              {/* `contents` so the four cells still land in the grid's own
+                  columns — this is only here to keep the club line one node. */}
+              <div className="contents" data-testid={`club-${i.productId}`}>
+                <span className="text-xs text-fg-subtle">club</span>
+                <Icon name="barrel" className="h-3.5 w-3.5 text-fg-subtle" />
+                <span className="min-w-[1.5rem] text-right text-xs tabular-nums text-fg-subtle">
                   {i.clubBarrels}
                 </span>
-                <span className="inline-flex items-center gap-1" title="Shuttles across the club">
-                  <Icon name="shuttle" className="h-4 w-4" />
+                <Icon name="shuttle" className="ml-1.5 h-3.5 w-3.5 text-fg-subtle" />
+                <span className="min-w-[4rem] text-right text-xs tabular-nums text-fg-subtle">
                   {i.clubShuttles}
                 </span>
               </div>
