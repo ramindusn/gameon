@@ -44,45 +44,41 @@ export function MyStock() {
           <li
             key={i.productId}
             data-testid={`my-stock-${i.productId}`}
-            className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-lg border border-line bg-surface-muted px-3 py-2"
+            className="flex items-start justify-between gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2"
           >
+            {/* The name wraps inside its own column and the figures keep a fixed
+                one on the right, so every row lines up whatever the model is
+                called. They used to share a wrapping row, which is why a long
+                name pushed its numbers onto a second line and left the card
+                looking ragged. */}
             <div className="min-w-0">
               <span className="font-semibold text-fg">{i.brand}</span>{' '}
               <span className="text-sm text-fg-muted">{i.model}</span>
             </div>
-            <div className="flex flex-col items-end text-sm">
-              <div className="flex items-baseline gap-3">
-                <span>
-                  <b className="text-fg">{i.barrels}</b>{' '}
-                  <span className="text-fg-muted">barrels</span>
-                </span>
-                <span>
-                  <b className="text-fg">{i.looseShuttles}</b>{' '}
-                  <span className="text-fg-muted">loose</span>
-                </span>
+            <div className="shrink-0 whitespace-nowrap text-right">
+              <div className="text-sm tabular-nums">
+                <b className="text-fg">{i.barrels}</b>{' '}
+                <span className="text-fg-muted">barrels</span>
+                <span className="text-fg-subtle"> · </span>
+                <b className="text-fg">{i.looseShuttles}</b>{' '}
+                <span className="text-fg-muted">loose</span>
               </div>
-              {/* The club figure per brand, so "have we got enough RSL?" is
-                  answerable here rather than only on the admin dashboard. */}
-              <span className="text-xs text-fg-subtle" data-testid={`club-${i.productId}`}>
-                {i.shuttles} of {i.clubShuttles} in the club
-              </span>
+              <div
+                className="text-xs tabular-nums text-fg-subtle"
+                data-testid={`club-${i.productId}`}
+              >
+                {i.clubShuttles} in the club
+              </div>
             </div>
           </li>
         ))}
       </ul>
-      {/* "in your hands", not "in total": the dashboard shows the club figure
-          under the same kind of heading, and the two looked like they
-          disagreed when they were only counting different things. */}
+      {/* One line. It used to take three to say this, plus a sentence about
+          asking an admin that nobody needed twice. */}
       <p className="mt-3 text-sm font-semibold text-fg" data-testid="my-stock-total">
-        {data.totalShuttles} shuttles in {data.holderName}'s hands
-      </p>
-      {data.clubTotalShuttles > data.totalShuttles && (
-        <p className="mt-0.5 text-xs text-fg-muted" data-testid="my-stock-club-total">
-          of {data.clubTotalShuttles} in the club — the rest is with other matchmakers.
-        </p>
-      )}
-      <p className="mt-1 text-xs text-fg-subtle">
-        An admin allocates and moves stock. Tell them if these numbers look wrong.
+        {data.clubTotalShuttles > data.totalShuttles
+          ? `${data.totalShuttles} of ${data.clubTotalShuttles} in the club`
+          : `${data.totalShuttles} shuttles`}
       </p>
     </Card>
   )

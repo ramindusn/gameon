@@ -47,12 +47,10 @@ describe('MyStock', () => {
     expect(row).toHaveTextContent('5')
     // "in your hands", not "in total" — the dashboard's club figure is shown
     // under a similar heading and the two read as a contradiction otherwise.
-    expect(screen.getByTestId('my-stock-total')).toHaveTextContent(
-      "125 shuttles in Ramboo's hands",
-    )
-    // Per-brand club figure, so "have we enough RSL?" is answerable here.
-    expect(screen.getByTestId('club-p1')).toHaveTextContent('125 of 250 in the club')
-    expect(screen.getByTestId('my-stock-club-total')).toHaveTextContent('of 200 in the club')
+    // One line, and the per-brand row says the club figure plainly rather than
+    // repeating the personal one beside it.
+    expect(screen.getByTestId('my-stock-total')).toHaveTextContent('125 of 200 in the club')
+    expect(screen.getByTestId('club-p1')).toHaveTextContent('250 in the club')
   })
 
   // Vanishing left them with no explanation for the "Nobody is holding stock"
@@ -84,8 +82,8 @@ describe('MyStock', () => {
       clubTotalShuttles: 12,
     }
     renderCard()
-    await screen.findByTestId('my-stock-total')
-    expect(screen.queryByTestId('my-stock-club-total')).toBeNull()
+    // Holding all of it: no "of N" comparison to make.
+    expect(await screen.findByTestId('my-stock-total')).toHaveTextContent('12 shuttles')
   })
 
   it('renders nothing for someone who is not a matchmaker', async () => {
