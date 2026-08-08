@@ -306,7 +306,8 @@ export interface MyStockItem {
   barrels: number
   looseShuttles: number
   shuttles: number
-  /** The whole club's shuttles of this brand, across every matchmaker. */
+  /** The whole club's stock of this brand, across every matchmaker. */
+  clubBarrels: number
   clubShuttles: number
 }
 
@@ -347,9 +348,12 @@ export async function loadMyStock(): Promise<MyStock | null> {
     return p ? h.barrels * p.shuttles_per_barrel + h.loose_shuttles : 0
   }
   const clubTotalShuttles = (holdings ?? []).reduce((s, h) => s + shuttlesOf(h), 0)
-  const clubByProduct = new Map<string, number>()
+  const clubByProduct = new Map<string, { barrels: number; shuttles: number }>()
   for (const h of holdings ?? []) {
-    clubByProduct.set(h.product_id, (clubByProduct.get(h.product_id) ?? 0) + shuttlesOf(h))
+    const c = clubByProduct.get(h.product_id) ?? { barrels: 0, shuttles: 0 }
+    c.barrels += h.barrels
+    c.shuttles += shuttlesOf(h)
+    clubByProduct.set(h.product_id, c)
   }
 
   const items: MyStockItem[] = []
@@ -364,7 +368,8 @@ export async function loadMyStock(): Promise<MyStock | null> {
       barrels: h.barrels,
       looseShuttles: h.loose_shuttles,
       shuttles: h.barrels * p.shuttles_per_barrel + h.loose_shuttles,
-      clubShuttles: clubByProduct.get(p.id) ?? 0,
+      clubBarrels: clubByProduct.get(p.id)?.barrels ?? 0,
+      clubShuttles: clubByProduct.get(p.id)?.shuttles ?? 0,
     })
   }
   items.sort((a, b) => a.brand.localeCompare(b.brand))

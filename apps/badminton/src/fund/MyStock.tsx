@@ -56,18 +56,34 @@ export function MyStock() {
               <span className="text-sm text-fg-muted">{i.model}</span>
             </div>
             <div className="shrink-0 whitespace-nowrap text-right">
-              <div className="text-sm tabular-nums">
-                <b className="text-fg">{i.barrels}</b>{' '}
-                <span className="text-fg-muted">barrels</span>
-                <span className="text-fg-subtle"> · </span>
-                <b className="text-fg">{i.looseShuttles}</b>{' '}
-                <span className="text-fg-muted">loose</span>
+              {/* Icons instead of repeating "barrels" and "loose" on every row.
+                  "loose" keeps its word: on the club line the shuttle figure is
+                  the brand's whole count, so the two would otherwise read as
+                  the same thing when they are not. */}
+              <div className="flex items-center justify-end gap-3 text-sm tabular-nums">
+                <span className="inline-flex items-center gap-1" title="Unopened barrels">
+                  <Icon name="inventory" className="h-3.5 w-3.5 text-fg-subtle" />
+                  <b className="text-fg">{i.barrels}</b>
+                </span>
+                <span className="inline-flex items-center gap-1" title="Loose shuttles">
+                  <Icon name="shuttle" className="h-3.5 w-3.5 text-fg-subtle" />
+                  <b className="text-fg">{i.looseShuttles}</b>
+                  <span className="text-fg-muted">loose</span>
+                </span>
               </div>
               <div
-                className="text-xs tabular-nums text-fg-subtle"
+                className="mt-0.5 flex items-center justify-end gap-3 text-xs tabular-nums text-fg-subtle"
                 data-testid={`club-${i.productId}`}
               >
-                {i.clubShuttles} in the club
+                <span>club</span>
+                <span className="inline-flex items-center gap-1" title="Barrels across the club">
+                  <Icon name="inventory" className="h-3 w-3" />
+                  {i.clubBarrels}
+                </span>
+                <span className="inline-flex items-center gap-1" title="Shuttles across the club">
+                  <Icon name="shuttle" className="h-3 w-3" />
+                  {i.clubShuttles}
+                </span>
               </div>
             </div>
           </li>
