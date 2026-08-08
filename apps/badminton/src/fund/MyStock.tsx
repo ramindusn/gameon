@@ -4,111 +4,146 @@ import { Icon } from '../app/Icon'
 import { loadMyStock } from './api'
 
 /**
- * The stock in the signed-in matchmaker's own hands (TASK-69). Read-only by
- * design: allocation, transfers and corrections are an admin job, so this view
- * has no controls.
+ * A brand and its two counts: unopened barrels, and loose shuttles.
+ *
+ * The number sits immediately left of its own icon, and the pair is
+ * right-aligned inside a fixed-width box. That keeps the count glued to the
+ * icon it belongs to while still landing every icon on the same x down the
+ * card — the two used to fight each other, because right-aligning the number
+ * in its own column pushed a single digit away from its icon and left a gap
+ * wide enough that you could not tell which count was which.
+ */
+function Counts({ barrels, looseShuttles }: { barrels: number; looseShuttles: number }) {
+  return (
+    <div className="flex shrink-0 items-center gap-4 whitespace-nowrap text-sm">
+      <span
+        className="inline-flex min-w-[3rem] items-center justify-end gap-1"
+        title="Unopened barrels"
+      >
+        <b className="tabular-nums text-fg">{barrels}</b>
+        <Icon name="barrel" className="h-[18px] w-[18px] text-fg-subtle" />
+      </span>
+      <span
+        className="inline-flex min-w-[3rem] items-center justify-end gap-1"
+        title="Loose shuttles"
+      >
+        <b className="tabular-nums text-fg">{looseShuttles}</b>
+        <Icon name="shuttle" className="h-[18px] w-[18px] text-fg-subtle" />
+      </span>
+    </div>
+  )
+}
+
+function StockRow({
+  brand,
+  model,
+  barrels,
+  looseShuttles,
+  testId,
+}: {
+  brand: string
+  model: string
+  barrels: number
+  looseShuttles: number
+  testId: string
+}) {
+  return (
+    <li
+      data-testid={testId}
+      className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2"
+    >
+      {/* The name keeps its own column and the counts a fixed one, so a long
+          model wraps inside its half instead of shoving the figures around. */}
+      <div className="min-w-0">
+        <span className="font-semibold text-fg">{brand}</span>{' '}
+        <span className="text-sm text-fg-muted">{model}</span>
+      </div>
+      <Counts barrels={barrels} looseShuttles={looseShuttles} />
+    </li>
+  )
+}
+
+/**
+ * The stock in the signed-in matchmaker's own hands (TASK-69), and — when
+ * anyone else is holding some — the club's, as a card of its own.
+ *
+ * Read-only by design: allocation, transfers and corrections are an admin job,
+ * so these views have no controls.
  *
  * Someone who is not a matchmaker gets nothing (loadMyStock returns null) — the
- * card would be meaningless. A matchmaker holding nothing does get the card,
- * saying so: it used to vanish, which left them with no explanation for the
- * "Nobody is holding stock" they then meet in the usage form (TASK-76.2).
+ * cards would be meaningless. A matchmaker holding nothing does get the first
+ * card, saying so: it used to vanish, which left them with no explanation for
+ * the "Nobody is holding stock" they then meet in the usage form (TASK-76.2).
  */
 export function MyStock() {
   const { data } = useQuery({ queryKey: ['my-stock'], queryFn: loadMyStock })
   if (!data) return null
 
-  if (data.items.length === 0) {
-    return (
+  return (
+    <>
       <Card
         title={`Shuttles in ${data.holderName}'s hands`}
         icon={<Icon name="inventory" />}
       >
-        <p className="text-sm text-fg-muted" data-testid="my-stock-empty">
-          You are not holding any shuttles right now, so you cannot record usage
-          against your own stock yet.
-        </p>
-        <p className="mt-1 text-xs text-fg-subtle">
-          An admin allocates barrels to a matchmaker. Ask them to hand you some.
-        </p>
+        {data.items.length === 0 ? (
+          <>
+            <p className="text-sm text-fg-muted" data-testid="my-stock-empty">
+              You are not holding any shuttles right now, so you cannot record
+              usage against your own stock yet.
+            </p>
+            <p className="mt-1 text-xs text-fg-subtle">
+              An admin allocates barrels to a matchmaker. Ask them to hand you
+              some.
+            </p>
+          </>
+        ) : (
+          <>
+            <ul className="space-y-2" data-testid="my-stock">
+              {data.items.map((i) => (
+                <StockRow
+                  key={i.productId}
+                  testId={`my-stock-${i.productId}`}
+                  brand={i.brand}
+                  model={i.model}
+                  barrels={i.barrels}
+                  looseShuttles={i.looseShuttles}
+                />
+              ))}
+            </ul>
+            <p
+              className="mt-3 text-sm font-semibold text-fg"
+              data-testid="my-stock-total"
+            >
+              {data.totalShuttles} shuttles
+            </p>
+          </>
+        )}
       </Card>
-    )
-  }
 
-  return (
-    <Card
-      title={`Shuttles in ${data.holderName}'s hands`}
-      icon={<Icon name="inventory" />}
-    >
-      <ul className="space-y-2" data-testid="my-stock">
-        {data.items.map((i) => (
-          <li
-            key={i.productId}
-            data-testid={`my-stock-${i.productId}`}
-            className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2"
+      {/* Only when somebody else holds some. Holding all of it yourself, this
+          card would repeat the one above line for line. */}
+      {data.club && (
+        <Card title="Club stocks" icon={<Icon name="inventory" />}>
+          <ul className="space-y-2" data-testid="club-stock">
+            {data.club.items.map((i) => (
+              <StockRow
+                key={i.productId}
+                testId={`club-stock-${i.productId}`}
+                brand={i.brand}
+                model={i.model}
+                barrels={i.barrels}
+                looseShuttles={i.looseShuttles}
+              />
+            ))}
+          </ul>
+          <p
+            className="mt-3 text-sm font-semibold text-fg"
+            data-testid="club-stock-total"
           >
-            {/* The name wraps inside its own column and the figures keep a fixed
-                one on the right, so every row lines up whatever the model is
-                called. They used to share a wrapping row, which is why a long
-                name pushed its numbers onto a second line and left the card
-                looking ragged. */}
-            <div className="min-w-0">
-              <span className="font-semibold text-fg">{i.brand}</span>{' '}
-              <span className="text-sm text-fg-muted">{i.model}</span>
-            </div>
-            {/* Both lines share one grid, each icon in its own column, so the
-                barrels and the loose shuttles line up between "mine" and
-                "club" — and the min widths keep every row the same shape, so
-                a row reading 205 cannot shove its icons left of a row reading
-                7. The whole block stays narrow on purpose: when it carried the
-                word "loose" and the club's full shuttle count it ate enough
-                width to wrap "Victor New Carbonsonic Pro" onto three lines. */}
-            <div className="grid shrink-0 grid-cols-[auto_auto_auto_auto_auto] items-center gap-x-1.5 whitespace-nowrap">
-              <span />
-              <Icon name="barrel" className="h-[18px] w-[18px] text-fg-subtle" />
-              <b
-                className="min-w-[1.5rem] text-right text-sm tabular-nums text-fg"
-                title="Unopened barrels in your hands"
-              >
-                {i.barrels}
-              </b>
-              <Icon name="shuttle" className="ml-1.5 h-[18px] w-[18px] text-fg-subtle" />
-              <b
-                className="min-w-[1.5rem] text-right text-sm tabular-nums text-fg"
-                title="Loose shuttles in your hands"
-              >
-                {i.looseShuttles}
-              </b>
-
-              {/* `contents` so the four cells still land in the grid's own
-                  columns — this is only here to keep the club line one node. */}
-              <div className="contents" data-testid={`club-${i.productId}`}>
-                <span className="text-xs text-fg-subtle">club</span>
-                <Icon name="barrel" className="h-3.5 w-3.5 text-fg-subtle" />
-                <span
-                  className="min-w-[1.5rem] text-right text-xs tabular-nums text-fg-subtle"
-                  title="Unopened barrels across the club"
-                >
-                  {i.clubBarrels}
-                </span>
-                <Icon name="shuttle" className="ml-1.5 h-3.5 w-3.5 text-fg-subtle" />
-                <span
-                  className="min-w-[1.5rem] text-right text-xs tabular-nums text-fg-subtle"
-                  title="Loose shuttles across the club"
-                >
-                  {i.clubLooseShuttles}
-                </span>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
-      {/* One line. It used to take three to say this, plus a sentence about
-          asking an admin that nobody needed twice. */}
-      <p className="mt-3 text-sm font-semibold text-fg" data-testid="my-stock-total">
-        {data.clubTotalShuttles > data.totalShuttles
-          ? `${data.totalShuttles} of ${data.clubTotalShuttles} in the club`
-          : `${data.totalShuttles} shuttles`}
-      </p>
-    </Card>
+            {data.club.totalShuttles} shuttles across every matchmaker
+          </p>
+        </Card>
+      )}
+    </>
   )
 }

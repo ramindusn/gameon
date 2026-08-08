@@ -34,63 +34,110 @@ describe('MyStock', () => {
           barrels: 10,
           looseShuttles: 5,
           shuttles: 125,
-          clubBarrels: 20,
-          clubLooseShuttles: 9,
         },
       ],
       totalShuttles: 125,
-      clubTotalShuttles: 200,
+      club: {
+        items: [
+          {
+            productId: 'p1',
+            brand: 'RSL',
+            model: 'Classic',
+            barrels: 20,
+            looseShuttles: 9,
+            shuttles: 249,
+          },
+        ],
+        totalShuttles: 200,
+      },
     }
     renderCard()
     const row = await screen.findByTestId('my-stock-p1')
     expect(row).toHaveTextContent('RSL')
     expect(row).toHaveTextContent('10')
     expect(row).toHaveTextContent('5')
-    // "in your hands", not "in total" — the dashboard's club figure is shown
-    // under a similar heading and the two read as a contradiction otherwise.
-    // One line, and the per-brand row says the club figure plainly rather than
-    // repeating the personal one beside it.
-    expect(screen.getByTestId('my-stock-total')).toHaveTextContent('125 of 200 in the club')
-    // The club line carries the same two quantities as the personal one —
-    // barrels and loose — so the columns compare like with like. It used to
-    // show the club's TOTAL shuttles against the personal LOOSE count.
-    expect(screen.getByTestId('club-p1')).toHaveTextContent('club')
-    expect(screen.getByTestId('club-p1')).toHaveTextContent('20')
-    expect(screen.getByTestId('club-p1')).toHaveTextContent('9')
+    // Their own total, plainly. It used to read "125 of 200 in the club",
+    // which made the card answer two questions at once.
+    expect(screen.getByTestId('my-stock-total')).toHaveTextContent('125 shuttles')
   })
 
-  // Vanishing left them with no explanation for the "Nobody is holding stock"
-  // they then meet in the usage form (TASK-76.2).
-  it('explains itself when they are a matchmaker holding nothing', async () => {
-    stock.current = { holderName: 'Ramboo', items: [], totalShuttles: 0, clubTotalShuttles: 0 }
-    renderCard()
-    expect(await screen.findByTestId('my-stock-empty')).toHaveTextContent(
-      /not holding any shuttles/i,
-    )
-    expect(screen.queryByTestId('my-stock')).not.toBeInTheDocument()
-  })
-
-  it('leaves the club line off when they hold all of it', async () => {
-    stock.current = {
+  // The club figures were a second line inside every row of the card above,
+  // which crowded the brand name and invited comparing a personal loose count
+  // against a club-wide total. They are their own card now.
+  describe('the club card', () => {
+    const withOthers = (mine: number, clubTotal: number): MyStockData => ({
       holderName: 'Ramboo',
       items: [
         {
           productId: 'p1',
           brand: 'RSL',
-          model: 'C',
+          model: 'Classic',
           barrels: 1,
           looseShuttles: 0,
-          shuttles: 12,
-          clubBarrels: 1,
-          clubLooseShuttles: 0,
+          shuttles: mine,
         },
       ],
-      totalShuttles: 12,
-      clubTotalShuttles: 12,
-    }
+      totalShuttles: mine,
+      club:
+        clubTotal > mine
+          ? {
+              items: [
+                {
+                  productId: 'p1',
+                  brand: 'RSL',
+                  model: 'Classic',
+                  barrels: 2,
+                  looseShuttles: 0,
+                  shuttles: 24,
+                },
+                // A brand this matchmaker holds none of still belongs here:
+                // the card is the club's picture, not a column on theirs.
+                {
+                  productId: 'p2',
+                  brand: 'Victor',
+                  model: 'Ace',
+                  barrels: 3,
+                  looseShuttles: 4,
+                  shuttles: 40,
+                },
+              ],
+              totalShuttles: clubTotal,
+            }
+          : null,
+    })
+
+    it('lists every brand the club holds, with its own total', async () => {
+      stock.current = withOthers(12, 64)
+      renderCard()
+      expect(await screen.findByTestId('club-stock')).toBeInTheDocument()
+      expect(screen.getByTestId('club-stock-p1')).toHaveTextContent('2')
+      const other = screen.getByTestId('club-stock-p2')
+      expect(other).toHaveTextContent('Victor')
+      expect(other).toHaveTextContent('3')
+      expect(other).toHaveTextContent('4')
+      expect(screen.getByTestId('club-stock-total')).toHaveTextContent(
+        '64 shuttles across every matchmaker',
+      )
+    })
+
+    it('is left off entirely when nobody else holds any', async () => {
+      stock.current = withOthers(12, 12)
+      renderCard()
+      await screen.findByTestId('my-stock-p1')
+      expect(screen.queryByTestId('club-stock')).not.toBeInTheDocument()
+      expect(screen.queryByText(/club stocks/i)).not.toBeInTheDocument()
+    })
+  })
+
+  // Vanishing left them with no explanation for the "Nobody is holding stock"
+  // they then meet in the usage form (TASK-76.2).
+  it('explains itself when they are a matchmaker holding nothing', async () => {
+    stock.current = { holderName: 'Ramboo', items: [], totalShuttles: 0, club: null }
     renderCard()
-    // Holding all of it: no "of N" comparison to make.
-    expect(await screen.findByTestId('my-stock-total')).toHaveTextContent('12 shuttles')
+    expect(await screen.findByTestId('my-stock-empty')).toHaveTextContent(
+      /not holding any shuttles/i,
+    )
+    expect(screen.queryByTestId('my-stock')).not.toBeInTheDocument()
   })
 
   it('renders nothing for someone who is not a matchmaker', async () => {
@@ -111,12 +158,10 @@ describe('MyStock', () => {
           barrels: 1,
           looseShuttles: 0,
           shuttles: 12,
-          clubBarrels: 2,
-          clubLooseShuttles: 0,
         },
       ],
       totalShuttles: 12,
-      clubTotalShuttles: 12,
+      club: null,
     }
     renderCard()
     await screen.findByTestId('my-stock-p1')

@@ -306,21 +306,29 @@ export interface MyStockItem {
   barrels: number
   looseShuttles: number
   shuttles: number
-  /** The whole club's stock of this brand, across every matchmaker — the same
-   *  two quantities as above, so the card can put them in the same columns.
-   *  It used to carry the club's TOTAL shuttles here while the line above showed
-   *  loose only, which stacked 1 over 205 as though they were comparable. */
-  clubBarrels: number
-  clubLooseShuttles: number
+}
+
+/** A brand's stock across the whole club, whoever is holding it. */
+export interface ClubStockItem {
+  productId: string
+  brand: string
+  model: string
+  barrels: number
+  looseShuttles: number
+  shuttles: number
 }
 
 export interface MyStock {
   holderName: string
   items: MyStockItem[]
   totalShuttles: number
-  /** Every matchmaker's stock added up, so "in your hands" can be read against
-   *  the club figure the dashboard shows rather than looking like it disagrees. */
-  clubTotalShuttles: number
+  /**
+   * The club picture — but only when somebody else is holding some of it.
+   * A matchmaker who holds everything the club owns would otherwise get a
+   * second card repeating their own figures back at them, which is what the
+   * per-row "club" line used to do.
+   */
+  club: { items: ClubStockItem[]; totalShuttles: number } | null
 }
 
 /** The signed-in matchmaker's own stock. Null when they hold none / aren't one. */
@@ -338,8 +346,8 @@ export async function loadMyStock(): Promise<MyStock | null> {
     .maybeSingle()
   if (!profile?.is_matchmaker) return null
 
-  // Every holding, not just this matchmaker's: the card names the club total
-  // too, and a matchmaker may read them all (holdings_matchmaker_read).
+  // Every holding, not just this matchmaker's: the club card covers the whole
+  // club, and a matchmaker may read them all (holdings_matchmaker_read).
   const [{ data: holdings }, { data: products }] = await Promise.all([
     db.from('holdings').select('*'),
     db.from('products').select('*'),
@@ -371,16 +379,38 @@ export async function loadMyStock(): Promise<MyStock | null> {
       barrels: h.barrels,
       looseShuttles: h.loose_shuttles,
       shuttles: h.barrels * p.shuttles_per_barrel + h.loose_shuttles,
-      clubBarrels: clubByProduct.get(p.id)?.barrels ?? 0,
-      clubLooseShuttles: clubByProduct.get(p.id)?.loose ?? 0,
     })
   }
   items.sort((a, b) => a.brand.localeCompare(b.brand))
+  const totalShuttles = items.reduce((s, i) => s + i.shuttles, 0)
+
+  // Every brand the club is holding, including ones this matchmaker has none
+  // of — the club card is the club's picture, not a second column on theirs.
+  const clubItems: ClubStockItem[] = []
+  for (const [productId, c] of clubByProduct) {
+    const p = byId.get(productId)
+    if (!p) continue
+    if (c.barrels === 0 && c.loose === 0) continue
+    clubItems.push({
+      productId,
+      brand: p.brand,
+      model: p.model,
+      barrels: c.barrels,
+      looseShuttles: c.loose,
+      shuttles: c.barrels * p.shuttles_per_barrel + c.loose,
+    })
+  }
+  clubItems.sort((a, b) => a.brand.localeCompare(b.brand))
 
   return {
     holderName: profile.nickname,
     items,
-    totalShuttles: items.reduce((s, i) => s + i.shuttles, 0),
-    clubTotalShuttles,
+    totalShuttles,
+    // Nobody else holding anything means the club card would just be this one
+    // again, so there is nothing to compare and no card to show.
+    club:
+      clubTotalShuttles > totalShuttles
+        ? { items: clubItems, totalShuttles: clubTotalShuttles }
+        : null,
   }
 }
