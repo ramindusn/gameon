@@ -11,6 +11,7 @@ import {
 import { Icon } from '../app/Icon'
 import { useFund } from './useFund'
 import { loadInventoryLog, type InventoryLogEntry } from './api'
+import { StockCounts, StockLegend } from './StockCounts'
 
 // Barrels are handed to the matchmakers who run game days and they keep them
 // (TASK-69). Admins allocate stock to a matchmaker, move it between them, and
@@ -111,46 +112,44 @@ export function StockPanel() {
             {grand.shuttles}
           </span>
           <span className="text-sm text-fg-muted">shuttles in the club</span>
-          <span className="text-sm text-fg-muted">
-            <b className="text-fg" data-testid="grand-barrels">
-              {grand.barrels}
-            </b>{' '}
-            barrels ·{' '}
-            <b className="text-fg" data-testid="grand-loose">
-              {grand.loose}
-            </b>{' '}
-            loose
-          </span>
+          <StockCounts
+            barrels={grand.barrels}
+            looseShuttles={grand.loose}
+            barrelsTestId="grand-barrels"
+            looseTestId="grand-loose"
+          />
         </div>
+        <StockLegend testId="stock-legend" className="mt-2" />
         <ul className="mt-2 space-y-2" data-testid="stock-summary">
           {summary.map(({ product, barrels, looseShuttles, shuttles }) => (
             <li
               key={product.id}
               data-testid={`summary-${product.id}`}
-              className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-line bg-surface-muted px-3 py-2"
+              className="flex items-center justify-between gap-x-3 rounded-lg border border-line bg-surface-muted px-3 py-2"
             >
-              <div className="min-w-0">
-                <span className="font-semibold text-fg">{product.brand}</span>{' '}
-                <span className="text-sm text-fg-muted">{product.model}</span>
-                {isProductLowStock(state, product) && (
-                  <span className="ml-2 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">
-                    Low stock
-                  </span>
-                )}
-              </div>
-              <div className="flex items-baseline gap-3 text-sm">
-                <span data-testid={`summary-barrels-${product.id}`}>
-                  <b className="text-fg">{barrels}</b>{' '}
-                  <span className="text-fg-muted">barrels</span>
-                </span>
-                <span data-testid={`summary-loose-${product.id}`}>
-                  <b className="text-fg">{looseShuttles}</b>{' '}
-                  <span className="text-fg-muted">loose</span>
-                </span>
-                <span className="text-fg-muted">
-                  = <b className="text-fg">{shuttles}</b> shuttles
+              {/* The brand's own shuttle total moves under its name rather
+                  than sitting beside the counts: on a phone a third figure on
+                  that side pushed the model name onto two and three lines. */}
+              <div className="min-w-0 flex-1">
+                <div className="truncate" title={`${product.brand} ${product.model}`}>
+                  <span className="font-semibold text-fg">{product.brand}</span>{' '}
+                  <span className="text-sm text-fg-muted">{product.model}</span>
+                </div>
+                <span className="text-xs text-fg-subtle">
+                  {shuttles} shuttles
+                  {isProductLowStock(state, product) && (
+                    <span className="ml-2 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">
+                      Low stock
+                    </span>
+                  )}
                 </span>
               </div>
+              <StockCounts
+                barrels={barrels}
+                looseShuttles={looseShuttles}
+                barrelsTestId={`summary-barrels-${product.id}`}
+                looseTestId={`summary-loose-${product.id}`}
+              />
             </li>
           ))}
           {summary.length === 0 && (
@@ -185,10 +184,8 @@ export function StockPanel() {
               <ul className="mt-1 space-y-1 text-sm text-fg-muted">
                 {items.map((i) => (
                   <li key={i.product.id} className="flex items-center gap-2">
-                    <span>
-                      {i.product.brand}: <span className="text-fg">{i.barrels}</span>{' '}
-                      barrels · <span className="text-fg">{i.looseShuttles}</span> loose
-                    </span>
+                    <span className="min-w-0 flex-1 truncate">{i.product.brand}</span>
+                    <StockCounts barrels={i.barrels} looseShuttles={i.looseShuttles} />
                     <Button
                       variant="ghost"
                       className="px-2 py-0.5 text-xs"
