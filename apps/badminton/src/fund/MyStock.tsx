@@ -62,11 +62,11 @@ export function MyStock() {
                   the same thing when they are not. */}
               <div className="flex items-center justify-end gap-3 text-sm tabular-nums">
                 <span className="inline-flex items-center gap-1" title="Unopened barrels">
-                  <Icon name="inventory" className="h-3.5 w-3.5 text-fg-subtle" />
+                  <Icon name="barrel" className="h-4 w-4 text-fg-subtle" />
                   <b className="text-fg">{i.barrels}</b>
                 </span>
                 <span className="inline-flex items-center gap-1" title="Loose shuttles">
-                  <Icon name="shuttle" className="h-3.5 w-3.5 text-fg-subtle" />
+                  <Icon name="shuttle" className="h-4 w-4 text-fg-subtle" />
                   <b className="text-fg">{i.looseShuttles}</b>
                   <span className="text-fg-muted">loose</span>
                 </span>
@@ -77,11 +77,11 @@ export function MyStock() {
               >
                 <span>club</span>
                 <span className="inline-flex items-center gap-1" title="Barrels across the club">
-                  <Icon name="inventory" className="h-3 w-3" />
+                  <Icon name="barrel" className="h-4 w-4" />
                   {i.clubBarrels}
                 </span>
                 <span className="inline-flex items-center gap-1" title="Shuttles across the club">
-                  <Icon name="shuttle" className="h-3 w-3" />
+                  <Icon name="shuttle" className="h-4 w-4" />
                   {i.clubShuttles}
                 </span>
               </div>

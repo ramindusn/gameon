@@ -46,6 +46,31 @@ function Shuttle(props: LucideProps) {
   )
 }
 
+// A shuttle tube — the cylinder shuttles are sold and carried in. lucide's
+// Package is a cube, which read as a parcel rather than a barrel of shuttles.
+function Barrel(props: LucideProps) {
+  const { className, strokeWidth = 1.75, ...rest } = props
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+      {...rest}
+    >
+      {/* Lid, body, and the line under the lid that makes it read as a tube
+          rather than a plain cylinder. */}
+      <ellipse cx="12" cy="4.5" rx="5.5" ry="2.5" />
+      <path d="M6.5 4.5v15c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-15" />
+      <path d="M6.5 8.5c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5" />
+    </svg>
+  )
+}
+
 // Semantic icon names → glyph. Several names can share a glyph (players/pairs).
 const ICONS = {
   dashboard: LayoutDashboard,
@@ -66,6 +91,7 @@ const ICONS = {
   target: Target,
   add: Plus,
   inventory: Package,
+  barrel: Barrel,
   money: Wallet,
   live: CircleDot,
   receipt: Receipt,
