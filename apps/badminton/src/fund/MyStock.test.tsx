@@ -61,6 +61,30 @@ describe('MyStock', () => {
     expect(screen.getByTestId('my-stock-total')).toHaveTextContent('125 shuttles')
   })
 
+  // The counts are icons, and their title attributes need a hover the phone
+  // this card is read on does not have. The legend says it once per card.
+  it('names the two glyphs once, above the rows', async () => {
+    stock.current = {
+      holderName: 'Ramboo',
+      items: [
+        { productId: 'p1', brand: 'RSL', model: 'C', barrels: 1, looseShuttles: 0, shuttles: 12 },
+      ],
+      totalShuttles: 12,
+      club: null,
+    }
+    renderCard()
+    const legend = await screen.findByTestId('my-stock-legend')
+    expect(legend).toHaveTextContent('barrels')
+    expect(legend).toHaveTextContent('loose shuttles')
+  })
+
+  it('leaves the legend off when there are no rows to read', async () => {
+    stock.current = { holderName: 'Ramboo', items: [], totalShuttles: 0, club: null }
+    renderCard()
+    await screen.findByTestId('my-stock-empty')
+    expect(screen.queryByTestId('my-stock-legend')).not.toBeInTheDocument()
+  })
+
   // The club figures were a second line inside every row of the card above,
   // which crowded the brand name and invited comparing a personal loose count
   // against a club-wide total. They are their own card now.
@@ -118,6 +142,7 @@ describe('MyStock', () => {
       expect(screen.getByTestId('club-stock-total')).toHaveTextContent(
         '64 shuttles across every matchmaker',
       )
+      expect(screen.getByTestId('club-stock-legend')).toHaveTextContent('barrels')
     })
 
     it('is left off entirely when nobody else holds any', async () => {

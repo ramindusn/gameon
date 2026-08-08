@@ -34,6 +34,29 @@ function Counts({ barrels, looseShuttles }: { barrels: number; looseShuttles: nu
   )
 }
 
+/**
+ * Says which glyph is which, once per card, instead of repeating the words on
+ * every row. The counts carry title attributes too, but a phone has no hover to
+ * show them — this is the version that works on the device the card is read on.
+ */
+function Legend({ testId }: { testId: string }) {
+  return (
+    <p
+      className="mb-2 flex items-center gap-4 text-xs text-fg-subtle"
+      data-testid={testId}
+    >
+      <span className="inline-flex items-center gap-1">
+        <Icon name="barrel" className="h-3.5 w-3.5" />
+        barrels
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <Icon name="shuttle" className="h-3.5 w-3.5" />
+        loose shuttles
+      </span>
+    </p>
+  )
+}
+
 function StockRow({
   brand,
   model,
@@ -98,6 +121,7 @@ export function MyStock() {
           </>
         ) : (
           <>
+            <Legend testId="my-stock-legend" />
             <ul className="space-y-2" data-testid="my-stock">
               {data.items.map((i) => (
                 <StockRow
@@ -124,6 +148,7 @@ export function MyStock() {
           card would repeat the one above line for line. */}
       {data.club && (
         <Card title="Club stocks" icon={<Icon name="inventory" />}>
+          <Legend testId="club-stock-legend" />
           <ul className="space-y-2" data-testid="club-stock">
             {data.club.items.map((i) => (
               <StockRow
