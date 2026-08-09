@@ -28,14 +28,15 @@ import { useSetScore, useDeleteMatch, useUpdateMatchLineup } from './useMatchPla
 
 function harness() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const spy = vi.spyOn(qc, 'invalidateQueries')
+  const spy = vi.spyOn(qc, 'invalidateQueries') as unknown as InvalidateSpy
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   )
   return { qc, spy, wrapper }
 }
 
-const keys = (spy: ReturnType<typeof vi.spyOn>) =>
+type InvalidateSpy = { mock: { calls: unknown[][] } }
+const keys = (spy: InvalidateSpy) =>
   spy.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown[] }).queryKey))
 
 describe('a match change refetches the session AND its rating figures', () => {
