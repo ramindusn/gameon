@@ -538,18 +538,42 @@ export async function loadPlayerAttendance(): Promise<Record<string, PlayerAtten
  * Glicko rating caused by that day's rating period. Replays all finished
  * sessions (casual + tournament, chronological) up to and including the target
  * day, and just before it, and diffs — for the players who played that day.
+ *
+ * A LIVE day is rated too (TASK-87), as the most recent period, from whatever
+ * is scored so far. It used to be excluded, so the page fell back to an
+ * indicative tally — 8 points a win, 8 a loss, summed — and the figure
+ * collapsed when the day was finished: +56 became +7.2 on a real 31-match day.
+ * Worse, the tally counts only wins and losses while the rating weighs who you
+ * played, so the two could disagree in direction: one player showed 0 and had
+ * actually gained 8.7, another showed +8 and had lost 2.2. Rating the live day
+ * with the real engine means the number is true throughout and finishing the
+ * day does not move it.
  */
 export async function loadGameDayRatingDeltas(
   sessionId: string,
 ): Promise<Record<string, number>> {
   if (isE2E()) return {}
   const db = client()
-  const { data: sessions } = await db
-    .from('match_sessions')
-    .select('id, created_at')
-    .eq('status', 'finished')
-    .order('created_at', { ascending: true })
-  const sRows = (sessions ?? []) as { id: string; created_at: string }[]
+  // Two queries rather than one .or() filter: the session id comes off the URL,
+  // and building PostgREST filter syntax by interpolating it invites a caller to
+  // smuggle in extra conditions. eq() parameterises it properly.
+  const [{ data: sessions }, { data: targetRow }] = await Promise.all([
+    db
+      .from('match_sessions')
+      .select('id, created_at, status')
+      .eq('status', 'finished')
+      .order('created_at', { ascending: true }),
+    db.from('match_sessions').select('id, created_at, status').eq('id', sessionId).maybeSingle(),
+  ])
+  const finished = (sessions ?? []) as { id: string; created_at: string; status: string }[]
+  const target = targetRow as { id: string; created_at: string; status: string } | null
+  if (!target) return {}
+
+  // The live day is rated last whatever its timestamp says. Ordering by
+  // created_at alone would slot a day that started before an already-finished
+  // one into the middle, re-rating history behind it and changing deltas on
+  // days that are settled.
+  const sRows = target.status === 'finished' ? finished : [...finished, target]
   const targetIdx = sRows.findIndex((s) => s.id === sessionId)
   if (targetIdx < 0) return {}
 

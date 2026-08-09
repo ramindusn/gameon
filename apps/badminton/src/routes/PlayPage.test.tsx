@@ -144,26 +144,35 @@ describe('PlayPage', () => {
     ratingDeltas.current = undefined
   })
 
-  it('switches to the Points tab, showing point diff + ranking gain per player', () => {
-    // r2 (21–15, team A won): p5/p6 at +6 points, p7/p8 at -6. All roster skills
-    // are equal (5), so every match is even → ±8.0 ranking points per result.
+  it('switches to the Points tab, showing point diff + ranking per player', () => {
+    // r2 (21–15, team A won): p5/p6 at +6 points, p7/p8 at -6.
+    ratingDeltas.current = { p5: 3.2, p7: -3.2 }
     renderPage()
     fireEvent.click(screen.getByTestId('tab-points'))
     expect(screen.getByTestId('points-table')).toBeInTheDocument()
     expect(screen.getByTestId('points-p5')).toHaveTextContent('+6')
-    expect(screen.getByTestId('points-p5')).toHaveTextContent('+8.0')
+    expect(screen.getByTestId('points-p5')).toHaveTextContent('+3.2')
     expect(screen.getByTestId('points-p7')).toHaveTextContent('-6')
-    expect(screen.getByTestId('points-p7')).toHaveTextContent('-8.0')
+    expect(screen.getByTestId('points-p7')).toHaveTextContent('-3.2')
   })
 
-  it('shows the real recorded rating movement once the day is scored (TASK-71)', () => {
-    // A finished, recomputed day has actual deltas — they win over the
-    // projection so the page agrees with the leaderboard.
+  it('shows the rating movement the engine reports, live or finished (TASK-71)', () => {
     ratingDeltas.current = { p5: 12.4, p7: -12.4 }
     renderPage()
     fireEvent.click(screen.getByTestId('tab-points'))
     expect(screen.getByTestId('points-p5')).toHaveTextContent('+12.4')
     expect(screen.getByTestId('points-p7')).toHaveTextContent('-12.4')
+  })
+
+  // The column used to fall back to a tally of 8 points a win while the day was
+  // live, which read many times larger than the real change and could point the
+  // wrong way. With no rating figure yet, nothing has moved (TASK-87).
+  it('shows no movement rather than a tally when the engine has nothing yet', () => {
+    ratingDeltas.current = undefined
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-points'))
+    expect(screen.getByTestId('points-p5')).toHaveTextContent('0.0')
+    expect(screen.getByTestId('points-p5')).not.toHaveTextContent('8.0')
   })
 
   it('opens a finished game day on the standings, not the matches (TASK-70)', () => {
@@ -243,16 +252,17 @@ describe('PlayPage', () => {
     delete sessionData.session.createdByName
   })
 
-  // Two currencies on one card: the blue pill is the score margin, the green
-  // line under it is what the match moved the leaderboard by. They are not the
-  // same number and were easy to conflate when only one was shown.
-  it('shows the ranking points a decided match was worth, per team', () => {
+  // Two figures on one card: the blue pill is the score margin, the green line
+  // is how far the result beat expectations. The latter is deliberately not
+  // called a ranking change — Glicko-2 runs over the whole day and cannot be
+  // split per match, so these do not sum to the Ranking column (TASK-87).
+  it('shows how far a decided match beat expectations, per team', () => {
     renderPage()
     const decided = within(screen.getByTestId('court-r2'))
     const ranks = decided.getAllByTestId('match-ranking').map((el) => el.textContent)
     // Every fixture player has skill 5, so the match is even: whoever wins
     // takes the baseline half of MATCH_POINTS_K (16), and the losers drop it.
-    expect(ranks).toEqual(['+8.0 rank', '-8.0 rank'])
+    expect(ranks).toEqual(['+8.0 swing', '-8.0 swing'])
     // Undecided courts have moved nothing yet, so they show no ranking at all.
     expect(within(screen.getByTestId('court-r1')).queryByTestId('match-ranking')).toBeNull()
   })

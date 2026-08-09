@@ -170,32 +170,6 @@ export function PlayPage() {
     [data],
   )
 
-  // Ranking points earned so far this game day: the per-match indicative swing
-  // (matchPoints) summed per player — winners gain, losers drop the same. This
-  // mirrors the +/- pills on the court cards. Keyed by player id.
-  const rankingPoints = useMemo(() => {
-    const pts: Record<string, number> = {}
-    const add = (id: string | null, v: number) => {
-      if (id) pts[id] = (pts[id] ?? 0) + v
-    }
-    for (const r of data?.results ?? []) {
-      if (r.winner === null) continue
-      const sa = [skillOf(r.teamA[0]), skillOf(r.teamA[1])]
-      const sb = [skillOf(r.teamB[0]), skillOf(r.teamB[1])]
-      if ([...sa, ...sb].some((s) => s == null)) continue
-      const teamA = (sa[0]! + sa[1]!) / 2
-      const teamB = (sb[0]! + sb[1]!) / 2
-      const aWon = r.winner === 'a'
-      const winnerSkill = aWon ? teamA : teamB
-      const loserSkill = aWon ? teamB : teamA
-      const swing = isEvenMatch(teamA, teamB) ? MATCH_POINTS_K / 2 : matchPoints(winnerSkill, loserSkill)
-      const [winners, losers] = aWon ? [r.teamA, r.teamB] : [r.teamB, r.teamA]
-      winners.forEach((id) => add(id, swing))
-      losers.forEach((id) => add(id, -swing))
-    }
-    return pts
-  }, [data, skillOf])
-
   // Game-day standings so far, from the scored courts — ranked by net point
   // differential then name (matching the public game-day page).
   const standings = useMemo(() => {
@@ -212,13 +186,15 @@ export function PlayPage() {
       .map((s) => ({
         ...s,
         name: nameOf(s.playerId),
-        // While the day is live the ranking column is a projection of what each
-        // player stands to gain; once it is finished and recomputed, show the
-        // real recorded delta so the page agrees with the leaderboard (TASK-71).
-        ranking: ratingDeltas?.[s.playerId] ?? rankingPoints[s.playerId] ?? 0,
+        // The real rating change, live or finished — the live day is rated as
+        // the most recent period, so this is what the leaderboard will say and
+        // finishing the day does not move it. It used to fall back to an
+        // indicative tally while live, which read far bigger and could point
+        // the wrong way (TASK-87).
+        ranking: ratingDeltas?.[s.playerId] ?? 0,
       }))
       .sort((a, b) => b.diff - a.diff || a.name.localeCompare(b.name))
-  }, [data, nameOf, rankingPoints, ratingDeltas])
+  }, [data, nameOf, ratingDeltas])
 
   // Fixed pairs compete as a pair, so that is what is ranked. Per-player rows
   // would list each pair twice with identical numbers (TASK-80).
@@ -1280,10 +1256,14 @@ function TeamCol({
   /** Signed match points won/lost by this team once decided (game-day Points). */
   pts: number | null
   /**
-   * Signed ranking points this match moved the team by — the leaderboard
-   * currency, not the score margin. Blue is Points and green is Ranking
-   * everywhere else (see metricColors), so the two figures stay legible
-   * stacked on top of each other.
+   * How much this match beat expectations — bigger for an upset, small for a
+   * favourite holding serve.
+   *
+   * Deliberately NOT called a ranking change. The leaderboard runs Glicko-2
+   * over the whole game day as one period, and that cannot be split back into
+   * per-match slices, so these do not sum to the Ranking column and never will
+   * (TASK-87). Labelling it "swing" keeps it as what it honestly is: feedback
+   * on the match, not a claim about the leaderboard.
    */
   rank: number | null
 }) {
@@ -1325,10 +1305,10 @@ function TeamCol({
             'mt-0.5 block text-[11px] font-semibold tabular-nums',
             rank > 0 ? RANK_TEXT : rank < 0 ? 'text-negative' : 'text-fg-subtle',
           )}
-          title="Ranking points from this match — counted toward the leaderboard"
+          title="How far this result beat expectations. The day's rating change is worked out over the whole game day, so these do not add up to it."
           data-testid="match-ranking"
         >
-          {fmtRankPoints(rank)} rank
+          {fmtRankPoints(rank)} swing
         </span>
       )}
     </div>
