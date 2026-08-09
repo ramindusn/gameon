@@ -1,5 +1,10 @@
 import { useEffect } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 import { useToast } from '@gameon/ui'
 import { supabase } from '@gameon/supabase'
 import type { GeneratedMatches } from '@gameon/domain'
@@ -28,6 +33,24 @@ import {
 
 const SESSIONS_KEY = ['sessions'] as const
 const sessionKey = (id: string) => ['session', id] as const
+
+/**
+ * Refetch everything a match change affects.
+ *
+ * Changing a score changes what the day is worth, and since TASK-87 those
+ * figures are real rating calculations living under their own query keys — the
+ * Standings column and the per-match numbers on the cards. Invalidating only
+ * the session left them stale until a manual refresh, which is how the cards
+ * appeared not to update at all.
+ *
+ * Scoped to this session's rating keys rather than all of ['ratings'], so a
+ * score entry does not drag the leaderboard's queries along with it.
+ */
+function invalidateSession(qc: QueryClient, id: string) {
+  void qc.invalidateQueries({ queryKey: sessionKey(id) })
+  void qc.invalidateQueries({ queryKey: ['ratings', 'game-day-deltas', id] })
+  void qc.invalidateQueries({ queryKey: ['ratings', 'match-deltas', id] })
+}
 
 /** All sessions, newest first (ADR 0006: TanStack Query). */
 export function useSessions() {
@@ -80,7 +103,7 @@ export function useSessionRealtime(id: string | undefined) {
     // Capture a non-null local so the cleanup closure keeps the narrowed type.
     const client = supabase
     if (!id || !client) return
-    const invalidate = () => qc.invalidateQueries({ queryKey: sessionKey(id) })
+    const invalidate = () => invalidateSession(qc, id)
     const channel = client
       .channel(`session:${id}`)
       .on(
@@ -145,7 +168,7 @@ export function useSubstituteTeamPlayer(sessionId: string | undefined) {
     mutationFn: (v: Parameters<typeof substituteTeamPlayer>[0]) => substituteTeamPlayer(v),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['tournament-teams', sessionId] })
-      void qc.invalidateQueries({ queryKey: ['session', sessionId] })
+      if (sessionId) invalidateSession(qc, sessionId)
     },
   })
 }
@@ -157,7 +180,7 @@ export function useSetScore(sessionId: string | undefined) {
     mutationFn: (v: { resultId: string; scoreA: number; scoreB: number }) =>
       setScore(v.resultId, v.scoreA, v.scoreB),
     onSuccess: () => {
-      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      if (sessionId) invalidateSession(qc, sessionId)
       success('Score saved')
     },
     onError: () => error('Could not save the score'),
@@ -175,7 +198,7 @@ export function useUpdateMatchLineup(sessionId: string | undefined) {
       teamB: [string, string]
     }) => updateMatchLineup(v.resultId, v.teamA, v.teamB),
     onSuccess: () => {
-      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      if (sessionId) invalidateSession(qc, sessionId)
       success('Line-up updated')
     },
     onError: () => error('Could not update the line-up'),
@@ -194,14 +217,14 @@ export function useAddCustomMatch(sessionId: string | undefined) {
       players: [string, string, string, string]
     }) => addCustomMatch(v.clubId, sessionId as string, v.round, v.court, v.players),
     onSuccess: () => {
-      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      if (sessionId) invalidateSession(qc, sessionId)
       success('Match added')
     },
     onError: (err: unknown) => {
       // 23505 = the (session, round, court) unique index — another match took
       // that slot first. Refetching corrects the next computed court.
       const code = (err as { code?: string } | null)?.code
-      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      if (sessionId) invalidateSession(qc, sessionId)
       error(
         code === '23505'
           ? 'That court was just taken — try adding the match again.'
@@ -218,7 +241,7 @@ export function useDeleteMatch(sessionId: string | undefined) {
   return useMutation({
     mutationFn: (resultId: string) => deleteMatch(resultId),
     onSuccess: () => {
-      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      if (sessionId) invalidateSession(qc, sessionId)
       success('Match removed')
     },
     onError: () => error('Could not remove the match'),
@@ -234,7 +257,7 @@ export function useSetSessionStatus(sessionId: string | undefined) {
       setSessionStatus(sessionId as string, status),
     onSuccess: (_data, status) => {
       qc.invalidateQueries({ queryKey: SESSIONS_KEY })
-      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      if (sessionId) invalidateSession(qc, sessionId)
       // Finishing recomputes the boards — refresh the leaderboard queries too.
       qc.invalidateQueries({ queryKey: ['ratings'] })
       success(status === 'finished' ? 'Game day finished' : 'Game day reopened')
@@ -252,7 +275,7 @@ export function useUpdateSessionPlayedAt(sessionId: string | undefined) {
       updateSessionPlayedAt(sessionId as string, playedAt),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SESSIONS_KEY })
-      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      if (sessionId) invalidateSession(qc, sessionId)
       success('Date updated')
     },
     onError: () => error('Could not update the date'),
@@ -267,7 +290,7 @@ export function useSetSessionHidden(sessionId: string | undefined) {
     mutationFn: (hidden: boolean) => setSessionHidden(sessionId as string, hidden),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SESSIONS_KEY })
-      if (sessionId) qc.invalidateQueries({ queryKey: sessionKey(sessionId) })
+      if (sessionId) invalidateSession(qc, sessionId)
       qc.invalidateQueries({ queryKey: ['ratings', 'game-days'] })
     },
     onError: () => error('Could not update home visibility'),
