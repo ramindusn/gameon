@@ -26,6 +26,15 @@ export interface StockContext {
   userId?: string
   /** Admins record on other people's behalf, so nothing is preselected for them. */
   isAdmin?: boolean
+  /**
+   * What one shuttle of each product costs, by product id.
+   *
+   * Comes from product_shuttle_costs(), not from `purchases` — that table is
+   * admin-only on purpose, being the club's whole spending history, and a
+   * matchmaker only needs the unit cost (TASK-85). Empty when the call is not
+   * permitted, which just means the card shows counts and no money.
+   */
+  costPerShuttle: Record<string, number>
 }
 
 /** Products, holders and holdings as a matchmaker is allowed to see them. */
@@ -48,15 +57,17 @@ export async function loadStockContext(): Promise<StockContext | null> {
   const clubId = me?.club_id ?? admin?.club_id
   if (!clubId) return null
 
-  const [{ data: products }, { data: holdings }, { data: holders }] = await Promise.all([
-    db.from('products').select('*'),
-    db.from('holdings').select('*'),
-    db
-      .from('player_profiles')
-      .select('id, nickname, user_id')
-      .eq('club_id', clubId)
-      .eq('is_matchmaker', true),
-  ])
+  const [{ data: products }, { data: holdings }, { data: holders }, { data: costs }] =
+    await Promise.all([
+      db.from('products').select('*'),
+      db.from('holdings').select('*'),
+      db
+        .from('player_profiles')
+        .select('id, nickname, user_id')
+        .eq('club_id', clubId)
+        .eq('is_matchmaker', true),
+      db.rpc('product_shuttle_costs'),
+    ])
 
   return {
     clubId,
@@ -75,6 +86,12 @@ export async function loadStockContext(): Promise<StockContext | null> {
       barrels: h.barrels,
       looseShuttles: h.loose_shuttles,
     })),
+    costPerShuttle: Object.fromEntries(
+      ((costs ?? []) as { product_id: string; cost_per_shuttle: number | string }[]).map((c) => [
+        c.product_id,
+        Number(c.cost_per_shuttle) || 0,
+      ]),
+    ),
     myHolderId: me?.is_matchmaker ? me.id : undefined,
     myName: me?.nickname,
     userId: user.id,

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, Card, ChipPicker, Field, Modal } from '@gameon/ui'
-import { holderStock, type FundState } from '@gameon/domain'
+import { euro, holderStock, type FundState } from '@gameon/domain'
 import { Icon } from '../app/Icon'
 import {
   loadSessionUsage,
@@ -152,17 +152,35 @@ export function GameDayUsagePanel({
   if (!ctx || !(ctx.myHolderId || ctx.isAdmin)) return null
 
   // One line per brand+holder, summed across however many times it was recorded.
-  const totals = new Map<string, { brand: string; holder: string; used: number }>()
+  //
+  // holderName is missing on everything recorded before record_game_day_usage()
+  // (TASK-85): the old path never captured whose stock it came out of, and
+  // before stock belonged to people at all there was no answer to capture. So
+  // an absent holder is not a lost name — it is a day from before we asked, and
+  // the card says that rather than "unknown", which reads like a bug.
+  const totals = new Map<
+    string,
+    { productId: string; brand: string; holder?: string; used: number }
+  >()
   for (const entry of recorded ?? []) {
     for (const item of entry.items) {
-      const holder = item.holderName ?? 'unknown'
-      const key = `${item.productId}|${holder}`
+      const key = `${item.productId}|${item.holderName ?? ''}`
       const row = totals.get(key)
       if (row) row.used += item.shuttlesUsed
-      else totals.set(key, { brand: item.brand, holder, used: item.shuttlesUsed })
+      else
+        totals.set(key, {
+          productId: item.productId,
+          brand: item.brand,
+          holder: item.holderName,
+          used: item.shuttlesUsed,
+        })
     }
   }
-  const lines = [...totals.values()]
+  const lines = [...totals.values()].map((l) => ({
+    ...l,
+    cost: l.used * (ctx.costPerShuttle[l.productId] ?? 0),
+  }))
+  const totalCost = lines.reduce((s, l) => s + l.cost, 0)
   // An entry with no items is the explicit "none from stock" answer — quite
   // different from never having been asked.
   const markedNone = lines.length === 0 && (recorded?.length ?? 0) > 0
@@ -186,16 +204,38 @@ export function GameDayUsagePanel({
           No shuttles recorded for this game day yet.
         </p>
       ) : (
-        <ul className="divide-y divide-line text-sm" data-testid="usage-summary">
-          {lines.map((l) => (
-            <li key={`${l.brand}|${l.holder}`} className="flex justify-between gap-3 py-1.5">
-              <span className="text-fg">
-                {l.used} × {l.brand}
-              </span>
-              <span className="text-fg-muted">from {l.holder}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="divide-y divide-line text-sm" data-testid="usage-summary">
+            {lines.map((l) => (
+              <li
+                key={`${l.productId}|${l.holder ?? ''}`}
+                className="flex items-baseline justify-between gap-3 py-1.5"
+              >
+                <span className="min-w-0">
+                  <span className="text-fg">
+                    {l.used} × {l.brand}
+                  </span>{' '}
+                  <span className="text-xs text-fg-subtle">
+                    {l.holder ? `from ${l.holder}` : 'recorded before stock was per person'}
+                  </span>
+                </span>
+                {l.cost > 0 && (
+                  <span className="shrink-0 tabular-nums text-fg-muted">{euro(l.cost)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {/* Only when it can be priced: a product with no purchase batch costs
+              0, and a row of zeroes says less than no row at all. */}
+          {totalCost > 0 && (
+            <p
+              className="mt-2 border-t border-line pt-2 text-right text-sm font-semibold text-fg"
+              data-testid="usage-total-cost"
+            >
+              {euro(totalCost)}
+            </p>
+          )}
+        </>
       )}
     </Card>
   )

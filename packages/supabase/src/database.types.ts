@@ -939,6 +939,13 @@ export type Database = {
         Args: { p_holder_id: string; p_product_id: string; p_note?: string }
         Returns: undefined
       }
+      product_shuttle_costs: {
+        Args: never
+        Returns: {
+          cost_per_shuttle: number
+          product_id: string
+        }[]
+      }
       record_game_day_usage: {
         Args: { p_session_id: string; p_lines: Json; p_occurred_at?: string }
         Returns: string

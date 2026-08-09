@@ -44,6 +44,8 @@ const base: StockContext = {
   myHolderId: 'h1',
   myName: 'Ramboo',
   userId: 'u1',
+  // RSL 2.00 a shuttle, Victor 1.50 — the card prices each line from these.
+  costPerShuttle: { p1: 2, p2: 1.5 },
 }
 
 function renderUsage(c: StockContext | null = base) {
@@ -275,8 +277,52 @@ describe('the game day page usage panel (TASK-70)', () => {
     expect(summary).toHaveTextContent('6 × RSL')
     expect(summary).toHaveTextContent('from Ramboo')
     expect(summary).toHaveTextContent('3 × Victor')
+    // Priced from costPerShuttle: 6 RSL at 2.00 and 3 Victor at 1.50.
+    expect(summary).toHaveTextContent('12.00')
+    expect(summary).toHaveTextContent('4.50')
+    expect(screen.getByTestId('usage-total-cost')).toHaveTextContent('16.50')
     // With usage on the board the button offers a correction instead.
     expect(screen.getByTestId('open-usage')).toHaveTextContent('Update usage')
+  })
+
+  // Everything recorded before record_game_day_usage() has no holder, and
+  // never had one — stock was a club pool then. Saying "unknown" made that
+  // look like a name had gone missing (TASK-85).
+  it('marks a line with no holder as legacy rather than unknown', async () => {
+    recorded.current = [
+      {
+        entryId: 'e1',
+        sessionId: 's1',
+        occurredAt: '2026-07-26T10:00:00Z',
+        items: [{ productId: 'p2', brand: 'Victor', shuttlesUsed: 5 }],
+      },
+    ]
+    renderIn(<GameDayUsagePanel sessionId="s1" onOpen={vi.fn()} />)
+    const summary = await screen.findByTestId('usage-summary')
+    expect(summary).toHaveTextContent('5 × Victor')
+    expect(summary).not.toHaveTextContent(/unknown/i)
+    expect(summary).toHaveTextContent(/before stock was per person/i)
+    // Still priced — the holder is missing, the product is not.
+    expect(screen.getByTestId('usage-total-cost')).toHaveTextContent('7.50')
+  })
+
+  it('shows no money when the products have no price behind them', async () => {
+    recorded.current = [
+      {
+        entryId: 'e1',
+        sessionId: 's1',
+        occurredAt: '2026-08-05T10:00:00Z',
+        items: [{ productId: 'p1', brand: 'RSL', shuttlesUsed: 4, holderName: 'Ramboo' }],
+      },
+    ]
+    // An admin-only rejection, or a product never purchased, leaves the map
+    // empty. Counts still stand on their own; a row of zeroes would not.
+    renderIn(<GameDayUsagePanel sessionId="s1" onOpen={vi.fn()} />, {
+      ...base,
+      costPerShuttle: {},
+    })
+    expect(await screen.findByTestId('usage-summary')).toHaveTextContent('4 × RSL')
+    expect(screen.queryByTestId('usage-total-cost')).not.toBeInTheDocument()
   })
 
   it('opens the popup when asked', async () => {

@@ -44,6 +44,7 @@ const adminCtx: StockContext = {
   holdings: [{ productId: 'p1', holderId: 'h1', barrels: 2, looseShuttles: 0 }],
   myHolderId: undefined, // an admin need not hold any stock themselves
   isAdmin: true,
+  costPerShuttle: { p1: 2 },
   userId: 'admin-user',
 }
 
