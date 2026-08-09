@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { MatchResult, MatchSession } from '../play/api'
 
@@ -241,6 +241,20 @@ describe('PlayPage', () => {
     renderPage()
     expect(screen.getByTestId('game-day-creator')).toHaveTextContent('Started by Sahan')
     delete sessionData.session.createdByName
+  })
+
+  // Two currencies on one card: the blue pill is the score margin, the green
+  // line under it is what the match moved the leaderboard by. They are not the
+  // same number and were easy to conflate when only one was shown.
+  it('shows the ranking points a decided match was worth, per team', () => {
+    renderPage()
+    const decided = within(screen.getByTestId('court-r2'))
+    const ranks = decided.getAllByTestId('match-ranking').map((el) => el.textContent)
+    // Every fixture player has skill 5, so the match is even: whoever wins
+    // takes the baseline half of MATCH_POINTS_K (16), and the losers drop it.
+    expect(ranks).toEqual(['+8.0 rank', '-8.0 rank'])
+    // Undecided courts have moved nothing yet, so they show no ranking at all.
+    expect(within(screen.getByTestId('court-r1')).queryByTestId('match-ranking')).toBeNull()
   })
 
   it('records point scores (winner derived) when a match is saved', () => {

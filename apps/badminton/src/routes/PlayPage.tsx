@@ -1269,6 +1269,7 @@ function TeamCol({
   favoured,
   pct,
   pts,
+  rank,
 }: {
   ids: [string | null, string | null]
   nameOf: (id: string | null) => string
@@ -1278,6 +1279,13 @@ function TeamCol({
   pct: number | null
   /** Signed match points won/lost by this team once decided (game-day Points). */
   pts: number | null
+  /**
+   * Signed ranking points this match moved the team by — the leaderboard
+   * currency, not the score margin. Blue is Points and green is Ranking
+   * everywhere else (see metricColors), so the two figures stay legible
+   * stacked on top of each other.
+   */
+  rank: number | null
 }) {
   return (
     <div className={cx('min-w-0', align === 'right' && 'text-right')}>
@@ -1311,8 +1319,26 @@ function TeamCol({
           </span>
         </span>
       )}
+      {rank != null && (
+        <span
+          className={cx(
+            'mt-0.5 block text-[11px] font-semibold tabular-nums',
+            rank > 0 ? RANK_TEXT : rank < 0 ? 'text-negative' : 'text-fg-subtle',
+          )}
+          title="Ranking points from this match — counted toward the leaderboard"
+          data-testid="match-ranking"
+        >
+          {fmtRankPoints(rank)} rank
+        </span>
+      )}
     </div>
   )
+}
+
+/** One decimal, always signed — the same shape the Standings' Ranking uses. */
+function fmtRankPoints(n: number) {
+  const r = Math.round(n * 10) / 10
+  return r > 0 ? `+${r.toFixed(1)}` : r.toFixed(1)
 }
 
 // ---- Score tab: editable court card ---------------------------------------
@@ -1374,6 +1400,10 @@ function CourtScore({
       ? Math.abs(result.scoreA - result.scoreB)
       : null
   const ptsOf = (won: boolean) => (margin != null ? (won ? margin : -margin) : null)
+  // The same per-match swing the Standings' Ranking column sums, so a card and
+  // the table cannot disagree. Null until the match is decided.
+  const rankOf = (won: boolean) =>
+    decided && info ? (won ? info.winnerPoints : -info.winnerPoints) : null
   const scoreInput = (side: Side) => (
     <input
       type="number"
@@ -1472,6 +1502,7 @@ function CourtScore({
               favoured={favoured === 'a'}
               pct={pctA}
               pts={ptsOf(aWon)}
+              rank={rankOf(aWon)}
             />
             <div className="flex flex-col items-center gap-1 pt-0.5">
               {editable ? (
@@ -1496,6 +1527,7 @@ function CourtScore({
               favoured={favoured === 'b'}
               pct={pctA != null ? 100 - pctA : null}
               pts={ptsOf(bWon)}
+              rank={rankOf(bWon)}
             />
           </div>
           {!decided && info?.odds && <Predictor pctA={pctA ?? 50} favoured={favoured} />}
