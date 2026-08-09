@@ -75,14 +75,13 @@ export function GameDayUsage({
             {recorded.map((entry) => (
               <li key={entry.entryId} className="py-1.5">
                 {entry.items.map((i) => (
-                  <div key={i.productId} className="flex justify-between gap-3">
-                    <span className="text-fg">
-                      {i.shuttlesUsed} × {i.brand}
-                    </span>
-                    <span className="text-fg-muted">
-                      from {i.holderName ?? 'unknown'}
-                    </span>
-                  </div>
+                  <UsageLineRow
+                    key={i.productId}
+                    used={i.shuttlesUsed}
+                    brand={i.brand}
+                    holder={i.holderName}
+                    loggedBy={entry.loggedBy}
+                  />
                 ))}
               </li>
             ))}
@@ -160,11 +159,11 @@ export function GameDayUsagePanel({
   // the card says that rather than "unknown", which reads like a bug.
   const totals = new Map<
     string,
-    { productId: string; brand: string; holder?: string; used: number }
+    { productId: string; brand: string; holder?: string; loggedBy?: string; used: number }
   >()
   for (const entry of recorded ?? []) {
     for (const item of entry.items) {
-      const key = `${item.productId}|${item.holderName ?? ''}`
+      const key = `${item.productId}|${item.holderName ?? ''}|${entry.loggedBy ?? ''}`
       const row = totals.get(key)
       if (row) row.used += item.shuttlesUsed
       else
@@ -172,6 +171,7 @@ export function GameDayUsagePanel({
           productId: item.productId,
           brand: item.brand,
           holder: item.holderName,
+          loggedBy: entry.loggedBy,
           used: item.shuttlesUsed,
         })
     }
@@ -207,21 +207,14 @@ export function GameDayUsagePanel({
         <>
           <ul className="divide-y divide-line text-sm" data-testid="usage-summary">
             {lines.map((l) => (
-              <li
-                key={`${l.productId}|${l.holder ?? ''}`}
-                className="flex items-baseline justify-between gap-3 py-1.5"
-              >
-                <span className="min-w-0">
-                  <span className="text-fg">
-                    {l.used} × {l.brand}
-                  </span>{' '}
-                  <span className="text-xs text-fg-subtle">
-                    {l.holder ? `from ${l.holder}` : 'recorded before stock was per person'}
-                  </span>
-                </span>
-                {l.cost > 0 && (
-                  <span className="shrink-0 tabular-nums text-fg-muted">{euro(l.cost)}</span>
-                )}
+              <li key={`${l.productId}|${l.holder ?? ''}|${l.loggedBy ?? ''}`} className="py-1.5">
+                <UsageLineRow
+                  used={l.used}
+                  brand={l.brand}
+                  holder={l.holder}
+                  loggedBy={l.loggedBy}
+                  cost={l.cost}
+                />
               </li>
             ))}
           </ul>
@@ -238,6 +231,44 @@ export function GameDayUsagePanel({
         </>
       )}
     </Card>
+  )
+}
+
+/**
+ * One recorded line: what was used, then quietly who it came out of and who
+ * keyed it in.
+ *
+ * The holder is missing on everything recorded before record_game_day_usage()
+ * (TASK-85) — the old path never captured it, and before stock belonged to
+ * people there was nothing to capture. So the line just leaves "from" off
+ * rather than announcing "from unknown", which read like a name had been lost.
+ */
+function UsageLineRow({
+  used,
+  brand,
+  holder,
+  loggedBy,
+  cost,
+}: {
+  used: number
+  brand: string
+  holder?: string
+  loggedBy?: string
+  cost?: number
+}) {
+  const provenance = [holder && `from ${holder}`, loggedBy && `by ${loggedBy}`]
+    .filter(Boolean)
+    .join(' · ')
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="min-w-0">
+        <span className="text-fg">
+          {used} × {brand}
+        </span>
+        {provenance && <span className="ml-2 text-xs text-fg-subtle">{provenance}</span>}
+      </span>
+      {!!cost && <span className="shrink-0 tabular-nums text-fg-muted">{euro(cost)}</span>}
+    </div>
   )
 }
 

@@ -294,6 +294,7 @@ describe('the game day page usage panel (TASK-70)', () => {
         entryId: 'e1',
         sessionId: 's1',
         occurredAt: '2026-07-26T10:00:00Z',
+        loggedBy: 'Sahan',
         items: [{ productId: 'p2', brand: 'Victor', shuttlesUsed: 5 }],
       },
     ]
@@ -301,7 +302,9 @@ describe('the game day page usage panel (TASK-70)', () => {
     const summary = await screen.findByTestId('usage-summary')
     expect(summary).toHaveTextContent('5 × Victor')
     expect(summary).not.toHaveTextContent(/unknown/i)
-    expect(summary).toHaveTextContent(/before stock was per person/i)
+    expect(summary).not.toHaveTextContent(/from/i)
+    // Who keyed it in is still known even when whose stock it was is not.
+    expect(summary).toHaveTextContent('by Sahan')
     // Still priced — the holder is missing, the product is not.
     expect(screen.getByTestId('usage-total-cost')).toHaveTextContent('7.50')
   })
@@ -323,6 +326,26 @@ describe('the game day page usage panel (TASK-70)', () => {
     })
     expect(await screen.findByTestId('usage-summary')).toHaveTextContent('4 × RSL')
     expect(screen.queryByTestId('usage-total-cost')).not.toBeInTheDocument()
+  })
+
+  // The modal keeps its own "Already recorded" list, which is a separate code
+  // path from the panel's summary — it kept saying "from unknown" after the
+  // panel stopped (TASK-85).
+  it('names the recorder in the modal list, and never says unknown', async () => {
+    recorded.current = [
+      {
+        entryId: 'e1',
+        sessionId: 's1',
+        occurredAt: '2026-07-26T10:00:00Z',
+        loggedBy: 'Sahan',
+        items: [{ productId: 'p2', brand: 'Victor', shuttlesUsed: 5 }],
+      },
+    ]
+    renderIn(<GameDayUsageModal sessionId="s1" open onClose={vi.fn()} />)
+    const list = await screen.findByTestId('recorded-usage')
+    expect(list).toHaveTextContent('5 × Victor')
+    expect(list).toHaveTextContent('by Sahan')
+    expect(list).not.toHaveTextContent(/unknown/i)
   })
 
   it('opens the popup when asked', async () => {

@@ -110,6 +110,8 @@ export interface RecordedUsage {
   entryId: string
   sessionId: string
   occurredAt: string
+  /** Who keyed it in — the entry's logged_by, kept as text at write time. */
+  loggedBy?: string
   recordedBy?: string
   items: {
     productId: string
@@ -149,6 +151,7 @@ export async function loadSessionUsage(sessionId: string): Promise<RecordedUsage
     entryId: e.id,
     sessionId,
     occurredAt: e.occurred_at,
+    loggedBy: e.logged_by ?? undefined,
     recordedBy: e.recorded_by ?? undefined,
     items: (items ?? [])
       .filter((i) => i.usage_id === e.id)
