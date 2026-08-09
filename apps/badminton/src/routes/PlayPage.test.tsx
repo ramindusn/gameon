@@ -231,6 +231,16 @@ describe('PlayPage', () => {
     expect(screen.getByTestId('session-status')).toHaveTextContent('Live')
     // Only this game day's players (p1–p8) are counted, not the 12-strong roster.
     expect(screen.getByTestId('game-day-player-count')).toHaveTextContent('8 players')
+    // No creator recorded on this fixture — the header says the role rather
+    // than leaving a gap or naming somebody (TASK-86).
+    expect(screen.getByTestId('game-day-creator')).toHaveTextContent('Started by Matchmaker')
+  })
+
+  it('names the matchmaker who started the game day', () => {
+    sessionData.session.createdByName = 'Sahan'
+    renderPage()
+    expect(screen.getByTestId('game-day-creator')).toHaveTextContent('Started by Sahan')
+    delete sessionData.session.createdByName
   })
 
   it('records point scores (winner derived) when a match is saved', () => {

@@ -40,6 +40,11 @@ export interface MatchSession {
   /** The game-day date/time the matchmaker chose (editable). */
   playedAt: string
   createdAt: string
+  /** Who started it. Null on every game day created before TASK-86 — nothing
+   *  wrote the column then, and there is no trail to recover it from. */
+  createdBy?: string
+  /** Their nickname, resolved from player_profiles (publicly readable). */
+  createdByName?: string
 }
 
 /** A single court within a session. Player ids may be null if a roster player
@@ -78,6 +83,7 @@ export const mapSessionRow = (r: {
   hidden?: boolean | null
   played_at: string
   created_at: string
+  created_by?: string | null
 }): MatchSession => ({
   id: r.id,
   clubId: r.club_id,
@@ -88,6 +94,7 @@ export const mapSessionRow = (r: {
   hidden: r.hidden ?? false,
   playedAt: r.played_at,
   createdAt: r.created_at,
+  createdBy: r.created_by ?? undefined,
 })
 
 export const mapResultRow = (r: {
@@ -161,7 +168,8 @@ export function planToResultRows(
 
 // ---- data access ----------------------------------------------------------
 
-const SESSION_COLS = 'id, club_id, status, mode, kind, rounds, hidden, played_at, created_at'
+const SESSION_COLS =
+  'id, club_id, status, mode, kind, rounds, hidden, played_at, created_at, created_by'
 const RESULT_COLS =
   'id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, team_a_id, team_b_id, score_a, score_b, winner'
 
@@ -372,6 +380,28 @@ export async function substituteTeamPlayer(input: {
   return typeof data === 'number' ? data : 0
 }
 
+/**
+ * Put a nickname against each session's creator.
+ *
+ * player_profiles is publicly readable (player_profiles_public_read), so this
+ * resolves for a signed-out visitor on the public game-day page too. A creator
+ * with no profile — or a game day from before the column was written — simply
+ * keeps no name, rather than showing a placeholder that reads like a person.
+ */
+async function withCreatorNames(sessions: MatchSession[]): Promise<MatchSession[]> {
+  const ids = [...new Set(sessions.map((s) => s.createdBy).filter(Boolean))] as string[]
+  if (ids.length === 0) return sessions
+  const { data } = await client()
+    .from('player_profiles')
+    .select('nickname, user_id')
+    .in('user_id', ids)
+  const nameOf = new Map((data ?? []).map((p) => [p.user_id, p.nickname]))
+  return sessions.map((s) => ({
+    ...s,
+    createdByName: s.createdBy ? (nameOf.get(s.createdBy) ?? undefined) : undefined,
+  }))
+}
+
 /** All game days for the club(s) the caller can read, newest game day first. */
 export async function listSessions(): Promise<MatchSession[]> {
   if (isE2E()) return e2eList()
@@ -379,7 +409,7 @@ export async function listSessions(): Promise<MatchSession[]> {
     .from('match_sessions')
     .select(SESSION_COLS)
     .order('played_at', { ascending: false })
-  return (data ?? []).map(mapSessionRow)
+  return withCreatorNames((data ?? []).map(mapSessionRow))
 }
 
 /**
@@ -424,7 +454,8 @@ export async function getSession(
       .order('court', { ascending: true }),
   ])
   if (!session) return null
-  return { session: mapSessionRow(session), results: (results ?? []).map(mapResultRow) }
+  const [withName] = await withCreatorNames([mapSessionRow(session)])
+  return { session: withName, results: (results ?? []).map(mapResultRow) }
 }
 
 /**

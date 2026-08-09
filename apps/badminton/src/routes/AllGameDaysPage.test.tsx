@@ -50,6 +50,21 @@ describe('AllGameDaysPage (TASK-38)', () => {
     expect(screen.queryByTestId('hidden-tag-s1')).toBeNull()
   })
 
+  // Who started it, in the row's small print (TASK-86). Game days from before
+  // the column was written have no name and nothing to recover one from, so
+  // they say the role rather than a blank or an invented person.
+  it('names the creator, falling back to the role when none was recorded', () => {
+    state.sessions = [
+      { ...session('s1', false), createdBy: 'u1', createdByName: 'Sahan' },
+      session('s2', false),
+    ]
+    renderPage()
+    expect(screen.getByTestId('game-day-s1')).toHaveTextContent('Sahan')
+    const legacy = screen.getByTestId('game-day-s2')
+    expect(legacy).toHaveTextContent('Matchmaker')
+    expect(legacy).not.toHaveTextContent('Sahan')
+  })
+
   it('shows an empty state when there are no game days', () => {
     state.sessions = []
     renderPage()

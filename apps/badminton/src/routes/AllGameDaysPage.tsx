@@ -52,7 +52,12 @@ function GameDayRow({ session: s }: { session: MatchSession }) {
       >
         <span className="flex min-w-0 flex-col">
           <span className="font-medium text-fg">{formatPlayedAt(s.playedAt)}</span>
-          <span className="text-xs text-fg-muted">{kindLabel}</span>
+          {/* Who started it. Everything before TASK-86 has no name recorded,
+              and there is no trail to recover one from, so those fall back to
+              the role rather than to a blank or a fabricated person. */}
+          <span className="truncate text-xs text-fg-muted">
+            {kindLabel} · {s.createdByName ?? 'Matchmaker'}
+          </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
           {s.hidden && (

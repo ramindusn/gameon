@@ -681,6 +681,11 @@ function SessionHeader({
         <span data-testid="game-day-player-count">{playerCount} players</span> · {rounds} rounds ·{' '}
         {recorded} / {total} recorded
       </p>
+      {/* Who started it. Game days from before TASK-86 have no name recorded
+          and nothing to recover one from, so they say the role instead. */}
+      <p className="mt-0.5 text-xs text-fg-subtle" data-testid="game-day-creator">
+        Started by {session.createdByName ?? 'Matchmaker'}
+      </p>
 
       {canEdit && (
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-3">
