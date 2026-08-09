@@ -1128,6 +1128,11 @@ function useMatchInfo(result: MatchResult, skillOf: SkillOf): MatchInfo | null {
 
 /** Arrow pager to step through rounds one at a time (‹ Round 2 of 5 ›), with a
  *  progress dot per round — filled green once that round is fully scored. */
+/** Above this many rounds the dots outgrow the space between the arrows and the
+ *  add-round pill, so a count replaces them. Measured at 393pt: 10 dots is the
+ *  most that fits without squeezing "+ Round" into two lines. */
+const DOTS_MAX = 10
+
 function RoundPager({
   round,
   index,
@@ -1156,7 +1161,7 @@ function RoundPager({
     // add-round pill sits in the right column — no overlap on narrow screens.
     <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center rounded-lg bg-surface-muted px-2 py-1.5">
       <div aria-hidden />
-      <div className="flex items-center justify-center gap-1">
+      <div className="flex min-w-0 items-center justify-center gap-1">
         <button
           type="button"
           onClick={onPrev}
@@ -1173,18 +1178,48 @@ function RoundPager({
           </span>
           {/* Colour = progress only (game-day blue when the round is fully
               scored); the round being viewed is marked by a ring. */}
-          <span className="flex items-center gap-1.5" aria-hidden data-testid="round-dots">
-            {Array.from({ length: total }).map((_, i) => (
+          {/* One dot per round only while they fit. A long game day used to
+              widen this column until it shoved the ‹ › arrows and the "+ Round"
+              pill out of line — 19 rounds is 19 dots plus 19 gaps, which is
+              wider than the space between them at phone width. Past that the
+              dots stop earning their place and a count says the same thing in
+              fixed width. */}
+          {total <= DOTS_MAX ? (
+            <span
+              className={cx('flex items-center', total > 6 ? 'gap-1' : 'gap-1.5')}
+              aria-hidden
+              data-testid="round-dots"
+            >
+              {Array.from({ length: total }).map((_, i) => (
+                <span
+                  key={i}
+                  className={cx(
+                    'shrink-0 rounded-full transition-all',
+                    total > 6 ? 'h-1 w-1' : 'h-1.5 w-1.5',
+                    done[i] ? POINTS_DOT : 'bg-fg-subtle/40',
+                    i === index &&
+                      'ring-2 ring-fg-subtle/50 ring-offset-2 ring-offset-surface-muted',
+                  )}
+                />
+              ))}
+            </span>
+          ) : (
+            // A bar, not a count: text is taller than the dot row, so the whole
+            // pager would change height the moment a game day crossed the
+            // threshold. This keeps the same 4px and says the same thing —
+            // how much is scored — while "Round 19 of 19" says where you are.
+            <span
+              className="block h-1 w-20 overflow-hidden rounded-full bg-fg-subtle/40"
+              aria-hidden
+              data-testid="round-dots"
+              title={`${done.filter(Boolean).length} of ${total} rounds scored`}
+            >
               <span
-                key={i}
-                className={cx(
-                  'h-1.5 w-1.5 rounded-full transition-all',
-                  done[i] ? POINTS_DOT : 'bg-fg-subtle/40',
-                  i === index && 'ring-2 ring-fg-subtle/50 ring-offset-2 ring-offset-surface-muted',
-                )}
+                className={cx('block h-1 rounded-full transition-all', POINTS_DOT)}
+                style={{ width: `${Math.round((done.filter(Boolean).length / total) * 100)}%` }}
               />
-            ))}
-          </span>
+            </span>
+          )}
         </span>
         <button
           type="button"
@@ -1205,7 +1240,7 @@ function RoundPager({
             title="Add a new round"
             data-testid="add-round"
             className={cx(
-              'inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-sky-400/25',
+              'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-sky-400/25',
               POINTS_PILL,
             )}
           >
