@@ -5,6 +5,7 @@ import {
   loadInactivePlayers,
   loadGameDayBoards,
   loadGameDayRatingDeltas,
+  loadMatchRatingDeltas,
   loadPairBoard,
   loadPlayerAttendance,
   loadPlayerBoard,
@@ -54,6 +55,15 @@ export function useGameDayRatingDeltas(sessionId: string | undefined) {
   return useQuery({
     queryKey: ['ratings', 'game-day-deltas', sessionId],
     queryFn: () => loadGameDayRatingDeltas(sessionId as string),
+    enabled: !!sessionId,
+  })
+}
+
+/** What each scored match of a game day was worth, per player (TASK-87). */
+export function useMatchRatingDeltas(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ['ratings', 'match-deltas', sessionId],
+    queryFn: () => loadMatchRatingDeltas(sessionId as string),
     enabled: !!sessionId,
   })
 }

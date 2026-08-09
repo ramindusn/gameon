@@ -549,10 +549,18 @@ export async function loadPlayerAttendance(): Promise<Record<string, PlayerAtten
  * with the real engine means the number is true throughout and finishing the
  * day does not move it.
  */
-export async function loadGameDayRatingDeltas(
-  sessionId: string,
-): Promise<Record<string, number>> {
-  if (isE2E()) return {}
+/** Everything a replay needs, loaded once so the day figure and the per-match
+ *  figures can never be computed from different inputs. */
+interface ReplayInput {
+  sRows: { id: string }[]
+  targetIdx: number
+  bySession: Map<string, MatchRecord[]>
+  absBySession: Map<string, string[]>
+  /** The target day's scored matches in play order, with their row ids. */
+  targetMatches: { id: string; record: MatchRecord }[]
+}
+
+async function loadReplayInput(sessionId: string): Promise<ReplayInput | null> {
   const db = client()
   // Two queries rather than one .or() filter: the session id comes off the URL,
   // and building PostgREST filter syntax by interpolating it invites a caller to
@@ -567,7 +575,7 @@ export async function loadGameDayRatingDeltas(
   ])
   const finished = (sessions ?? []) as { id: string; created_at: string; status: string }[]
   const target = targetRow as { id: string; created_at: string; status: string } | null
-  if (!target) return {}
+  if (!target) return null
 
   // The live day is rated last whatever its timestamp says. Ordering by
   // created_at alone would slot a day that started before an already-finished
@@ -575,16 +583,19 @@ export async function loadGameDayRatingDeltas(
   // days that are settled.
   const sRows = target.status === 'finished' ? finished : [...finished, target]
   const targetIdx = sRows.findIndex((s) => s.id === sessionId)
-  if (targetIdx < 0) return {}
+  if (targetIdx < 0) return null
 
   const { data: results } = await db
     .from('match_results')
-    .select('session_id, team_a1, team_a2, team_b1, team_b2, winner, score_a, score_b')
+    .select('id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, winner, score_a, score_b')
+    .order('round', { ascending: true })
+    .order('court', { ascending: true })
   const { data: attendance } = await db
     .from('session_attendance')
     .select('session_id, player_id, present')
 
   type R = {
+    id: string
     session_id: string
     team_a1: string | null
     team_a2: string | null
@@ -607,10 +618,12 @@ export async function loadGameDayRatingDeltas(
   }
 
   const bySession = new Map<string, MatchRecord[]>()
+  const targetMatches: { id: string; record: MatchRecord }[] = []
   for (const r of (results ?? []) as R[]) {
     const rec = toRecord(r)
     if (!rec) continue
     ;(bySession.get(r.session_id) ?? bySession.set(r.session_id, []).get(r.session_id)!).push(rec)
+    if (r.session_id === sessionId) targetMatches.push({ id: r.id, record: rec })
   }
   const absBySession = new Map<string, string[]>()
   for (const a of (attendance ?? []) as { session_id: string; player_id: string; present: boolean }[]) {
@@ -620,25 +633,104 @@ export async function loadGameDayRatingDeltas(
     )
   }
 
-  const ratingsAfter = (count: number): Map<string, number> => {
-    const periods: RatingPeriod[] = sRows.slice(0, count).map((s) => ({
-      matches: bySession.get(s.id) ?? [],
-      absentees: absBySession.get(s.id) ?? [],
-    }))
-    return new Map(computeRatings(periods).players.map((p) => [p.id, p.rating]))
-  }
-  const before = ratingsAfter(targetIdx)
-  const after = ratingsAfter(targetIdx + 1)
+  return { sRows, targetIdx, bySession, absBySession, targetMatches }
+}
+
+/**
+ * Ratings after replaying history up to and including the target day, with that
+ * day's matches truncated to the first `targetMatchCount` (all of them when
+ * omitted). Truncating is what makes a per-match figure possible: rate the day
+ * with k matches, then with k+1, and the difference is what match k+1 added.
+ */
+function ratingsAt(input: ReplayInput, targetMatchCount?: number): Map<string, number> {
+  const periods: RatingPeriod[] = input.sRows.slice(0, input.targetIdx + 1).map((s, i) => ({
+    matches:
+      i === input.targetIdx && targetMatchCount != null
+        ? input.targetMatches.slice(0, targetMatchCount).map((m) => m.record)
+        : (input.bySession.get(s.id) ?? []),
+    absentees: input.absBySession.get(s.id) ?? [],
+  }))
+  return new Map(computeRatings(periods).players.map((p) => [p.id, p.rating]))
+}
+
+/**
+ * Ranking points each player gained/lost on one game day: the change in their
+ * Glicko rating caused by that day's rating period.
+ *
+ * A LIVE day is rated too (TASK-87), as the most recent period, from whatever
+ * is scored so far. It used to be excluded, so the page fell back to an
+ * indicative tally — 8 points a win, 8 a loss, summed — and the figure
+ * collapsed when the day was finished: +56 became +7.2 on a real 31-match day.
+ * Worse, the tally counts only wins and losses while the rating weighs who you
+ * played, so the two could disagree in direction: one player showed 0 and had
+ * actually gained 8.7, another showed +8 and had lost 2.2. Rating the live day
+ * with the real engine means the number is true throughout and finishing the
+ * day does not move it.
+ */
+export async function loadGameDayRatingDeltas(
+  sessionId: string,
+): Promise<Record<string, number>> {
+  if (isE2E()) return {}
+  const input = await loadReplayInput(sessionId)
+  if (!input) return {}
+
+  // Baseline is the day with none of its matches counted, not the day left out
+  // altogether. For anyone who played they are the same number — an empty
+  // period only inflates a player's deviation, never their rating — and it is
+  // the baseline the per-match figures telescope from, so the cards add up to
+  // this exactly.
+  const before = ratingsAt(input, 0)
+  const after = ratingsAt(input)
 
   const played = new Set<string>()
-  for (const m of bySession.get(sessionId) ?? []) {
-    for (const pid of [...m.teamA, ...m.teamB]) played.add(pid)
+  for (const m of input.targetMatches) {
+    for (const pid of [...m.record.teamA, ...m.record.teamB]) played.add(pid)
   }
   const deltas: Record<string, number> = {}
   for (const pid of played) {
     deltas[pid] = (after.get(pid) ?? DEFAULT_RATING) - (before.get(pid) ?? DEFAULT_RATING)
   }
   return deltas
+}
+
+/**
+ * What each scored match was worth to the players in it, in real ranking
+ * points — keyed by match row id, then player id.
+ *
+ * Glicko rates a whole game day at once, so "this match on its own" has no
+ * answer. What does have one is the marginal contribution: rate the day with
+ * the first k matches, then with k+1, and the difference is what match k+1
+ * added. Those differences sum exactly to the day's total, so the court cards
+ * and the Standings column agree by construction rather than by coincidence.
+ *
+ * The honest caveat: attribution depends on order. The same win is worth
+ * slightly different amounts as the first match of the day or the last, because
+ * the rating has already learned from the earlier ones. The total is identical
+ * either way, and a match's figure never changes once later matches are added.
+ *
+ * Costs one replay per match. That is more than the two a day figure needs, but
+ * a club game day is tens of matches, and the query is cached.
+ */
+export async function loadMatchRatingDeltas(
+  sessionId: string,
+): Promise<Record<string, Record<string, number>>> {
+  if (isE2E()) return {}
+  const input = await loadReplayInput(sessionId)
+  if (!input) return {}
+
+  const out: Record<string, Record<string, number>> = {}
+  let prev = ratingsAt(input, 0)
+  for (let k = 1; k <= input.targetMatches.length; k++) {
+    const cur = ratingsAt(input, k)
+    const m = input.targetMatches[k - 1]
+    const per: Record<string, number> = {}
+    for (const pid of [...m.record.teamA, ...m.record.teamB]) {
+      per[pid] = (cur.get(pid) ?? DEFAULT_RATING) - (prev.get(pid) ?? DEFAULT_RATING)
+    }
+    out[m.id] = per
+    prev = cur
+  }
+  return out
 }
 
 // ---- Rating history (profile trend + rank context, TASK-55) ---------------

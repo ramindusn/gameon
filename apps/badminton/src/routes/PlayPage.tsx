@@ -31,7 +31,8 @@ import {
   isoToLocalInput,
   localInputToIso,
 } from '../play/datetime'
-import { useGameDayRatingDeltas, usePlayerBoard } from '../ranking/useRanking'
+import { useGameDayRatingDeltas,
+  useMatchRatingDeltas, usePlayerBoard } from '../ranking/useRanking'
 import {
   effectiveSkill,
   isEvenMatch,
@@ -79,6 +80,9 @@ export function PlayPage() {
   const board = usePlayerBoard()
   // Actual per-player rating movement for this day — empty until it is finished.
   const { data: ratingDeltas } = useGameDayRatingDeltas(id)
+  // What each match was worth, per player — the same engine as the column, so
+  // the cards add up to it exactly (TASK-87).
+  const { data: matchDeltas } = useMatchRatingDeltas(id)
   const { role } = useAuth()
   const { data: stockCtx } = useStockContext()
   // Usage comes out of a matchmaker's own barrels, so only a stock holder is
@@ -433,6 +437,7 @@ export function PlayPage() {
                                   key={r.id}
                                   result={r}
                                   nameOf={nameOf}
+                                  rankDeltas={matchDeltas?.[r.id]}
                                   skillOf={skillOf}
                                   present={sessionPlayers}
                                   editable={canEdit && live}
@@ -1256,22 +1261,35 @@ function TeamCol({
   /** Signed match points won/lost by this team once decided (game-day Points). */
   pts: number | null
   /**
-   * How much this match beat expectations — bigger for an upset, small for a
-   * favourite holding serve.
-   *
-   * Deliberately NOT called a ranking change. The leaderboard runs Glicko-2
-   * over the whole game day as one period, and that cannot be split back into
-   * per-match slices, so these do not sum to the Ranking column and never will
-   * (TASK-87). Labelling it "swing" keeps it as what it honestly is: feedback
-   * on the match, not a claim about the leaderboard.
+   * Real ranking points this match was worth, per player id — the marginal
+   * contribution of this match to the day's rating change. These sum exactly
+   * to each player's figure in the Standings' Ranking column (TASK-87).
    */
-  rank: number | null
+  rank: Record<string, number> | undefined
 }) {
   return (
     <div className={cx('min-w-0', align === 'right' && 'text-right')}>
       <p className={cx('leading-tight', won ? cx('font-semibold', POINTS_TEXT) : 'text-fg')}>
-        <span className="block break-words">{nameOf(ids[0])}</span>
-        <span className="block break-words">{nameOf(ids[1])}</span>
+        {ids.map((pid, i) => {
+          const d = pid ? rank?.[pid] : undefined
+          return (
+            <span key={i} className="block break-words">
+              {nameOf(pid)}
+              {d != null && (
+                <span
+                  className={cx(
+                    'ml-1.5 text-[11px] font-semibold tabular-nums',
+                    d > 0 ? RANK_TEXT : d < 0 ? 'text-negative' : 'text-fg-subtle',
+                  )}
+                  title="Ranking points this match was worth — the day's total is the sum of these"
+                  data-testid="match-ranking"
+                >
+                  {fmtRankPoints(d)}
+                </span>
+              )}
+            </span>
+          )
+        })}
       </p>
       {pct != null && (
         <span
@@ -1299,18 +1317,6 @@ function TeamCol({
           </span>
         </span>
       )}
-      {rank != null && (
-        <span
-          className={cx(
-            'mt-0.5 block text-[11px] font-semibold tabular-nums',
-            rank > 0 ? RANK_TEXT : rank < 0 ? 'text-negative' : 'text-fg-subtle',
-          )}
-          title="How far this result beat expectations. The day's rating change is worked out over the whole game day, so these do not add up to it."
-          data-testid="match-ranking"
-        >
-          {fmtRankPoints(rank)} swing
-        </span>
-      )}
     </div>
   )
 }
@@ -1326,6 +1332,7 @@ function fmtRankPoints(n: number) {
 function CourtScore({
   result,
   nameOf,
+  rankDeltas,
   skillOf,
   present,
   editable,
@@ -1338,6 +1345,8 @@ function CourtScore({
 }: {
   result: MatchResult
   nameOf: (id: string | null) => string
+  /** Ranking points this match was worth, per player id (TASK-87). */
+  rankDeltas?: Record<string, number>
   skillOf: SkillOf
   present: PresentPlayer[]
   editable: boolean
@@ -1380,10 +1389,6 @@ function CourtScore({
       ? Math.abs(result.scoreA - result.scoreB)
       : null
   const ptsOf = (won: boolean) => (margin != null ? (won ? margin : -margin) : null)
-  // The same per-match swing the Standings' Ranking column sums, so a card and
-  // the table cannot disagree. Null until the match is decided.
-  const rankOf = (won: boolean) =>
-    decided && info ? (won ? info.winnerPoints : -info.winnerPoints) : null
   const scoreInput = (side: Side) => (
     <input
       type="number"
@@ -1482,7 +1487,7 @@ function CourtScore({
               favoured={favoured === 'a'}
               pct={pctA}
               pts={ptsOf(aWon)}
-              rank={rankOf(aWon)}
+              rank={rankDeltas}
             />
             <div className="flex flex-col items-center gap-1 pt-0.5">
               {editable ? (
@@ -1507,7 +1512,7 @@ function CourtScore({
               favoured={favoured === 'b'}
               pct={pctA != null ? 100 - pctA : null}
               pts={ptsOf(bWon)}
-              rank={rankOf(bWon)}
+              rank={rankDeltas}
             />
           </div>
           {!decided && info?.odds && <Predictor pctA={pctA ?? 50} favoured={favoured} />}

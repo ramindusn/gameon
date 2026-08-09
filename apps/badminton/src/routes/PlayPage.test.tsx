@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { MatchResult, MatchSession } from '../play/api'
 
-const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole, usageCtx, lastUsageModalProps, ratingDeltas, teams, substitute } =
+const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole, usageCtx, lastUsageModalProps, ratingDeltas, matchDeltas, teams, substitute } =
   vi.hoisted(() => {
   const session: MatchSession = {
     id: 's1',
@@ -59,6 +59,9 @@ const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, ses
     },
     // Real per-day rating movement, once the day is finished and recomputed.
     ratingDeltas: { current: undefined as Record<string, number> | undefined },
+    matchDeltas: {
+      current: undefined as Record<string, Record<string, number>> | undefined,
+    },
   }
 })
 
@@ -114,6 +117,7 @@ vi.mock('../ranking/useRanking', () => ({
   // Empty until a day is finished and recomputed, so the Points tab falls back
   // to its projection — which is what these tests assert.
   useGameDayRatingDeltas: () => ({ data: ratingDeltas.current }),
+  useMatchRatingDeltas: () => ({ data: matchDeltas.current }),
 }))
 
 import { PlayPage } from './PlayPage'
@@ -142,6 +146,7 @@ describe('PlayPage', () => {
     usageCtx.current = null
     lastUsageModalProps.current = null
     ratingDeltas.current = undefined
+    matchDeltas.current = undefined
   })
 
   it('switches to the Points tab, showing point diff + ranking per player', () => {
@@ -252,18 +257,20 @@ describe('PlayPage', () => {
     delete sessionData.session.createdByName
   })
 
-  // Two figures on one card: the blue pill is the score margin, the green line
-  // is how far the result beat expectations. The latter is deliberately not
-  // called a ranking change — Glicko-2 runs over the whole day and cannot be
-  // split per match, so these do not sum to the Ranking column (TASK-87).
-  it('shows how far a decided match beat expectations, per team', () => {
+  // Real ranking points per player, from the same engine as the Standings
+  // column, so the cards add up to it (TASK-87).
+  it('shows what a match was worth to each player who played it', () => {
+    matchDeltas.current = { r2: { p5: 0.6, p6: 0.4, p7: -0.5, p8: -0.5 } }
     renderPage()
     const decided = within(screen.getByTestId('court-r2'))
-    const ranks = decided.getAllByTestId('match-ranking').map((el) => el.textContent)
-    // Every fixture player has skill 5, so the match is even: whoever wins
-    // takes the baseline half of MATCH_POINTS_K (16), and the losers drop it.
-    expect(ranks).toEqual(['+8.0 swing', '-8.0 swing'])
-    // Undecided courts have moved nothing yet, so they show no ranking at all.
+    expect(decided.getAllByTestId('match-ranking').map((el) => el.textContent)).toEqual([
+      '+0.6',
+      '+0.4',
+      '-0.5',
+      '-0.5',
+    ])
+    // A match the engine has nothing for shows no figure at all — better than
+    // inventing one, which is what the old estimate did.
     expect(within(screen.getByTestId('court-r1')).queryByTestId('match-ranking')).toBeNull()
   })
 
