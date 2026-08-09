@@ -1503,6 +1503,20 @@ function CourtScore({
               ) : (
                 <span className="text-[11px] font-medium uppercase tracking-wide text-fg-subtle">vs</span>
               )}
+              {/* Always rendered, hidden when it does not apply: an "Upset" that
+                  only appears on some cards changes their height, and the whole
+                  round jumps as you page through it. Reserving the line costs
+                  one row and keeps every card the same size. */}
+              <span
+                aria-hidden={!(decided && info?.upset)}
+                className={cx(
+                  'text-[10px] font-semibold uppercase tracking-wide',
+                  decided && info?.upset ? POINTS_TEXT : 'invisible',
+                )}
+                data-testid={decided && info?.upset ? `upset-${result.id}` : undefined}
+              >
+                Upset
+              </span>
             </div>
             <TeamCol
               ids={result.teamB}
@@ -1516,16 +1530,6 @@ function CourtScore({
             />
           </div>
           {!decided && info?.odds && <Predictor pctA={pctA ?? 50} favoured={favoured} />}
-          {decided && info?.upset && (
-            <div
-              className={cx(
-                'mt-2 text-center text-[10px] font-semibold uppercase tracking-wide',
-                POINTS_TEXT,
-              )}
-            >
-              Upset
-            </div>
-          )}
           {error && (
             <p className="mt-2 text-xs text-negative" data-testid={`score-error-${result.id}`}>
               {error}
