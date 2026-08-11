@@ -103,15 +103,19 @@ export function MyStock() {
               club buys and forced a dash into every cell for a brand someone
               had never held. Stacked, each section lists only the people who
               actually hold that brand, and the full name fits. */}
-          <div className="space-y-4" data-testid="club-stock">
+          <div className="space-y-3" data-testid="club-stock">
             {data.club.items.map((item) => (
-              <section key={item.productId} data-testid={`club-brand-${item.productId}`}>
+              // Each brand in its own bordered box, the same shape the stock
+              // rows use elsewhere. Stacked tables with only whitespace between
+              // them read as one long table with headings in it.
+              <section
+                key={item.productId}
+                data-testid={`club-brand-${item.productId}`}
+                className="rounded-lg border border-line bg-surface-muted px-3 py-2"
+              >
                 <h3 className="flex flex-wrap items-baseline gap-x-2">
                   <span className="font-semibold text-fg">{item.brand}</span>
                   <span className="text-sm text-fg-muted">{item.model}</span>
-                  <span className="ml-auto text-xs tabular-nums text-fg-subtle">
-                    {item.shuttles} shuttles
-                  </span>
                 </h3>
                 <table className="mt-1 w-full text-sm">
                   <thead>
@@ -146,6 +150,27 @@ export function MyStock() {
                       </tr>
                     ))}
                   </tbody>
+                  {/* The brand's own totals, in the same columns as the people
+                      above so they read as a sum rather than a separate fact.
+                      This lives here rather than in the heading because
+                      barrels and loose only make sense under their icons. */}
+                  <tfoot>
+                    <tr
+                      className="border-t-2 border-line"
+                      data-testid={`club-brand-total-${item.productId}`}
+                    >
+                      <td className="py-1.5 pr-3 text-xs font-medium text-fg-subtle">Club</td>
+                      <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-fg">
+                        {item.barrels}
+                      </td>
+                      <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-fg">
+                        {item.looseShuttles}
+                      </td>
+                      <td className="py-1.5 pl-3 text-right font-semibold tabular-nums text-fg">
+                        {item.shuttles}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </section>
             ))}

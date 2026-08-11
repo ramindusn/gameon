@@ -172,6 +172,15 @@ describe('MyStock', () => {
       expect(within(victor).queryByText('Ramboo')).toBeNull()
       expect(screen.getByTestId('club-holder-p1-h1')).toBeInTheDocument()
 
+      // Each brand totals its own barrels and loose, in the same columns.
+      const rslTotal = screen.getByTestId('club-brand-total-p1')
+      expect(rslTotal).toHaveTextContent('2') // barrels across the club
+      expect(rslTotal).toHaveTextContent('24') // shuttles
+      const victorTotal = screen.getByTestId('club-brand-total-p2')
+      expect(victorTotal).toHaveTextContent('3')
+      expect(victorTotal).toHaveTextContent('4')
+      expect(victorTotal).toHaveTextContent('40')
+
       expect(screen.getByTestId('club-stock-total')).toHaveTextContent(
         '64 shuttles across every matchmaker',
       )
