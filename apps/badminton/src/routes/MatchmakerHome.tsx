@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
@@ -10,7 +10,8 @@ import { MyStock } from '../fund/MyStock'
 import { useStockContext } from '../fund/GameDayUsage'
 import { loadSessionsWithUsage, loadUsageBySession } from '../fund/usageApi'
 
-const RECENT_LIMIT = 20
+/** Game days per page in the history card. */
+const HISTORY_PAGE_SIZE = 10
 const PENDING_LIMIT = 5
 
 // Matchmaker landing (E10 / TASK-11.1). The first screen after a matchmaker
@@ -198,7 +199,14 @@ function RecentGameDays() {
     queryKey: ['usage-by-session'],
     queryFn: loadUsageBySession,
   })
-  const recent = (data ?? []).filter((s) => s.status === 'finished').slice(0, RECENT_LIMIT)
+  const [page, setPage] = useState(0)
+  const finished = useMemo(() => (data ?? []).filter((s) => s.status === 'finished'), [data])
+  const pageCount = Math.max(1, Math.ceil(finished.length / HISTORY_PAGE_SIZE))
+  // Clamped rather than stored blindly: a day finishing while you sit on the
+  // last page would otherwise leave you looking at an empty list.
+  const current = Math.min(page, pageCount - 1)
+  const start = current * HISTORY_PAGE_SIZE
+  const recent = finished.slice(start, start + HISTORY_PAGE_SIZE)
   return (
     <Card title="Game day history" icon={<Icon name="schedule" />}>
       {isLoading && <p className="text-sm text-fg-muted">Loading game days…</p>}
@@ -207,7 +215,8 @@ function RecentGameDays() {
         <p className="text-sm text-fg-muted">No finished game days yet.</p>
       )}
       {recent.length > 0 && (
-        <ul className="divide-y divide-line" data-testid="recent-list">
+        <>
+          <ul className="divide-y divide-line" data-testid="recent-list">
           {recent.map((s) => (
             <li key={s.id}>
               <Link
@@ -241,8 +250,43 @@ function RecentGameDays() {
               </Link>
             </li>
           ))}
-        </ul>
+          </ul>
+          {/* Only when there is somewhere to go. A club with one page of
+              history needs no controls, and an always-present pager reads
+              like something is missing. */}
+          {pageCount > 1 && (
+            <div
+              className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3"
+              data-testid="history-pager"
+            >
+              <button
+                type="button"
+                onClick={() => setPage(current - 1)}
+                disabled={current === 0}
+                className={PAGER_BTN}
+                data-testid="history-prev"
+              >
+                ‹ Newer
+              </button>
+              <span className="text-xs tabular-nums text-fg-subtle">
+                {start + 1}–{start + recent.length} of {finished.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage(current + 1)}
+                disabled={current >= pageCount - 1}
+                className={PAGER_BTN}
+                data-testid="history-next"
+              >
+                Older ›
+              </button>
+            </div>
+          )}
+        </>
       )}
     </Card>
   )
 }
+
+const PAGER_BTN =
+  'rounded-full px-3 py-1 text-xs font-semibold text-accent-strong transition-colors hover:bg-accent/15 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent'

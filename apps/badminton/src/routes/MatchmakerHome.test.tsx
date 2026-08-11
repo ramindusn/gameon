@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { MatchSession } from '../play/api'
@@ -122,6 +122,33 @@ describe('MatchmakerHome (TASK-11.1)', () => {
     expect(screen.queryByTestId('live-empty')).toBeNull()
     // The finished game day shows under recent, not live.
     expect(screen.getByTestId('recent-s2')).toHaveAttribute('href', '/game-days/s2')
+  })
+
+  // Ten a page, newest first. The card used to render up to 20 rows, which on
+  // a club with a season behind it is most of the screen.
+  it('pages the history ten at a time, newest first', async () => {
+    state.sessions = Array.from({ length: 23 }, (_, i) => session(`h${i}`, 'finished'))
+    renderHome()
+    expect(screen.getAllByTestId(/^recent-h/).length).toBe(10)
+    const pager = screen.getByTestId('history-pager')
+    expect(pager).toHaveTextContent('1–10 of 23')
+    expect(screen.getByTestId('history-prev')).toBeDisabled()
+
+    fireEvent.click(screen.getByTestId('history-next'))
+    expect(pager).toHaveTextContent('11–20 of 23')
+    expect(screen.getByTestId('history-prev')).not.toBeDisabled()
+
+    // The last page is a short one, and there is nowhere further to go.
+    fireEvent.click(screen.getByTestId('history-next'))
+    expect(pager).toHaveTextContent('21–23 of 23')
+    expect(screen.getAllByTestId(/^recent-h/).length).toBe(3)
+    expect(screen.getByTestId('history-next')).toBeDisabled()
+  })
+
+  it('leaves the pager off when everything fits on one page', () => {
+    state.sessions = Array.from({ length: 4 }, (_, i) => session(`h${i}`, 'finished'))
+    renderHome()
+    expect(screen.queryByTestId('history-pager')).toBeNull()
   })
 
   // What a day cost in shuttles, on the row itself — otherwise you have to open
