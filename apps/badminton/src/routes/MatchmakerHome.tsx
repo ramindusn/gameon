@@ -8,7 +8,7 @@ import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 import { MyStock } from '../fund/MyStock'
 import { useStockContext } from '../fund/GameDayUsage'
-import { loadSessionsWithUsage } from '../fund/usageApi'
+import { loadSessionsWithUsage, loadUsageBySession } from '../fund/usageApi'
 
 const RECENT_LIMIT = 20
 const PENDING_LIMIT = 5
@@ -193,6 +193,11 @@ function TournamentTag() {
 
 function RecentGameDays() {
   const { data, isLoading, isError } = useSessions()
+  // One query for every day's usage, not one per row (see loadUsageBySession).
+  const { data: usage } = useQuery({
+    queryKey: ['usage-by-session'],
+    queryFn: loadUsageBySession,
+  })
   const recent = (data ?? []).filter((s) => s.status === 'finished').slice(0, RECENT_LIMIT)
   return (
     <Card title="Game day history" icon={<Icon name="schedule" />}>
@@ -220,6 +225,18 @@ function RecentGameDays() {
                       ? 'Fixed-pairs tournament'
                       : `${s.mode === 'mixed' ? 'Mixed doubles' : 'Doubles'} · ${s.rounds} rounds`}
                   </span>
+                  {/* What the day cost in shuttles. Absent when nothing was
+                      recorded — the "Shuttles to record" card above already
+                      chases those, so a placeholder here would just repeat it. */}
+                  {usage?.[s.id]?.length ? (
+                    <span
+                      className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-subtle"
+                      data-testid={`recent-usage-${s.id}`}
+                    >
+                      <Icon name="shuttle" className="h-3.5 w-3.5 shrink-0" />
+                      {usage[s.id].map((u) => `${u.shuttles} ${u.brand}`).join(' · ')}
+                    </span>
+                  ) : null}
                 </span>
               </Link>
             </li>

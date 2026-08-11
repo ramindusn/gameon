@@ -165,6 +165,56 @@ export async function loadSessionUsage(sessionId: string): Promise<RecordedUsage
   }))
 }
 
+/** What one game day used, per brand — biggest first. */
+export interface SessionUsageTotal {
+  brand: string
+  shuttles: number
+}
+
+/**
+ * Shuttles used per game day, keyed by session id.
+ *
+ * One query for every day rather than one per row: the history list shows a
+ * dozen game days, and asking separately for each would be a dozen round trips
+ * to render a single card.
+ *
+ * Days with nothing recorded are simply absent, as are entries with no session
+ * (the two June ones predate game-day linking).
+ */
+export async function loadUsageBySession(): Promise<Record<string, SessionUsageTotal[]>> {
+  const db = client()
+  const [{ data: entries }, { data: items }, { data: products }] = await Promise.all([
+    db.from('usage_entries').select('id, session_id'),
+    db.from('usage_items').select('usage_id, product_id, shuttles_used'),
+    db.from('products').select('id, brand'),
+  ])
+
+  const sessionOf = new Map(
+    (entries ?? []).filter((e) => e.session_id).map((e) => [e.id, e.session_id as string]),
+  )
+  const brandOf = new Map((products ?? []).map((p) => [p.id, p.brand]))
+
+  // session -> brand -> shuttles. A day can be recorded more than once, and a
+  // brand can appear in several of those entries, so both have to sum.
+  const bySession = new Map<string, Map<string, number>>()
+  for (const i of items ?? []) {
+    const sessionId = sessionOf.get(i.usage_id)
+    if (!sessionId) continue
+    const brand = brandOf.get(i.product_id) ?? 'Unknown'
+    const perBrand = bySession.get(sessionId) ?? new Map<string, number>()
+    perBrand.set(brand, (perBrand.get(brand) ?? 0) + i.shuttles_used)
+    bySession.set(sessionId, perBrand)
+  }
+
+  const out: Record<string, SessionUsageTotal[]> = {}
+  for (const [sessionId, perBrand] of bySession) {
+    out[sessionId] = [...perBrand.entries()]
+      .map(([brand, shuttles]) => ({ brand, shuttles }))
+      .sort((a, b) => b.shuttles - a.shuttles || a.brand.localeCompare(b.brand))
+  }
+  return out
+}
+
 /**
  * Record a game day's shuttle usage.
  *

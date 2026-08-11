@@ -11,6 +11,8 @@ const { state } = vi.hoisted(() => ({
     // Who is signed in, as far as the stock context is concerned, and which
     // game days already have usage against them.
     stockCtx: null as { myHolderId?: string; isAdmin?: boolean } | null,
+    // What each finished day used, keyed by session id.
+    usage: {} as Record<string, { brand: string; shuttles: number }[]>,
     answered: [] as string[],
   },
 }))
@@ -33,6 +35,7 @@ vi.mock('../fund/GameDayUsage', () => ({
 }))
 vi.mock('../fund/usageApi', () => ({
   loadSessionsWithUsage: () => Promise.resolve(state.answered),
+  loadUsageBySession: () => Promise.resolve(state.usage),
 }))
 
 import { MatchmakerHome } from './MatchmakerHome'
@@ -65,6 +68,7 @@ function renderHome() {
 beforeEach(() => {
   state.stockCtx = null
   state.answered = []
+  state.usage = {}
 })
 
 describe('shuttles to record (TASK-76.5)', () => {
@@ -118,6 +122,25 @@ describe('MatchmakerHome (TASK-11.1)', () => {
     expect(screen.queryByTestId('live-empty')).toBeNull()
     // The finished game day shows under recent, not live.
     expect(screen.getByTestId('recent-s2')).toHaveAttribute('href', '/game-days/s2')
+  })
+
+  // What a day cost in shuttles, on the row itself — otherwise you have to open
+  // each game day to find out where the stock went.
+  it('shows what each finished day used, biggest brand first', async () => {
+    state.sessions = [session('s2', 'finished'), session('s3', 'finished')]
+    state.usage = {
+      s2: [
+        { brand: 'Victor', shuttles: 5 },
+        { brand: 'RSL', shuttles: 3 },
+      ],
+    }
+    renderHome()
+    const used = await screen.findByTestId('recent-usage-s2')
+    expect(used).toHaveTextContent('5 Victor')
+    expect(used).toHaveTextContent('3 RSL')
+    // A day with nothing recorded says nothing — the "Shuttles to record" card
+    // chases those, so a placeholder here would only repeat it.
+    expect(screen.queryByTestId('recent-usage-s3')).toBeNull()
     expect(screen.queryByTestId('live-s2')).toBeNull()
   })
 
