@@ -46,14 +46,15 @@ describe('MyStock', () => {
             barrels: 20,
             looseShuttles: 9,
             shuttles: 249,
-          },
-        ],
-        holders: [
-          {
-            holderId: 'h1',
-            name: 'Ramboo',
-            cells: { p1: { barrels: 10, looseShuttles: 5 } },
-            totalShuttles: 125,
+            holders: [
+              {
+                holderId: 'h1',
+                name: 'Ramboo',
+                barrels: 10,
+                looseShuttles: 5,
+                shuttles: 125,
+              },
+            ],
           },
         ],
         totalShuttles: 200,
@@ -121,6 +122,10 @@ describe('MyStock', () => {
                   barrels: 2,
                   looseShuttles: 0,
                   shuttles: 24,
+                  holders: [
+                    { holderId: 'h1', name: 'Ramboo', barrels: 1, looseShuttles: 0, shuttles: 12 },
+                    { holderId: 'h2', name: 'Sahan', barrels: 1, looseShuttles: 0, shuttles: 12 },
+                  ],
                 },
                 // A brand this matchmaker holds none of still belongs here:
                 // the card is the club's picture, not a column on theirs.
@@ -131,21 +136,10 @@ describe('MyStock', () => {
                   barrels: 3,
                   looseShuttles: 4,
                   shuttles: 40,
-                },
-              ],
-              holders: [
-                {
-                  holderId: 'h1',
-                  name: 'Ramboo',
-                  cells: { p1: { barrels: 1, looseShuttles: 0 } },
-                  totalShuttles: mine,
-                },
-                {
-                  holderId: 'h2',
-                  name: 'Sahan',
-                  // Holds Victor only — the RSL cells must read as "none".
-                  cells: { p2: { barrels: 3, looseShuttles: 4 } },
-                  totalShuttles: clubTotal - mine,
+                  // Only Sahan holds Victor — Ramboo must not appear here at all.
+                  holders: [
+                    { holderId: 'h2', name: 'Sahan', barrels: 3, looseShuttles: 4, shuttles: 40 },
+                  ],
                 },
               ],
               totalShuttles: clubTotal,
@@ -153,27 +147,34 @@ describe('MyStock', () => {
           : null,
     })
 
-    it('says who holds what, one row per matchmaker, with their total', async () => {
+    it('gives each brand its own section, naming who holds it', async () => {
       stock.current = withOthers(12, 64)
       renderCard()
-      const table = await screen.findByTestId('club-stock')
-      // Brands are the columns.
-      expect(table).toHaveTextContent('RSL')
-      expect(table).toHaveTextContent('Victor')
+      await screen.findByTestId('club-stock')
 
-      const sahan = screen.getByTestId('club-holder-h2')
-      expect(sahan).toHaveTextContent('Sahan')
-      expect(sahan).toHaveTextContent('3') // Victor barrels
-      expect(sahan).toHaveTextContent('4') // Victor loose
-      expect(sahan).toHaveTextContent('52') // their own shuttle total
+      // Full name, not just the brand, now that sections stack.
+      const rsl = screen.getByTestId('club-brand-p1')
+      expect(rsl).toHaveTextContent('RSL')
+      expect(rsl).toHaveTextContent('Classic')
+      const victor = screen.getByTestId('club-brand-p2')
+      expect(victor).toHaveTextContent('Victor')
+      expect(victor).toHaveTextContent('Ace')
 
-      // A brand a holder has none of reads as nothing, not as a zero they hold.
-      expect(within(sahan).getAllByText('–').length).toBe(2)
+      // Sahan's Victor row: barrels, loose, and what that is in shuttles.
+      const sahanVictor = screen.getByTestId('club-holder-p2-h2')
+      expect(sahanVictor).toHaveTextContent('Sahan')
+      expect(sahanVictor).toHaveTextContent('3')
+      expect(sahanVictor).toHaveTextContent('4')
+      expect(sahanVictor).toHaveTextContent('40')
+
+      // Ramboo holds no Victor, so he is absent from that section entirely —
+      // no row, no dash to read past.
+      expect(within(victor).queryByText('Ramboo')).toBeNull()
+      expect(screen.getByTestId('club-holder-p1-h1')).toBeInTheDocument()
 
       expect(screen.getByTestId('club-stock-total')).toHaveTextContent(
         '64 shuttles across every matchmaker',
       )
-      expect(screen.getByTestId('club-stock-legend')).toHaveTextContent('barrels')
     })
 
     it('is left off entirely when nobody else holds any', async () => {

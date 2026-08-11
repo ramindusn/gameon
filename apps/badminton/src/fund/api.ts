@@ -308,7 +308,16 @@ export interface MyStockItem {
   shuttles: number
 }
 
-/** A brand's stock across the whole club, whoever is holding it. */
+/** One matchmaker's row within a brand's section. */
+export interface ClubStockHolder {
+  holderId: string
+  name: string
+  barrels: number
+  looseShuttles: number
+  shuttles: number
+}
+
+/** A brand's stock across the whole club, and who is holding it. */
 export interface ClubStockItem {
   productId: string
   brand: string
@@ -316,15 +325,8 @@ export interface ClubStockItem {
   barrels: number
   looseShuttles: number
   shuttles: number
-}
-
-/** One matchmaker's row in the club table: what they hold of each brand. */
-export interface ClubStockHolder {
-  holderId: string
-  name: string
-  /** Keyed by product id; a brand they hold none of is simply absent. */
-  cells: Record<string, { barrels: number; looseShuttles: number }>
-  totalShuttles: number
+  /** Only the people actually holding this brand, most first. */
+  holders: ClubStockHolder[]
 }
 
 export interface MyStock {
@@ -338,10 +340,8 @@ export interface MyStock {
    * per-row "club" line used to do.
    */
   club: {
-    /** The brands the club holds — the table's columns, brand order. */
+    /** One section per brand the club holds, each listing its holders. */
     items: ClubStockItem[]
-    /** Who holds what — the table's rows, most stock first. */
-    holders: ClubStockHolder[]
     totalShuttles: number
   } | null
 }
@@ -402,25 +402,25 @@ export async function loadMyStock(): Promise<MyStock | null> {
   items.sort((a, b) => a.brand.localeCompare(b.brand))
   const totalShuttles = items.reduce((s, i) => s + i.shuttles, 0)
 
-  // Who holds what, one row per matchmaker holding something. Rows are the
-  // people and columns the brands, so the table answers "who has the Victor?"
-  // without reading every card.
-  const byHolder = new Map<string, ClubStockHolder>()
+  // Who holds each brand. Grouped by product rather than by person, because
+  // the card is a section per brand — that way brands grow downward instead of
+  // widening the table, and nobody needs a dash for a brand they never had.
+  const holdersOfProduct = new Map<string, ClubStockHolder[]>()
   for (const h of holdings ?? []) {
     if (h.barrels === 0 && h.loose_shuttles === 0) continue
-    const row = byHolder.get(h.holder_id) ?? {
+    const list = holdersOfProduct.get(h.product_id) ?? []
+    list.push({
       holderId: h.holder_id,
       name: nameOf.get(h.holder_id) ?? 'Unknown',
-      cells: {},
-      totalShuttles: 0,
-    }
-    row.cells[h.product_id] = { barrels: h.barrels, looseShuttles: h.loose_shuttles }
-    row.totalShuttles += shuttlesOf(h)
-    byHolder.set(h.holder_id, row)
+      barrels: h.barrels,
+      looseShuttles: h.loose_shuttles,
+      shuttles: shuttlesOf(h),
+    })
+    holdersOfProduct.set(h.product_id, list)
   }
-  const clubHolders = [...byHolder.values()].sort(
-    (a, b) => b.totalShuttles - a.totalShuttles || a.name.localeCompare(b.name),
-  )
+  for (const list of holdersOfProduct.values()) {
+    list.sort((a, b) => b.shuttles - a.shuttles || a.name.localeCompare(b.name))
+  }
 
   // Every brand the club is holding, including ones this matchmaker has none
   // of — the club card is the club's picture, not a second column on theirs.
@@ -436,6 +436,7 @@ export async function loadMyStock(): Promise<MyStock | null> {
       barrels: c.barrels,
       looseShuttles: c.loose,
       shuttles: c.barrels * p.shuttles_per_barrel + c.loose,
+      holders: holdersOfProduct.get(productId) ?? [],
     })
   }
   clubItems.sort((a, b) => a.brand.localeCompare(b.brand))
@@ -448,7 +449,7 @@ export async function loadMyStock(): Promise<MyStock | null> {
     // again, so there is nothing to compare and no card to show.
     club:
       clubTotalShuttles > totalShuttles
-        ? { items: clubItems, holders: clubHolders, totalShuttles: clubTotalShuttles }
+        ? { items: clubItems, totalShuttles: clubTotalShuttles }
         : null,
   }
 }
