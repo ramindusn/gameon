@@ -318,6 +318,15 @@ export interface ClubStockItem {
   shuttles: number
 }
 
+/** One matchmaker's row in the club table: what they hold of each brand. */
+export interface ClubStockHolder {
+  holderId: string
+  name: string
+  /** Keyed by product id; a brand they hold none of is simply absent. */
+  cells: Record<string, { barrels: number; looseShuttles: number }>
+  totalShuttles: number
+}
+
 export interface MyStock {
   holderName: string
   items: MyStockItem[]
@@ -328,7 +337,13 @@ export interface MyStock {
    * second card repeating their own figures back at them, which is what the
    * per-row "club" line used to do.
    */
-  club: { items: ClubStockItem[]; totalShuttles: number } | null
+  club: {
+    /** The brands the club holds — the table's columns, brand order. */
+    items: ClubStockItem[]
+    /** Who holds what — the table's rows, most stock first. */
+    holders: ClubStockHolder[]
+    totalShuttles: number
+  } | null
 }
 
 /** The signed-in matchmaker's own stock. Null when they hold none / aren't one. */
@@ -347,11 +362,14 @@ export async function loadMyStock(): Promise<MyStock | null> {
   if (!profile?.is_matchmaker) return null
 
   // Every holding, not just this matchmaker's: the club card covers the whole
-  // club, and a matchmaker may read them all (holdings_matchmaker_read).
-  const [{ data: holdings }, { data: products }] = await Promise.all([
+  // club, and a matchmaker may read them all (holdings_matchmaker_read). The
+  // names come with it so the club table can say who holds what.
+  const [{ data: holdings }, { data: products }, { data: people }] = await Promise.all([
     db.from('holdings').select('*'),
     db.from('products').select('*'),
+    db.from('player_profiles').select('id, nickname'),
   ])
+  const nameOf = new Map((people ?? []).map((p) => [p.id, p.nickname]))
 
   const byId = new Map((products ?? []).map((p) => [p.id, p]))
   const shuttlesOf = (h: { product_id: string; barrels: number; loose_shuttles: number }) => {
@@ -384,6 +402,26 @@ export async function loadMyStock(): Promise<MyStock | null> {
   items.sort((a, b) => a.brand.localeCompare(b.brand))
   const totalShuttles = items.reduce((s, i) => s + i.shuttles, 0)
 
+  // Who holds what, one row per matchmaker holding something. Rows are the
+  // people and columns the brands, so the table answers "who has the Victor?"
+  // without reading every card.
+  const byHolder = new Map<string, ClubStockHolder>()
+  for (const h of holdings ?? []) {
+    if (h.barrels === 0 && h.loose_shuttles === 0) continue
+    const row = byHolder.get(h.holder_id) ?? {
+      holderId: h.holder_id,
+      name: nameOf.get(h.holder_id) ?? 'Unknown',
+      cells: {},
+      totalShuttles: 0,
+    }
+    row.cells[h.product_id] = { barrels: h.barrels, looseShuttles: h.loose_shuttles }
+    row.totalShuttles += shuttlesOf(h)
+    byHolder.set(h.holder_id, row)
+  }
+  const clubHolders = [...byHolder.values()].sort(
+    (a, b) => b.totalShuttles - a.totalShuttles || a.name.localeCompare(b.name),
+  )
+
   // Every brand the club is holding, including ones this matchmaker has none
   // of — the club card is the club's picture, not a second column on theirs.
   const clubItems: ClubStockItem[] = []
@@ -410,7 +448,7 @@ export async function loadMyStock(): Promise<MyStock | null> {
     // again, so there is nothing to compare and no card to show.
     club:
       clubTotalShuttles > totalShuttles
-        ? { items: clubItems, totalShuttles: clubTotalShuttles }
+        ? { items: clubItems, holders: clubHolders, totalShuttles: clubTotalShuttles }
         : null,
   }
 }

@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card } from '@gameon/ui'
 import { Icon } from '../app/Icon'
@@ -98,18 +99,74 @@ export function MyStock() {
       {data.club && (
         <Card title="Club stocks" icon={<Icon name="inventory" />}>
           <StockLegend testId="club-stock-legend" />
-          <ul className="space-y-2" data-testid="club-stock">
-            {data.club.items.map((i) => (
-              <StockRow
-                key={i.productId}
-                testId={`club-stock-${i.productId}`}
-                brand={i.brand}
-                model={i.model}
-                barrels={i.barrels}
-                looseShuttles={i.looseShuttles}
-              />
-            ))}
-          </ul>
+          {/* Who holds what, as a table: people down, brands across. The card
+              used to total each brand club-wide, which said how much there was
+              but never who had it — the question a matchmaker actually asks
+              before a game day.
+
+              It scrolls inside its own box rather than widening the card,
+              because the columns grow with the number of brands. */}
+          <div className="-mx-1 overflow-x-auto px-1">
+            <table className="w-full min-w-max text-sm" data-testid="club-stock">
+              <thead>
+                <tr className="text-fg-subtle">
+                  <th className="py-1 pr-3 text-left font-medium">Holder</th>
+                  {data.club.items.map((i) => (
+                    <th
+                      key={i.productId}
+                      colSpan={2}
+                      className="px-1.5 pb-0.5 text-center text-xs font-medium"
+                      title={`${i.brand} ${i.model}`}
+                    >
+                      {i.brand}
+                    </th>
+                  ))}
+                  <th className="py-1 pl-3 text-right text-xs font-medium">Total</th>
+                </tr>
+                <tr className="text-fg-subtle">
+                  <th />
+                  {data.club.items.map((i) => (
+                    <Fragment key={i.productId}>
+                      <th className="pb-1 pl-1.5 text-right font-normal">
+                        <Icon name="barrel" className="ml-auto h-3.5 w-3.5" />
+                      </th>
+                      <th className="pb-1 pr-1.5 text-right font-normal">
+                        <Icon name="shuttle" className="ml-auto h-3.5 w-3.5" />
+                      </th>
+                    </Fragment>
+                  ))}
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {data.club.holders.map((h) => (
+                  <tr
+                    key={h.holderId}
+                    className="border-t border-line"
+                    data-testid={`club-holder-${h.holderId}`}
+                  >
+                    <td className="py-1.5 pr-3 font-medium text-fg">{h.name}</td>
+                    {data.club!.items.map((i) => {
+                      const cell = h.cells[i.productId]
+                      return (
+                        <Fragment key={i.productId}>
+                          <td className="py-1.5 pl-1.5 text-right tabular-nums text-fg">
+                            {cell ? cell.barrels : <span className="text-fg-subtle">–</span>}
+                          </td>
+                          <td className="py-1.5 pr-1.5 text-right tabular-nums text-fg">
+                            {cell ? cell.looseShuttles : <span className="text-fg-subtle">–</span>}
+                          </td>
+                        </Fragment>
+                      )
+                    })}
+                    <td className="py-1.5 pl-3 text-right font-semibold tabular-nums text-fg">
+                      {h.totalShuttles}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <p
             className="mt-3 text-sm font-semibold text-fg"
             data-testid="club-stock-total"

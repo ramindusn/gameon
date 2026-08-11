@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { MyStock as MyStockData } from './api'
 
@@ -46,6 +46,14 @@ describe('MyStock', () => {
             barrels: 20,
             looseShuttles: 9,
             shuttles: 249,
+          },
+        ],
+        holders: [
+          {
+            holderId: 'h1',
+            name: 'Ramboo',
+            cells: { p1: { barrels: 10, looseShuttles: 5 } },
+            totalShuttles: 125,
           },
         ],
         totalShuttles: 200,
@@ -125,20 +133,43 @@ describe('MyStock', () => {
                   shuttles: 40,
                 },
               ],
+              holders: [
+                {
+                  holderId: 'h1',
+                  name: 'Ramboo',
+                  cells: { p1: { barrels: 1, looseShuttles: 0 } },
+                  totalShuttles: mine,
+                },
+                {
+                  holderId: 'h2',
+                  name: 'Sahan',
+                  // Holds Victor only — the RSL cells must read as "none".
+                  cells: { p2: { barrels: 3, looseShuttles: 4 } },
+                  totalShuttles: clubTotal - mine,
+                },
+              ],
               totalShuttles: clubTotal,
             }
           : null,
     })
 
-    it('lists every brand the club holds, with its own total', async () => {
+    it('says who holds what, one row per matchmaker, with their total', async () => {
       stock.current = withOthers(12, 64)
       renderCard()
-      expect(await screen.findByTestId('club-stock')).toBeInTheDocument()
-      expect(screen.getByTestId('club-stock-p1')).toHaveTextContent('2')
-      const other = screen.getByTestId('club-stock-p2')
-      expect(other).toHaveTextContent('Victor')
-      expect(other).toHaveTextContent('3')
-      expect(other).toHaveTextContent('4')
+      const table = await screen.findByTestId('club-stock')
+      // Brands are the columns.
+      expect(table).toHaveTextContent('RSL')
+      expect(table).toHaveTextContent('Victor')
+
+      const sahan = screen.getByTestId('club-holder-h2')
+      expect(sahan).toHaveTextContent('Sahan')
+      expect(sahan).toHaveTextContent('3') // Victor barrels
+      expect(sahan).toHaveTextContent('4') // Victor loose
+      expect(sahan).toHaveTextContent('52') // their own shuttle total
+
+      // A brand a holder has none of reads as nothing, not as a zero they hold.
+      expect(within(sahan).getAllByText('–').length).toBe(2)
+
       expect(screen.getByTestId('club-stock-total')).toHaveTextContent(
         '64 shuttles across every matchmaker',
       )
