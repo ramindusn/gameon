@@ -1,13 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Card } from '@gameon/ui'
+import { Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import { loadPlayerHistory } from '../play/api'
 import { usePairBoard, usePairRatingHistory, usePlayerNames } from '../ranking/useRanking'
 import { pairKey } from '../ranking/api'
-import { RANK_TEXT } from '../ranking/metricColors'
+import { POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
 import { PerformanceChart } from '../profile/PerformanceChart'
 import { computeOpponentPairs } from '../profile/headToHead'
 import { BigStat, HistoryRow, formatDay } from './PlayerProfilePage'
@@ -16,6 +16,8 @@ import { BigStat, HistoryRow, formatDay } from './PlayerProfilePage'
 const MIN_RATED_GAMES = 5
 /** How many opposing pairs the head-to-head list shows. */
 const H2H_LIMIT = 8
+/** How many recent game days the match history shows before "Show all". */
+const HISTORY_PREVIEW_DAYS = 3
 
 /**
  * Public profile for a doubles partnership (TASK-90).
@@ -62,12 +64,26 @@ export function PairProfilePage() {
     [matches],
   )
 
-  // Newest day first; matches keep their order within a day.
-  const byDay = useMemo(() => {
-    const groups = new Map<string, typeof matches>()
-    for (const m of matches) groups.set(m.date, [...(groups.get(m.date) ?? []), m])
-    return [...groups.entries()].sort((x, y) => y[0].localeCompare(x[0]))
+  // Grouped by game day, newest first, with that day's record and points —
+  // the same shape the player profile's history uses.
+  const days = useMemo(() => {
+    const map = new Map<string, typeof matches>()
+    for (const m of matches) {
+      ;(map.get(m.sessionId) ?? map.set(m.sessionId, []).get(m.sessionId)!).push(m)
+    }
+    return [...map.entries()]
+      .map(([sessionId, ms]) => {
+        const wins = ms.filter((m) => m.won).length
+        const diff = ms.reduce((t, m) => t + (m.scoreFor - m.scoreAgainst), 0)
+        return { sessionId, date: ms[0].date, matches: ms, wins, losses: ms.length - wins, diff }
+      })
+      .sort((x, y) => y.date.localeCompare(x.date))
   }, [matches])
+
+  // Long partnerships: show the most recent game days, reveal the rest on
+  // demand. 42 matches in one list is a lot of scrolling past.
+  const [showAllHistory, setShowAllHistory] = useState(false)
+  const visibleDays = showAllHistory ? days : days.slice(0, HISTORY_PREVIEW_DAYS)
 
   const title = `${nameOf(a)} & ${nameOf(b)}`
   const initials =
@@ -231,20 +247,45 @@ export function PairProfilePage() {
             )}
 
             <Card title="Matches together" icon={<Icon name="matches" />}>
-              {/* Grouped by game day so the date is a header, not repeated on
-                  every row — HistoryRow is itself an <li>, so it goes straight
-                  into the list. */}
-              <div className="space-y-4" data-testid="pair-history">
-                {byDay.map(([day, ms]) => (
-                  <div key={day}>
-                    <p className="mb-1.5 text-xs text-fg-subtle">{formatDay(day)}</p>
+              <div className="space-y-5" data-testid="pair-history">
+                {visibleDays.map((day) => (
+                  <div key={day.sessionId}>
+                    <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                      <Link
+                        to={`/game-days/${day.sessionId}`}
+                        className="text-xs font-semibold uppercase tracking-wide text-fg-subtle hover:text-accent-strong hover:underline"
+                      >
+                        {formatDay(day.date)}
+                      </Link>
+                      <span className="flex items-baseline gap-2 text-xs tabular-nums">
+                        <span className="text-fg-muted">
+                          {day.wins}–{day.losses}
+                        </span>
+                        <span
+                          className={cx('font-semibold', POINTS_TEXT)}
+                          title="Game-day points (rally point differential)"
+                        >
+                          {day.diff > 0 ? `+${day.diff}` : day.diff}
+                        </span>
+                      </span>
+                    </div>
                     <ul className="space-y-2">
-                      {ms.map((m) => (
+                      {day.matches.map((m) => (
                         <HistoryRow key={m.id} m={m} nameOf={nameOf} />
                       ))}
                     </ul>
                   </div>
                 ))}
+                {days.length > HISTORY_PREVIEW_DAYS && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllHistory((v) => !v)}
+                    className="w-full rounded-lg border border-line py-2 text-xs font-medium text-fg-muted transition-colors hover:text-fg"
+                    data-testid="pair-history-toggle"
+                  >
+                    {showAllHistory ? 'Show fewer' : `Show all ${days.length} game days`}
+                  </button>
+                )}
               </div>
             </Card>
           </>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { PlayerMatch } from '../play/api'
@@ -16,6 +16,8 @@ const { history } = vi.hoisted(() => ({
       opponentIds: ['p5', 'p6'], scoreFor: 15, scoreAgainst: 21, won: false },
     { id: 'm4', sessionId: 's1', date: '2026-06-18', mode: 'open', partnerId: 'p3',
       opponentIds: ['p2', 'p4'], scoreFor: 21, scoreAgainst: 10, won: true },
+    { id: 'm5', sessionId: 's0', date: '2026-06-10', mode: 'open', partnerId: 'p2',
+      opponentIds: ['p3', 'p4'], scoreFor: 21, scoreAgainst: 19, won: true },
   ] as PlayerMatch[],
 }))
 
@@ -63,17 +65,32 @@ describe('PairProfilePage (TASK-90)', () => {
   it('shows only the matches the two played together', async () => {
     renderPair()
     const list = await screen.findByTestId('pair-history')
-    // m1, m2, m3 are with p2; m4 is p1 partnering somebody else.
+    // m1, m2, m3, m5 are with p2; m4 is p1 partnering somebody else. Four
+    // matches across four game days, so only the newest three days show.
     expect(list.querySelectorAll('li').length).toBe(3)
+  })
+
+  // 42 matches in one list is a lot to scroll past, so the history previews the
+  // most recent game days the way the player profile does.
+  it('previews recent game days and reveals the rest on demand', async () => {
+    renderPair()
+    const list = await screen.findByTestId('pair-history')
+    expect(list.querySelectorAll('li').length).toBe(3)
+    const toggle = screen.getByTestId('pair-history-toggle')
+    expect(toggle).toHaveTextContent('Show all 4 game days')
+
+    fireEvent.click(toggle)
+    expect(list.querySelectorAll('li').length).toBe(4)
+    expect(screen.getByTestId('pair-history-toggle')).toHaveTextContent('Show fewer')
   })
 
   it('reports the record, win rate and point differential for the pair alone', async () => {
     renderPair()
     const stats = await screen.findByTestId('pair-stats')
-    expect(stats).toHaveTextContent('2W – 1L')
-    expect(stats).toHaveTextContent('67%')
-    // (21-12) + (21-18) + (15-21) = +6. m4 must not contribute.
-    expect(screen.getByTestId('pair-diff')).toHaveTextContent('+6')
+    expect(stats).toHaveTextContent('3W – 1L')
+    expect(stats).toHaveTextContent('75%')
+    // (21-12) + (21-18) + (15-21) + (21-19) = +8. m4 must not contribute.
+    expect(screen.getByTestId('pair-diff')).toHaveTextContent('+8')
   })
 
   // Most partnerships in a club have played once or twice, and their Glicko is
@@ -82,7 +99,7 @@ describe('PairProfilePage (TASK-90)', () => {
     renderPair()
     await screen.findByTestId('pair-stats')
     expect(screen.getByTestId('pair-stats')).toHaveTextContent('Provisional')
-    expect(screen.getByTestId('pair-provisional')).toHaveTextContent('played 3')
+    expect(screen.getByTestId('pair-provisional')).toHaveTextContent('played 4')
     expect(screen.getByTestId('pair-stats')).not.toHaveTextContent('1588')
   })
 
@@ -91,9 +108,10 @@ describe('PairProfilePage (TASK-90)', () => {
   it('gives the record against each opposing pair, not each person', async () => {
     renderPair()
     const h2h = await screen.findByTestId('pair-h2h')
-    // Cara & Dan met them twice and lost both; Eve & Finn met them once and won.
+    // Cara & Dan met them three times and lost all three; Eve & Finn met them
+    // once and won.
     expect(h2h.querySelectorAll('li').length).toBe(2)
-    expect(within(h2h).getByTestId('h2h-p3|p4')).toHaveTextContent('2W')
+    expect(within(h2h).getByTestId('h2h-p3|p4')).toHaveTextContent('3W')
     expect(within(h2h).getByTestId('h2h-p5|p6')).toHaveTextContent('0W')
     // Each opposing pair links to its own page — the testid sits on the link.
     expect(within(h2h).getByTestId('h2h-p3|p4')).toHaveAttribute('href', '/pairs/p3/p4')
