@@ -62,18 +62,17 @@ describe('LeaderboardPage', () => {
 
   it('links each player name to their profile (TASK-42)', () => {
     renderPage()
-    // Individual and doubles names both link to /players/:id.
     const nameLink = screen.getByTestId('player-row-p1').querySelector('a')
     expect(nameLink).toHaveAttribute('href', '/players/p1')
-    // Both names go to their own profiles, and the row also links to the two
-    // of them together — the pair page is otherwise unreachable from the one
-    // screen that ranks pairs (TASK-90).
+  })
+
+  // On a board that ranks partnerships the row IS the pair, so the whole row
+  // is one link. A small arrow at the end was missable — people did not know
+  // the pair page existed (TASK-90).
+  it('makes the whole doubles row a link to the pair', () => {
+    renderPage()
     const pairLinks = screen.getByTestId('pair-row-p1-p3').querySelectorAll('a')
-    expect(Array.from(pairLinks).map((a) => a.getAttribute('href'))).toEqual([
-      '/players/p1',
-      '/players/p3',
-      '/pairs/p1/p3',
-    ])
+    expect(Array.from(pairLinks).map((a) => a.getAttribute('href'))).toEqual(['/pairs/p1/p3'])
   })
 
   it('collapses provisional (high-RD) entries under "Needs more games" (TASK-40)', () => {

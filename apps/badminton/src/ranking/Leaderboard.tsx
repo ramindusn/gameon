@@ -299,28 +299,34 @@ function PairRow({
   rowPrefix: string
   muted?: boolean
 }) {
+  // The whole row is the link, not a small arrow at the end of it. On a board
+  // that ranks partnerships the row IS the pair, and a bare arrow was easy to
+  // miss — people did not know the page was there. The trade: the two names no
+  // longer link to their own profiles from here, because a link inside a link
+  // is invalid. Individual profiles are one tap away on the Individual board,
+  // and the pair page links both players at the top.
   return (
-    <li
-      className={cx('flex items-center gap-3 py-2.5', muted && 'opacity-70')}
-      data-testid={`${rowPrefix}-${p.player1Id}-${p.player2Id}`}
-    >
-      <Rank n={rank} />
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
-        <ProfileLink id={p.player1Id} nameOf={nameOf} />{' '}
-        <span className="text-fg-subtle">&amp;</span>{' '}
-        <ProfileLink id={p.player2Id} nameOf={nameOf} />
-      </span>
-      <Rating rating={p.rating} />
-      {/* The names link to each player; this links to the two of them together
-          (TASK-90). Without it the pair page would be unreachable from the one
-          screen that ranks pairs. */}
+    <li data-testid={`${rowPrefix}-${p.player1Id}-${p.player2Id}`}>
       <Link
         to={`/pairs/${p.player1Id}/${p.player2Id}`}
-        aria-label={`Pair profile for ${nameOf(p.player1Id)} and ${nameOf(p.player2Id)}`}
-        className="shrink-0 text-fg-subtle hover:text-accent-strong"
+        className={cx(
+          'group flex items-center gap-3 rounded-lg py-2.5 transition-colors hover:bg-accent/10 focus:outline-none focus:ring-1 focus:ring-accent',
+          muted && 'opacity-70',
+        )}
         data-testid={`pair-link-${p.player1Id}-${p.player2Id}`}
       >
-        →
+        <Rank n={rank} />
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
+          {nameOf(p.player1Id)} <span className="text-fg-subtle">&amp;</span>{' '}
+          {nameOf(p.player2Id)}
+        </span>
+        <Rating rating={p.rating} />
+        <span
+          aria-hidden
+          className="shrink-0 text-fg-subtle transition-colors group-hover:text-accent-strong"
+        >
+          ›
+        </span>
       </Link>
     </li>
   )

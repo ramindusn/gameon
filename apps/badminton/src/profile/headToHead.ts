@@ -48,6 +48,40 @@ export function computeOpponentStats(matches: PlayerMatch[]): DuoStat[] {
   )
 }
 
+/** A record against one opposing partnership. */
+export interface PairStat {
+  /** Sorted "a|b", so the same two opponents are one row however they line up. */
+  key: string
+  playerIds: [string, string]
+  games: number
+  wins: number
+}
+
+/**
+ * Record against each opposing PAIR, most-played first.
+ *
+ * On a partnership's profile this is the question worth asking — how do we do
+ * against them — where a per-person list splits one rivalry into two halves and
+ * counts every match twice. Matches where an opponent slot is empty are
+ * skipped: half an opposing pair is not a pair.
+ */
+export function computeOpponentPairs(matches: PlayerMatch[]): PairStat[] {
+  const by = new Map<string, PairStat>()
+  for (const m of matches) {
+    const [x, y] = m.opponentIds
+    if (!x || !y) continue
+    const ids: [string, string] = x < y ? [x, y] : [y, x]
+    const key = `${ids[0]}|${ids[1]}`
+    const s = by.get(key) ?? { key, playerIds: ids, games: 0, wins: 0 }
+    s.games += 1
+    if (m.won) s.wins += 1
+    by.set(key, s)
+  }
+  return [...by.values()].sort(
+    (a, b) => b.games - a.games || b.wins / b.games - a.wins / a.games || a.key.localeCompare(b.key),
+  )
+}
+
 /**
  * Opponents the player beats least often — lowest win-rate first — among those
  * faced at least `minGames` times, so a single fluke loss doesn't dominate.

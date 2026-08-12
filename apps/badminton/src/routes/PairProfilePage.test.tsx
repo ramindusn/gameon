@@ -86,17 +86,17 @@ describe('PairProfilePage (TASK-90)', () => {
     expect(screen.getByTestId('pair-stats')).not.toHaveTextContent('1588')
   })
 
-  it('names the opponents it beat and the ones it lost to', async () => {
+  // Against opposing PAIRS: a per-person list splits one rivalry in two and
+  // counts every match twice, which is the wrong question on a pair's page.
+  it('gives the record against each opposing pair, not each person', async () => {
     renderPair()
-    const opps = await screen.findByTestId('pair-opponents')
-    const [beaten, lostTo] = Array.from(opps.children) as HTMLElement[]
-    // Beat Cara and Dan twice; lost once to Eve and Finn. Each name belongs to
-    // one column only, which is the point of splitting on wins and losses
-    // rather than on win rate.
-    expect(within(beaten).getByTestId('duo-p3')).toBeInTheDocument()
-    expect(within(beaten).queryByTestId('duo-p5')).toBeNull()
-    expect(within(lostTo).getByTestId('duo-p5')).toBeInTheDocument()
-    expect(within(lostTo).queryByTestId('duo-p3')).toBeNull()
+    const h2h = await screen.findByTestId('pair-h2h')
+    // Cara & Dan met them twice and lost both; Eve & Finn met them once and won.
+    expect(h2h.querySelectorAll('li').length).toBe(2)
+    expect(within(h2h).getByTestId('h2h-p3|p4')).toHaveTextContent('2W')
+    expect(within(h2h).getByTestId('h2h-p5|p6')).toHaveTextContent('0W')
+    // Each opposing pair links to its own page — the testid sits on the link.
+    expect(within(h2h).getByTestId('h2h-p3|p4')).toHaveAttribute('href', '/pairs/p3/p4')
   })
 
   it('is the same page whichever way round the two ids are given', async () => {

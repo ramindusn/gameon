@@ -9,13 +9,13 @@ import { usePairBoard, usePairRatingHistory, usePlayerNames } from '../ranking/u
 import { pairKey } from '../ranking/api'
 import { RANK_TEXT } from '../ranking/metricColors'
 import { PerformanceChart } from '../profile/PerformanceChart'
-import { computeOpponentStats } from '../profile/headToHead'
-import { BigStat, DuoList, HistoryRow, formatDay } from './PlayerProfilePage'
+import { computeOpponentPairs } from '../profile/headToHead'
+import { BigStat, HistoryRow, formatDay } from './PlayerProfilePage'
 
 /** Below this many games together, a partnership's rating is noise. */
 const MIN_RATED_GAMES = 5
-/** How many opponents the insights lists show. */
-const INSIGHT_LIMIT = 4
+/** How many opposing pairs the head-to-head list shows. */
+const H2H_LIMIT = 8
 
 /**
  * Public profile for a doubles partnership (TASK-90).
@@ -56,24 +56,9 @@ export function PairProfilePage() {
   // people to read a rank into two lucky matches.
   const provisional = matches.length < MIN_RATED_GAMES
 
-  // Deliberately not toughestOpponents(): that needs two meetings to qualify
-  // and ranks by win rate, so on a pair with a handful of games it listed
-  // opponents this pair had beaten every time under "toughest". Wins and
-  // losses, plainly.
-  const lostTo = useMemo(
-    () =>
-      computeOpponentStats(matches)
-        .filter((o) => o.games - o.wins > 0)
-        .sort((x, y) => y.games - y.wins - (x.games - x.wins) || y.games - x.games)
-        .slice(0, INSIGHT_LIMIT),
-    [matches],
-  )
-  const beaten = useMemo(
-    () =>
-      computeOpponentStats(matches)
-        .filter((o) => o.wins > 0)
-        .sort((x, y) => y.wins - x.wins || y.games - x.games)
-        .slice(0, INSIGHT_LIMIT),
+  // Every opposing partnership they have met, most-played first.
+  const rivalPairs = useMemo(
+    () => computeOpponentPairs(matches).slice(0, H2H_LIMIT),
     [matches],
   )
 
@@ -85,21 +70,62 @@ export function PairProfilePage() {
   }, [matches])
 
   const title = `${nameOf(a)} & ${nameOf(b)}`
+  const initials =
+    (nameOf(a).trim().charAt(0) + nameOf(b).trim().charAt(0)).toUpperCase() || '??'
+  const rankMove =
+    trend.data?.rank != null && trend.data?.prevRank != null
+      ? trend.data.prevRank - trend.data.rank
+      : null
 
   return (
-    <AppShell title="Pair">
-      <div className="mx-auto max-w-3xl" data-testid="pair-profile">
-        <div className="mb-6">
-          <h1 className="font-display text-2xl font-bold text-fg">{title}</h1>
-          <p className="mt-1 text-sm text-fg-muted">
-            <Link to={`/players/${a}`} className="hover:text-accent-strong">
-              {nameOf(a)}
-            </Link>
-            {' · '}
-            <Link to={`/players/${b}`} className="hover:text-accent-strong">
-              {nameOf(b)}
-            </Link>
-          </p>
+    <AppShell>
+      <div className="mx-auto w-full max-w-4xl" data-testid="pair-profile">
+        {/* Mirrors the player profile's header — two initials instead of one,
+            because the subject is the partnership. */}
+        <div className="mb-8 flex items-center gap-4">
+          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-accent/15 font-display text-xl font-bold text-accent-strong">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-display text-2xl font-bold" data-testid="pair-name">
+                {title}
+              </h1>
+              {trend.data?.rank != null && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-fg"
+                  title="Doubles rank (movement vs the previous game day)"
+                  data-testid="pair-rank-chip"
+                >
+                  #{trend.data.rank}
+                  {rankMove != null && rankMove !== 0 && (
+                    <span className={rankMove > 0 ? 'text-accent-strong' : 'text-negative'}>
+                      {rankMove > 0 ? '▲' : '▼'}
+                      {Math.abs(rankMove)}
+                    </span>
+                  )}
+                </span>
+              )}
+              {provisional && matches.length > 0 && (
+                <span
+                  className="inline-flex items-center rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-fg-muted"
+                  title="Rating still settling — keep playing together"
+                  data-testid="pair-provisional-chip"
+                >
+                  Provisional
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-fg-muted">
+              <Link to={`/players/${a}`} className="hover:text-accent-strong hover:underline">
+                {nameOf(a)}
+              </Link>
+              {' · '}
+              <Link to={`/players/${b}`} className="hover:text-accent-strong hover:underline">
+                {nameOf(b)}
+              </Link>
+            </p>
+          </div>
         </div>
 
         {isLoading && <p className="text-sm text-fg-muted">Loading…</p>}
@@ -156,28 +182,50 @@ export function PairProfilePage() {
               </div>
             )}
 
-            {(beaten.length > 0 || lostTo.length > 0) && (
+            {rivalPairs.length > 0 && (
               <div className="mb-6">
-                <Card title="Opponents" icon={<Icon name="pairs" />}>
-                  <div
-                    className="grid grid-cols-1 gap-6 sm:grid-cols-2"
-                    data-testid="pair-opponents"
-                  >
-                    <DuoList
-                      heading="Beaten most"
-                      caption="this pair's record vs them"
-                      stats={beaten}
-                      nameOf={nameOf}
-                      empty="No wins yet."
-                    />
-                    <DuoList
-                      heading="Lost to most"
-                      caption="this pair's record vs them"
-                      stats={lostTo}
-                      nameOf={nameOf}
-                      empty="Unbeaten so far."
-                    />
-                  </div>
+                <Card title="Head to head" icon={<Icon name="pairs" />}>
+                  {/* Against opposing PAIRS, not individuals. A per-person list
+                      splits one rivalry into two halves and counts every match
+                      twice, which on a partnership's own page is the wrong
+                      question — "how do we do against them" is. */}
+                  <ul className="divide-y divide-line" data-testid="pair-h2h">
+                    {rivalPairs.map((r) => {
+                      const losses = r.games - r.wins
+                      const pct = Math.round((r.wins / r.games) * 100)
+                      return (
+                        <li key={r.key}>
+                          <Link
+                            to={`/pairs/${r.playerIds[0]}/${r.playerIds[1]}`}
+                            className="group flex items-center gap-3 rounded-lg py-2.5 transition-colors hover:bg-accent/10"
+                            data-testid={`h2h-${r.key}`}
+                          >
+                            <span className="min-w-0 flex-1 truncate text-sm text-fg">
+                              {nameOf(r.playerIds[0])}{' '}
+                              <span className="text-fg-subtle">&amp;</span>{' '}
+                              {nameOf(r.playerIds[1])}
+                            </span>
+                            <span className="shrink-0 text-sm font-semibold tabular-nums">
+                              <span className={r.wins >= losses ? RANK_TEXT : 'text-negative'}>
+                                {r.wins}W
+                              </span>
+                              <span className="text-fg-subtle"> – </span>
+                              <span className="text-fg">{losses}L</span>
+                            </span>
+                            <span className="w-10 shrink-0 text-right text-xs tabular-nums text-fg-subtle">
+                              {pct}%
+                            </span>
+                            <span
+                              aria-hidden
+                              className="shrink-0 text-fg-subtle transition-colors group-hover:text-accent-strong"
+                            >
+                              ›
+                            </span>
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
                 </Card>
               </div>
             )}
