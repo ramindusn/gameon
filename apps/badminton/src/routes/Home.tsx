@@ -59,19 +59,35 @@ function PlayerLink({ id, nameOf }: { id: string | null; nameOf: NameOf }) {
   )
 }
 
-/** "Name A & Name B" with each name linking to its profile. */
+/**
+ * "Name A & Name B", linking to the partnership rather than to two people.
+ *
+ * On a Doubles ranking the row is the pair, so that is what tapping it should
+ * open (TASK-90) — the names used to go to the two individual profiles, which
+ * left the pair page unreachable from the home page entirely. Both players are
+ * linked at the top of the pair page, so nothing is lost, only reordered.
+ */
 function PairNames({ ids, nameOf }: { ids: [string | null, string | null]; nameOf: NameOf }) {
   // Always stack the two players on separate lines so every card is the same
   // height regardless of name length (consistent rows, no ragged wrapping).
-  return (
+  const names = (
     <>
-      <span className="block">
-        <PlayerLink id={ids[0]} nameOf={nameOf} />
-      </span>
-      <span className="block">
-        <PlayerLink id={ids[1]} nameOf={nameOf} />
-      </span>
+      <span className="block">{nameOf(ids[0])}</span>
+      <span className="block">{nameOf(ids[1])}</span>
     </>
+  )
+  if (!ids[0] || !ids[1]) return names
+  return (
+    <Link
+      to={`/pairs/${ids[0]}/${ids[1]}`}
+      className="group inline-flex items-center gap-1.5 rounded text-fg transition-colors hover:text-accent-strong focus:outline-none focus:ring-1 focus:ring-accent"
+      data-testid={`home-pair-${ids[0]}-${ids[1]}`}
+    >
+      <span>{names}</span>
+      <span aria-hidden className="text-fg-subtle transition-colors group-hover:text-accent-strong">
+        ›
+      </span>
+    </Link>
   )
 }
 

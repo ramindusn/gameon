@@ -186,6 +186,11 @@ describe('Home (TASK-9.5)', () => {
     state.players = [{ playerId: 'p1', rating: 2450, rd: 40, games: 12 }]
     renderHome()
     expect(screen.getByTestId('doubles-ranking')).toHaveTextContent('1,450')
+    // The pair name links to the partnership, not to the two players: on a
+    // Doubles ranking the row is the pair, and the pair page was otherwise
+    // unreachable from home (TASK-90).
+    const pairLink = screen.getByTestId('doubles-ranking').querySelector('a')
+    expect(pairLink?.getAttribute('href')).toMatch(/^\/pairs\//)
     expect(screen.getByTestId('individual-ranking')).toHaveTextContent('2,450')
   })
 
