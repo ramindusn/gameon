@@ -222,6 +222,7 @@ export function PlayerProfilePage() {
                       caption="record together"
                       stats={partners}
                       nameOf={nameOf}
+                      pairWith={id}
                     />
                     <DuoList
                       heading="Toughest opponents"
@@ -294,7 +295,7 @@ export function PlayerProfilePage() {
 }
 
 /** A prominent headline stat tile (Skill / Rating) at the top of the card. */
-function BigStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+export function BigStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div className="rounded-xl border border-line bg-surface-muted/40 px-3 py-2.5">
       <div className="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
@@ -324,18 +325,22 @@ function RankGain({ value }: { value?: number }) {
 }
 
 /** A partners / opponents list on the insights card: name, record, win%. */
-function DuoList({
+export function DuoList({
   heading,
   caption,
   stats,
   nameOf,
   empty = 'No games yet.',
+  pairWith,
 }: {
   heading: string
   caption: string
   stats: DuoStat[]
   nameOf: (id: string | null) => string
   empty?: string
+  /** When set, each row also links to that partnership's page (TASK-90). Only
+   *  meaningful for partners — an opponent is not a pair with you. */
+  pairWith?: string
 }) {
   return (
     <div>
@@ -372,6 +377,16 @@ function DuoList({
                   </span>{' '}
                   · <span className="font-semibold text-fg">{winPct}% won</span>
                 </span>
+                {pairWith && (
+                  <Link
+                    to={`/pairs/${pairWith}/${s.playerId}`}
+                    aria-label={`Pair profile for ${nameOf(pairWith)} and ${nameOf(s.playerId)}`}
+                    className="shrink-0 text-fg-subtle hover:text-accent-strong"
+                    data-testid={`duo-pair-${s.playerId}`}
+                  >
+                    →
+                  </Link>
+                )}
               </li>
             )
           })}
@@ -381,7 +396,7 @@ function DuoList({
   )
 }
 
-function HistoryRow({
+export function HistoryRow({
   m,
   nameOf,
 }: {
@@ -412,7 +427,7 @@ function HistoryRow({
 }
 
 /** "Wed, 8 Jul 2026" — the game-day group header label. */
-function formatDay(iso: string): string {
+export function formatDay(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleDateString('en-GB', {

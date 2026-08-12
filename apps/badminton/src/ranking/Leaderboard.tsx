@@ -311,6 +311,17 @@ function PairRow({
         <ProfileLink id={p.player2Id} nameOf={nameOf} />
       </span>
       <Rating rating={p.rating} />
+      {/* The names link to each player; this links to the two of them together
+          (TASK-90). Without it the pair page would be unreachable from the one
+          screen that ranks pairs. */}
+      <Link
+        to={`/pairs/${p.player1Id}/${p.player2Id}`}
+        aria-label={`Pair profile for ${nameOf(p.player1Id)} and ${nameOf(p.player2Id)}`}
+        className="shrink-0 text-fg-subtle hover:text-accent-strong"
+        data-testid={`pair-link-${p.player1Id}-${p.player2Id}`}
+      >
+        →
+      </Link>
     </li>
   )
 }

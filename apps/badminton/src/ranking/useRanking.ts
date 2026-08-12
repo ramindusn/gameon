@@ -10,6 +10,7 @@ import {
   loadPlayerAttendance,
   loadPlayerBoard,
   loadRatingHistory,
+  loadPairRatingHistory,
   loadRecentForm,
 } from './api'
 
@@ -74,6 +75,15 @@ export function useRatingHistory(playerId: string | undefined) {
     queryKey: ['ratings', 'history', playerId],
     queryFn: () => loadRatingHistory(playerId as string),
     enabled: !!playerId,
+  })
+}
+
+/** A partnership's rating over the game days they played together (TASK-90). */
+export function usePairRatingHistory(a: string | undefined, b: string | undefined) {
+  return useQuery({
+    queryKey: ['ratings', 'pair-history', a && b ? [a, b].sort().join('|') : ''],
+    queryFn: () => loadPairRatingHistory(a as string, b as string),
+    enabled: !!a && !!b,
   })
 }
 

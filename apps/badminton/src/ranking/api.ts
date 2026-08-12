@@ -784,6 +784,109 @@ export function computeRank(
   )
 }
 
+/**
+ * A partnership's rating after each game day they played together, plus their
+ * current Doubles rank.
+ *
+ * Same replay as loadRatingHistory, keyed on pairKey instead of a player id.
+ * Kept as its own function rather than generalised: the player version also
+ * carries inactivity, which applies to people and not to partnerships — a pair
+ * that has not played is simply a pair that has not played.
+ */
+export async function loadPairRatingHistory(
+  aId: string,
+  bId: string,
+): Promise<RatingContext> {
+  if (isE2E() || !aId || !bId) return EMPTY_RATING_CONTEXT
+  const key = pairKey(aId, bId)
+  const db = client()
+  const { data: sessions } = await db
+    .from('match_sessions')
+    .select('id, created_at, played_at')
+    .eq('status', 'finished')
+    .order('created_at', { ascending: true })
+  const sRows = (sessions ?? []) as { id: string; created_at: string; played_at: string }[]
+  if (sRows.length === 0) return EMPTY_RATING_CONTEXT
+
+  const { data: results } = await db
+    .from('match_results')
+    .select('session_id, team_a1, team_a2, team_b1, team_b2, winner, score_a, score_b')
+  const { data: attendance } = await db
+    .from('session_attendance')
+    .select('session_id, player_id, present')
+
+  const toRec = (r: {
+    team_a1: string | null; team_a2: string | null
+    team_b1: string | null; team_b2: string | null
+    winner: string | null; score_a: number | null; score_b: number | null
+  }): MatchRecord | null => {
+    if (!r.team_a1 || !r.team_a2 || !r.team_b1 || !r.team_b2) return null
+    let a = r.score_a
+    let b = r.score_b
+    if (a == null || b == null) {
+      if (r.winner === 'a') [a, b] = [1, 0]
+      else if (r.winner === 'b') [a, b] = [0, 1]
+      else return null
+    }
+    return { teamA: [r.team_a1, r.team_a2], teamB: [r.team_b1, r.team_b2], scoreA: a, scoreB: b }
+  }
+  const bySession = new Map<string, MatchRecord[]>()
+  type PairRow = Parameters<typeof toRec>[0] & { session_id: string }
+  for (const r of (results ?? []) as PairRow[]) {
+    const rec = toRec(r)
+    if (!rec) continue
+    ;(bySession.get(r.session_id) ?? bySession.set(r.session_id, []).get(r.session_id)!).push(rec)
+  }
+  const absBySession = new Map<string, string[]>()
+  for (const a of (attendance ?? []) as { session_id: string; player_id: string; present: boolean }[]) {
+    if (a.present) continue
+    ;(absBySession.get(a.session_id) ?? absBySession.set(a.session_id, []).get(a.session_id)!).push(
+      a.player_id,
+    )
+  }
+  const periods: RatingPeriod[] = sRows.map((s) => ({
+    matches: bySession.get(s.id) ?? [],
+    absentees: absBySession.get(s.id) ?? [],
+  }))
+
+  // The trend starts the first day they actually partnered, not the first day
+  // either of them played.
+  const playedTogether = (ms: MatchRecord[]) =>
+    ms.some(
+      (m) => pairKey(m.teamA[0], m.teamA[1]) === key || pairKey(m.teamB[0], m.teamB[1]) === key,
+    )
+  const firstIdx = sRows.findIndex((s) => playedTogether(bySession.get(s.id) ?? []))
+  if (firstIdx === -1) return EMPTY_RATING_CONTEXT
+
+  const points: RatingHistoryPoint[] = []
+  let rank: number | null = null
+  let prevRank: number | null = null
+  let provisional = true
+  const rankOf = (pairs: { key: string; rating: number; rd: number }[]) => {
+    const me = pairs.find((p) => p.key === key)
+    if (!me || me.rd >= PROVISIONAL_RD) return null
+    return pairs.filter((p) => p.rd < PROVISIONAL_RD && p.rating > me.rating).length + 1
+  }
+  for (let i = firstIdx; i < sRows.length; i++) {
+    const out = computeRatings(periods.slice(0, i + 1))
+    const me = out.pairs.find((p) => p.key === key)
+    // Only days they actually played move the line; a day off is not a point.
+    if (playedTogether(bySession.get(sRows[i].id) ?? [])) {
+      points.push({
+        sessionId: sRows[i].id,
+        playedAt: sRows[i].played_at,
+        rating: me?.rating ?? DEFAULT_RATING,
+      })
+    }
+    if (i === sRows.length - 2) prevRank = rankOf(out.pairs)
+    if (i === sRows.length - 1) {
+      rank = rankOf(out.pairs)
+      provisional = !me || me.rd >= PROVISIONAL_RD
+    }
+  }
+  return { points, rank, prevRank, provisional }
+}
+
 export async function loadRatingHistory(playerId: string): Promise<RatingContext> {
   if (isE2E()) {
     const row = E2E_PLAYER_BOARD.find((p) => p.playerId === playerId)

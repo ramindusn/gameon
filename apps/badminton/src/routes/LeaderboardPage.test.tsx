@@ -65,10 +65,14 @@ describe('LeaderboardPage', () => {
     // Individual and doubles names both link to /players/:id.
     const nameLink = screen.getByTestId('player-row-p1').querySelector('a')
     expect(nameLink).toHaveAttribute('href', '/players/p1')
+    // Both names go to their own profiles, and the row also links to the two
+    // of them together — the pair page is otherwise unreachable from the one
+    // screen that ranks pairs (TASK-90).
     const pairLinks = screen.getByTestId('pair-row-p1-p3').querySelectorAll('a')
     expect(Array.from(pairLinks).map((a) => a.getAttribute('href'))).toEqual([
       '/players/p1',
       '/players/p3',
+      '/pairs/p1/p3',
     ])
   })
 

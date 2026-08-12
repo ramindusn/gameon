@@ -1,0 +1,116 @@
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { PlayerMatch } from '../play/api'
+
+// p1's history: three with p2 (two won), one with p3. Only the p2 ones belong
+// on the p1+p2 pair page.
+const { history } = vi.hoisted(() => ({
+  history: [
+    { id: 'm1', sessionId: 's3', date: '2026-06-24', mode: 'open', partnerId: 'p2',
+      opponentIds: ['p3', 'p4'], scoreFor: 21, scoreAgainst: 12, won: true },
+    { id: 'm2', sessionId: 's2', date: '2026-06-20', mode: 'open', partnerId: 'p2',
+      opponentIds: ['p3', 'p4'], scoreFor: 21, scoreAgainst: 18, won: true },
+    { id: 'm3', sessionId: 's1', date: '2026-06-18', mode: 'open', partnerId: 'p2',
+      opponentIds: ['p5', 'p6'], scoreFor: 15, scoreAgainst: 21, won: false },
+    { id: 'm4', sessionId: 's1', date: '2026-06-18', mode: 'open', partnerId: 'p3',
+      opponentIds: ['p2', 'p4'], scoreFor: 21, scoreAgainst: 10, won: true },
+  ] as PlayerMatch[],
+}))
+
+vi.mock('../roster/useRoster', () => ({
+  useRoster: () => ({ data: { clubId: 'c1', players: [] }, isLoading: false, isError: false }),
+}))
+vi.mock('../play/api', () => ({ loadPlayerHistory: () => Promise.resolve(history) }))
+vi.mock('../auth/useAuth', () => ({ useAuth: () => ({ role: null, signOut: vi.fn() }) }))
+vi.mock('../ranking/useRanking', () => ({
+  usePairBoard: () => ({
+    data: [{ player1Id: 'p1', player2Id: 'p2', rating: 1588, rd: 55, games: 3 }],
+  }),
+  usePairRatingHistory: () => ({
+    data: {
+      points: [
+        { sessionId: 's1', playedAt: '2026-06-18', rating: 1500 },
+        { sessionId: 's2', playedAt: '2026-06-20', rating: 1560 },
+        { sessionId: 's3', playedAt: '2026-06-24', rating: 1588 },
+      ],
+      rank: 3,
+      prevRank: 5,
+      provisional: false,
+    },
+  }),
+  usePlayerNames: () => (id: string | null) =>
+    ({ p1: 'Alice', p2: 'Bob', p3: 'Cara', p4: 'Dan', p5: 'Eve', p6: 'Finn' })[id ?? ''] ?? '—',
+}))
+
+import { PairProfilePage } from './PairProfilePage'
+
+function renderPair(a = 'p1', b = 'p2') {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[`/pairs/${a}/${b}`]}>
+        <Routes>
+          <Route path="/pairs/:a/:b" element={<PairProfilePage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+describe('PairProfilePage (TASK-90)', () => {
+  it('shows only the matches the two played together', async () => {
+    renderPair()
+    const list = await screen.findByTestId('pair-history')
+    // m1, m2, m3 are with p2; m4 is p1 partnering somebody else.
+    expect(list.querySelectorAll('li').length).toBe(3)
+  })
+
+  it('reports the record, win rate and point differential for the pair alone', async () => {
+    renderPair()
+    const stats = await screen.findByTestId('pair-stats')
+    expect(stats).toHaveTextContent('2W – 1L')
+    expect(stats).toHaveTextContent('67%')
+    // (21-12) + (21-18) + (15-21) = +6. m4 must not contribute.
+    expect(screen.getByTestId('pair-diff')).toHaveTextContent('+6')
+  })
+
+  // Most partnerships in a club have played once or twice, and their Glicko is
+  // noise. Showing a number invites reading a rank into two lucky matches.
+  it('says provisional instead of a rating when they have barely played', async () => {
+    renderPair()
+    await screen.findByTestId('pair-stats')
+    expect(screen.getByTestId('pair-stats')).toHaveTextContent('Provisional')
+    expect(screen.getByTestId('pair-provisional')).toHaveTextContent('played 3')
+    expect(screen.getByTestId('pair-stats')).not.toHaveTextContent('1588')
+  })
+
+  it('names the opponents it beat and the ones it lost to', async () => {
+    renderPair()
+    const opps = await screen.findByTestId('pair-opponents')
+    const [beaten, lostTo] = Array.from(opps.children) as HTMLElement[]
+    // Beat Cara and Dan twice; lost once to Eve and Finn. Each name belongs to
+    // one column only, which is the point of splitting on wins and losses
+    // rather than on win rate.
+    expect(within(beaten).getByTestId('duo-p3')).toBeInTheDocument()
+    expect(within(beaten).queryByTestId('duo-p5')).toBeNull()
+    expect(within(lostTo).getByTestId('duo-p5')).toBeInTheDocument()
+    expect(within(lostTo).queryByTestId('duo-p3')).toBeNull()
+  })
+
+  it('is the same page whichever way round the two ids are given', async () => {
+    const { unmount } = renderPair('p1', 'p2')
+    expect((await screen.findByTestId('pair-history')).querySelectorAll('li').length).toBe(3)
+    unmount()
+    // p2 first: the board lookup uses pairKey, so it still finds the pair.
+    renderPair('p2', 'p1')
+    expect(await screen.findByTestId('pair-profile')).toBeInTheDocument()
+  })
+
+  it('says so when the two have never partnered, rather than showing a blank page', async () => {
+    renderPair('p1', 'p9')
+    expect(await screen.findByTestId('pair-empty')).toHaveTextContent(/not played a match together/i)
+    expect(screen.queryByTestId('pair-stats')).toBeNull()
+  })
+})

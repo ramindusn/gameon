@@ -7,6 +7,7 @@ import { GeneratePage } from './routes/GeneratePage'
 import { PlayPage } from './routes/PlayPage'
 import { PlayersPage } from './routes/PlayersPage'
 import { PlayerProfilePage } from './routes/PlayerProfilePage'
+import { PairProfilePage } from './routes/PairProfilePage'
 import { AllGameDaysPage } from './routes/AllGameDaysPage'
 import { LeaderboardPage } from './routes/LeaderboardPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
@@ -23,6 +24,9 @@ export function App() {
             <Route path="/" element={<Home />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/players/:id" element={<PlayerProfilePage />} />
+            {/* Both ids in the path; pairKey sorts them, so /pairs/a/b and
+                /pairs/b/a are the same partnership (TASK-90). */}
+            <Route path="/pairs/:a/:b" element={<PairProfilePage />} />
             {/* One page per game day (TASK-71). Public + read-only for players;
                 editing controls are gated to matchmakers inside it (TASK-50). */}
             <Route path="/game-days/:id" element={<PlayPage />} />
