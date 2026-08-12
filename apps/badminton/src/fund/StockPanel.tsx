@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button, Card, ChipPicker, Field, Modal, useConfirm } from '@gameon/ui'
 import {
@@ -9,6 +9,7 @@ import {
   type StockHolder,
 } from '@gameon/domain'
 import { Icon } from '../app/Icon'
+import { Pager, usePager } from '../app/Pager'
 import { useFund } from './useFund'
 import { loadInventoryLog, type InventoryLogEntry } from './api'
 import { StockCounts, StockLegend } from './StockCounts'
@@ -68,9 +69,12 @@ export function StockPanel() {
 
   const log = useQuery({
     queryKey: ['inventory-log'],
-    queryFn: () => loadInventoryLog(15),
+    queryFn: () => loadInventoryLog(500),
     enabled: cloudBacked,
   })
+
+  const logRows = useMemo(() => pairTransfers(log.data ?? []), [log.data])
+  const logPage = usePager(logRows, 10)
 
   const holdingOf = (productId: string, holderId: string) =>
     state.holdings.find((h) => h.productId === productId && h.holderId === holderId)
@@ -221,7 +225,7 @@ export function StockPanel() {
           Recent changes
         </h3>
         <ul className="mt-2 divide-y divide-line" data-testid="inventory-log">
-          {pairTransfers(log.data ?? []).map((row) => {
+          {logPage.slice.map((row) => {
             const per = state.products.find((p) => p.id === row.entry.productId)
               ?.shuttlesPerBarrel
             return (
@@ -258,10 +262,19 @@ export function StockPanel() {
               </li>
             )
           })}
-          {(log.data ?? []).length === 0 && (
+          {logRows.length === 0 && (
             <li className="py-2 text-sm text-fg-muted">No changes logged yet.</li>
           )}
         </ul>
+        <Pager
+          page={logPage.page}
+          pageCount={logPage.pageCount}
+          start={logPage.start}
+          shown={logPage.slice.length}
+          total={logPage.total}
+          onPage={logPage.setPage}
+          testId="inventory-log-pager"
+        />
       </section>
 
       {adjusting && (

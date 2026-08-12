@@ -8,6 +8,7 @@ import {
   usageForDate,
   usageHistory,
 } from '@gameon/domain'
+import { Pager, usePager } from '../app/Pager'
 import { useAuth } from '../auth/useAuth'
 import { useFund } from './useFund'
 
@@ -19,7 +20,11 @@ export function TodayUsage() {
 
   const today = todayISO()
   const todayTotals = usageForDate(state, today)
+  // Newest first already (usageHistory sorts by date descending); this only
+  // decides how many of them are on screen. It used to cut at 6 with no way to
+  // reach the rest, so a club with a season behind it could not see July.
   const history = usageHistory(state)
+  const historyPage = usePager(history, 8)
   const playedToday =
     todayTotals.totalCost > 0 || todayTotals.perProduct.some((p) => p.shuttlesUsed > 0)
   const lastDay = history[0]
@@ -92,8 +97,9 @@ export function TodayUsage() {
               : ''}
           </p>
         ) : (
-          <ul className="space-y-2">
-            {history.slice(0, 6).map((day) => (
+          <>
+          <ul className="space-y-2" data-testid="usage-history">
+            {historyPage.slice.map((day) => (
               <li
                 key={day.id}
                 className="flex items-start justify-between gap-2 rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm"
@@ -126,6 +132,16 @@ export function TodayUsage() {
               </li>
             ))}
           </ul>
+          <Pager
+            page={historyPage.page}
+            pageCount={historyPage.pageCount}
+            start={historyPage.start}
+            shown={historyPage.slice.length}
+            total={historyPage.total}
+            onPage={historyPage.setPage}
+            testId="usage-history-pager"
+          />
+          </>
         )}
       </div>
     </Card>

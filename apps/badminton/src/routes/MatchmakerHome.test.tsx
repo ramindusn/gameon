@@ -132,17 +132,17 @@ describe('MatchmakerHome (TASK-11.1)', () => {
     expect(screen.getAllByTestId(/^recent-h/).length).toBe(10)
     const pager = screen.getByTestId('history-pager')
     expect(pager).toHaveTextContent('1–10 of 23')
-    expect(screen.getByTestId('history-prev')).toBeDisabled()
+    expect(screen.getByTestId('history-pager-prev')).toBeDisabled()
 
-    fireEvent.click(screen.getByTestId('history-next'))
+    fireEvent.click(screen.getByTestId('history-pager-next'))
     expect(pager).toHaveTextContent('11–20 of 23')
-    expect(screen.getByTestId('history-prev')).not.toBeDisabled()
+    expect(screen.getByTestId('history-pager-prev')).not.toBeDisabled()
 
     // The last page is a short one, and there is nowhere further to go.
-    fireEvent.click(screen.getByTestId('history-next'))
+    fireEvent.click(screen.getByTestId('history-pager-next'))
     expect(pager).toHaveTextContent('21–23 of 23')
     expect(screen.getAllByTestId(/^recent-h/).length).toBe(3)
-    expect(screen.getByTestId('history-next')).toBeDisabled()
+    expect(screen.getByTestId('history-pager-next')).toBeDisabled()
   })
 
   it('leaves the pager off when everything fits on one page', () => {

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
+import { Pager } from '../app/Pager'
 import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 import { MyStock } from '../fund/MyStock'
@@ -251,42 +252,17 @@ function RecentGameDays() {
             </li>
           ))}
           </ul>
-          {/* Only when there is somewhere to go. A club with one page of
-              history needs no controls, and an always-present pager reads
-              like something is missing. */}
-          {pageCount > 1 && (
-            <div
-              className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3"
-              data-testid="history-pager"
-            >
-              <button
-                type="button"
-                onClick={() => setPage(current - 1)}
-                disabled={current === 0}
-                className={PAGER_BTN}
-                data-testid="history-prev"
-              >
-                ‹ Newer
-              </button>
-              <span className="text-xs tabular-nums text-fg-subtle">
-                {start + 1}–{start + recent.length} of {finished.length}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage(current + 1)}
-                disabled={current >= pageCount - 1}
-                className={PAGER_BTN}
-                data-testid="history-next"
-              >
-                Older ›
-              </button>
-            </div>
-          )}
+          <Pager
+            page={current}
+            pageCount={pageCount}
+            start={start}
+            shown={recent.length}
+            total={finished.length}
+            onPage={setPage}
+            testId="history-pager"
+          />
         </>
       )}
     </Card>
   )
 }
-
-const PAGER_BTN =
-  'rounded-full px-3 py-1 text-xs font-semibold text-accent-strong transition-colors hover:bg-accent/15 disabled:text-fg-subtle disabled:opacity-40 disabled:hover:bg-transparent'

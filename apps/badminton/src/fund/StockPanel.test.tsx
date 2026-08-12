@@ -455,6 +455,34 @@ describe('audit log', () => {
     // bookkeeping instead ("added 5 barrels and removed 2 loose shuttles").
   })
 
+  // The log used to fetch 15 rows and show all of them. The club passed that
+  // in its first season, so the oldest changes became unreachable.
+  it('pages the log ten at a time, newest first', async () => {
+    logRows.current = Array.from({ length: 23 }, (_, i) => ({
+      id: `l${i}`,
+      productId: 'p1',
+      holderName: 'Ramboo',
+      productLabel: 'RSL Classic',
+      occurredAt: '2026-08-05T12:00:00Z',
+      actorName: 'Ramboo',
+      action: 'adjust',
+      barrelsDelta: 0,
+      looseDelta: i + 1,
+    }))
+    renderPanel()
+    // The pager only exists once the log query has resolved; the list itself
+    // renders immediately with its empty state.
+    const pager = await screen.findByTestId('inventory-log-pager')
+    expect(screen.getByTestId('inventory-log').querySelectorAll('li').length).toBe(10)
+    expect(pager).toHaveTextContent('1–10 of 23')
+
+    fireEvent.click(screen.getByTestId('inventory-log-pager-next'))
+    expect(pager).toHaveTextContent('11–20 of 23')
+    fireEvent.click(screen.getByTestId('inventory-log-pager-next'))
+    expect(pager).toHaveTextContent('21–23 of 23')
+    expect(screen.getByTestId('inventory-log-pager-next')).toBeDisabled()
+  })
+
   it('shows an empty state when nothing has been logged', async () => {
     renderPanel()
     expect(await screen.findByText('No changes logged yet.')).toBeInTheDocument()
