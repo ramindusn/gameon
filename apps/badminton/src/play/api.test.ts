@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { GeneratedMatches, MatchPlayer } from '@gameon/domain'
-import { mapResultRow, mapSessionRow, planToResultRows } from './api'
+import { mapResultRow, mapSessionRow, newestMatchFirst, planToResultRows } from './api'
+import type { PlayerMatch } from './api'
 
 const player = (id: string, skill = 5): MatchPlayer => ({ id, skill })
 
@@ -153,5 +154,34 @@ describe('planToResultRows', () => {
     const rows = planToResultRows(twoCourts, 's2', 'c1')
     expect(rows.map((r) => r.court)).toEqual([1, 2])
     expect(rows[1].team_b2).toBe('p8')
+  })
+})
+
+describe('newestMatchFirst', () => {
+  const m = (id: string, date: string, round: number) =>
+    ({ id, sessionId: `s-${date}`, round, date, mode: 'open', partnerId: null,
+       opponentIds: [null, null], scoreFor: 0, scoreAgainst: 0, won: false }) as PlayerMatch
+
+  it('puts the most recent game day first', () => {
+    const out = [m('a', '2026-07-01', 1), m('b', '2026-08-01', 1)].sort(newestMatchFirst)
+    expect(out.map((x) => x.id)).toEqual(['b', 'a'])
+  })
+
+  // The bug: days sorted, matches within a day did not, because the query has
+  // no ORDER BY and nothing broke the tie.
+  it('puts the later round first within the same game day', () => {
+    const out = [m('r1', '2026-08-01', 1), m('r5', '2026-08-01', 5), m('r3', '2026-08-01', 3)]
+      .sort(newestMatchFirst)
+    expect(out.map((x) => x.id)).toEqual(['r5', 'r3', 'r1'])
+  })
+
+  it('keeps whole days together rather than interleaving them', () => {
+    const out = [
+      m('old-r2', '2026-07-01', 2),
+      m('new-r1', '2026-08-01', 1),
+      m('old-r1', '2026-07-01', 1),
+      m('new-r2', '2026-08-01', 2),
+    ].sort(newestMatchFirst)
+    expect(out.map((x) => x.id)).toEqual(['new-r2', 'new-r1', 'old-r2', 'old-r1'])
   })
 })

@@ -6,6 +6,7 @@ import { PerformanceChart } from './PerformanceChart'
 const match = (id: string, date: string, scoreFor: number, scoreAgainst: number): PlayerMatch => ({
   id,
   sessionId: `s-${id}`,
+  round: 1,
   date,
   mode: 'open',
   partnerId: null,

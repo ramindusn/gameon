@@ -68,11 +68,25 @@ export function PlayerProfilePage() {
     for (const m of history) {
       ;(map.get(m.sessionId) ?? map.set(m.sessionId, []).get(m.sessionId)!).push(m)
     }
-    return [...map.entries()].map(([sessionId, matches]) => {
-      const dayWins = matches.filter((m) => m.won).length
-      const diff = matches.reduce((s, m) => s + (m.scoreFor - m.scoreAgainst), 0)
-      return { sessionId, date: matches[0].date, matches, wins: dayWins, losses: matches.length - dayWins, diff }
-    })
+    return (
+      [...map.entries()]
+        .map(([sessionId, matches]) => {
+          const dayWins = matches.filter((m) => m.won).length
+          const diff = matches.reduce((s, m) => s + (m.scoreFor - m.scoreAgainst), 0)
+          return {
+            sessionId,
+            date: matches[0].date,
+            matches,
+            wins: dayWins,
+            losses: matches.length - dayWins,
+            diff,
+          }
+        })
+        // Explicit, not inherited from Map insertion order: the grouping only
+        // came out newest-first because the loader happened to sort that way,
+        // which is a long way to reach for something this page depends on.
+        .sort((x, y) => y.date.localeCompare(x.date))
+    )
   }, [history])
 
   // Ranking points gained/lost each game day, derived from the rating-after-each

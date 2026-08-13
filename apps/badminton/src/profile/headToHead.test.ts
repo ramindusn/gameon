@@ -10,6 +10,7 @@ const match = (
 ): PlayerMatch => ({
   id: `${partnerId}-${opponents.join('')}-${won}-${Math.random()}`,
   sessionId: 's1',
+  round: 1,
   date: '2026-07-01T00:00:00Z',
   mode: 'open',
   partnerId,

@@ -8,15 +8,15 @@ import type { PlayerMatch } from '../play/api'
 // on the p1+p2 pair page.
 const { history } = vi.hoisted(() => ({
   history: [
-    { id: 'm1', sessionId: 's3', date: '2026-06-24', mode: 'open', partnerId: 'p2',
+    { id: 'm1', sessionId: 's3', round: 1, date: '2026-06-24', mode: 'open', partnerId: 'p2',
       opponentIds: ['p3', 'p4'], scoreFor: 21, scoreAgainst: 12, won: true },
-    { id: 'm2', sessionId: 's2', date: '2026-06-20', mode: 'open', partnerId: 'p2',
+    { id: 'm2', sessionId: 's2', round: 1, date: '2026-06-20', mode: 'open', partnerId: 'p2',
       opponentIds: ['p3', 'p4'], scoreFor: 21, scoreAgainst: 18, won: true },
-    { id: 'm3', sessionId: 's1', date: '2026-06-18', mode: 'open', partnerId: 'p2',
+    { id: 'm3', sessionId: 's1', round: 1, date: '2026-06-18', mode: 'open', partnerId: 'p2',
       opponentIds: ['p5', 'p6'], scoreFor: 15, scoreAgainst: 21, won: false },
-    { id: 'm4', sessionId: 's1', date: '2026-06-18', mode: 'open', partnerId: 'p3',
+    { id: 'm4', sessionId: 's1', round: 1, date: '2026-06-18', mode: 'open', partnerId: 'p3',
       opponentIds: ['p2', 'p4'], scoreFor: 21, scoreAgainst: 10, won: true },
-    { id: 'm5', sessionId: 's0', date: '2026-06-10', mode: 'open', partnerId: 'p2',
+    { id: 'm5', sessionId: 's0', round: 1, date: '2026-06-10', mode: 'open', partnerId: 'p2',
       opponentIds: ['p3', 'p4'], scoreFor: 21, scoreAgainst: 19, won: true },
   ] as PlayerMatch[],
 }))
@@ -33,9 +33,9 @@ vi.mock('../ranking/useRanking', () => ({
   usePairRatingHistory: () => ({
     data: {
       points: [
-        { sessionId: 's1', playedAt: '2026-06-18', rating: 1500 },
-        { sessionId: 's2', playedAt: '2026-06-20', rating: 1560 },
-        { sessionId: 's3', playedAt: '2026-06-24', rating: 1588 },
+        { sessionId: 's1', round: 1, playedAt: '2026-06-18', rating: 1500 },
+        { sessionId: 's2', round: 1, playedAt: '2026-06-20', rating: 1560 },
+        { sessionId: 's3', round: 1, playedAt: '2026-06-24', rating: 1588 },
       ],
       rank: 3,
       prevRank: 5,

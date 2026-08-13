@@ -18,6 +18,7 @@ const { player, history } = vi.hoisted(() => ({
     {
       id: 'm1',
       sessionId: 's1',
+      round: 1,
       date: '2026-06-20',
       mode: 'open',
       partnerId: 'p2',
@@ -29,6 +30,7 @@ const { player, history } = vi.hoisted(() => ({
     {
       id: 'm2',
       sessionId: 's2',
+      round: 1,
       date: '2026-06-18',
       mode: 'mixed',
       partnerId: 'p3',
@@ -61,8 +63,8 @@ vi.mock('../ranking/useRanking', () => ({
   useRatingHistory: () => ({
     data: {
       points: [
-        { sessionId: 's2', playedAt: '2026-06-18', rating: 1610 },
-        { sessionId: 's1', playedAt: '2026-06-20', rating: 1632 },
+        { sessionId: 's2', round: 1, playedAt: '2026-06-18', rating: 1610 },
+        { sessionId: 's1', round: 1, playedAt: '2026-06-20', rating: 1632 },
       ],
       rank: 2,
       prevRank: 4,

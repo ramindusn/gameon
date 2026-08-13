@@ -748,6 +748,8 @@ export interface PlayerMatch {
   id: string
   /** Game day (session) this match belongs to — groups the history view. */
   sessionId: string
+  /** Round within that game day, so matches sort inside a day too. */
+  round: number
   date: string
   mode: Mode
   partnerId: string | null
@@ -768,6 +770,7 @@ function toPlayerMatch(
   return {
     id: r.id,
     sessionId: r.sessionId,
+    round: r.round,
     date: session.played_at,
     mode: session.mode as Mode,
     partnerId: mine.find((x) => x !== playerId) ?? null,
@@ -805,5 +808,18 @@ export async function loadPlayerHistory(playerId: string): Promise<PlayerMatch[]
       return s ? toPlayerMatch(r, s, playerId) : null
     })
     .filter((m): m is PlayerMatch => m !== null)
-    .sort((a, b) => b.date.localeCompare(a.date))
+    .sort(newestMatchFirst)
+}
+
+/**
+ * Newest game day first, and newest round first within a day.
+ *
+ * Exported so the ordering can be tested without a database: the query has no
+ * ORDER BY, so before the round tiebreak the matches inside one game day came
+ * back in whatever order Postgres returned them. The day list looked sorted
+ * while its contents were not, which is exactly the kind of thing nobody
+ * notices until they are looking for a specific match.
+ */
+export function newestMatchFirst(a: PlayerMatch, b: PlayerMatch): number {
+  return b.date.localeCompare(a.date) || b.round - a.round
 }
