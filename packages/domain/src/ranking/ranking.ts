@@ -24,6 +24,7 @@ import {
   type PairRating,
   type PlayerRating,
   type RatingPeriod,
+  type RatingSeed,
   type RatingTables,
 } from './types.ts'
 
@@ -67,8 +68,13 @@ const push = <T>(map: Map<string, T[]>, key: string, value: T) => {
  * Compute both leaderboards from ordered rating periods. Entities default to a
  * fresh Glicko-2 state on first appearance; results are sorted strongest-first
  * (rating desc, then fewer-RD, then key for stability).
+ *
+ * With a `seed`, the periods are rated on top of those stored ratings instead
+ * of from scratch — the same arithmetic with the prefix already done, so one
+ * day can be rated without replaying the season before it (TASK-88). Without
+ * one, behaviour is exactly as before.
  */
-export function computeRatings(periods: RatingPeriod[]): RatingTables {
+export function computeRatings(periods: RatingPeriod[], seed?: RatingSeed): RatingTables {
   const players = new Map<string, Glicko2>()
   const pairs = new Map<string, Glicko2>()
   const playerGames = new Map<string, number>()
@@ -77,6 +83,21 @@ export function computeRatings(periods: RatingPeriod[]): RatingTables {
   // Consecutive missed game days per player, carried across periods for the
   // absence grace period (reset when a player next plays).
   const absenceStreak = new Map<string, number>()
+
+  if (seed) {
+    for (const p of seed.players) {
+      players.set(p.id, { rating: p.rating, rd: p.rd, vol: p.vol })
+      playerGames.set(p.id, p.games)
+    }
+    for (const p of seed.pairs) {
+      pairs.set(p.key, { rating: p.rating, rd: p.rd, vol: p.vol })
+      pairGames.set(p.key, p.games)
+      pairMembers.set(p.key, p.players)
+    }
+    for (const [id, n] of Object.entries(seed.absenceStreak ?? {})) {
+      absenceStreak.set(id, n)
+    }
+  }
 
   for (const period of periods) {
     // Opponents are read from the pre-period snapshot (defaults if unseen), so

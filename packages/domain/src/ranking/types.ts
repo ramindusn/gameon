@@ -38,6 +38,29 @@ export interface PairRating extends Glicko2 {
   games: number
 }
 
+/**
+ * A starting point for computeRatings, so a caller can rate one game day on top
+ * of stored ratings instead of replaying every day that came before (TASK-88).
+ *
+ * The stored boards ARE the replay's result, so seeding from them is the same
+ * arithmetic with the prefix already done. Two things the caller must respect:
+ *
+ *  - The seed has to be current. Ratings are written when a day is finished; if
+ *    a day has been finished since, the seed is stale and rating one more day on
+ *    top of it double-counts nothing but starts from the wrong place. The caller
+ *    checks this — see loadRatingSeed.
+ *  - `absenceStreak` matters only if the periods carry absentees. A live game
+ *    day has none (attendance is frozen when a day finishes), so the preview
+ *    path can omit it. Omitting it with absentees present would treat a player
+ *    who has already missed several days as missing their first.
+ */
+export interface RatingSeed {
+  players: PlayerRating[]
+  pairs: PairRating[]
+  /** Consecutive missed game days per player id, carried from earlier periods. */
+  absenceStreak?: Record<string, number>
+}
+
 /** Both leaderboards, each sorted strongest-first. */
 export interface RatingTables {
   players: PlayerRating[]

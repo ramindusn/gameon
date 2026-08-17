@@ -213,3 +213,63 @@ describe('computeRatings — edge cases', () => {
     expect(playerById(tables, 'a').rating).toBeGreaterThan(DEFAULT_RATING)
   })
 })
+
+// TASK-88: rating one day on top of stored ratings must be indistinguishable
+// from replaying every day before it. If these ever diverge, the live-day
+// preview silently disagrees with the leaderboard it is previewing.
+describe('seeding from stored ratings', () => {
+  const m = (a1: string, a2: string, b1: string, b2: string, sa: number, sb: number) => ({
+    teamA: [a1, a2] as [string, string],
+    teamB: [b1, b2] as [string, string],
+    scoreA: sa,
+    scoreB: sb,
+  })
+  const season = [
+    { matches: [m('a', 'b', 'c', 'd', 21, 15), m('a', 'c', 'b', 'd', 18, 21)] },
+    { matches: [m('a', 'd', 'b', 'c', 21, 19), m('b', 'd', 'a', 'c', 12, 21)] },
+    { matches: [m('c', 'd', 'a', 'b', 21, 17)] },
+  ]
+  const today = { matches: [m('a', 'b', 'c', 'd', 21, 11), m('a', 'c', 'b', 'd', 9, 21)] }
+
+  it('gives the same boards as replaying the whole history', () => {
+    const full = computeRatings([...season, today])
+    const prefix = computeRatings(season)
+    const seeded = computeRatings([today], { players: prefix.players, pairs: prefix.pairs })
+
+    const norm = (b: { id?: string; key?: string; rating: number; rd: number; vol: number; games: number }[]) =>
+      b.map((r) => [r.id ?? r.key, r.rating.toFixed(10), r.rd.toFixed(10), r.vol.toFixed(10), r.games])
+    expect(norm(seeded.players)).toEqual(norm(full.players))
+    expect(norm(seeded.pairs)).toEqual(norm(full.pairs))
+  })
+
+  it('carries the games count forward rather than restarting it', () => {
+    const prefix = computeRatings(season)
+    const seeded = computeRatings([today], { players: prefix.players, pairs: prefix.pairs })
+    const before = prefix.players.find((p) => p.id === 'a')!.games
+    const after = seeded.players.find((p) => p.id === 'a')!.games
+    expect(after).toBe(before + 2)
+  })
+
+  it('behaves exactly as before when no seed is given', () => {
+    const a = computeRatings(season)
+    const b = computeRatings(season, undefined)
+    expect(b).toEqual(a)
+  })
+
+  // The streak decides when absence decay starts biting, and it is not stored
+  // with the ratings — a caller passing absentees must pass it too.
+  it('continues an absence streak when the seed carries it', () => {
+    const played = [{ matches: [m('a', 'b', 'c', 'd', 21, 15)] }]
+    const base = computeRatings(played)
+    const idle = { matches: [], absentees: ['a'] }
+    const withStreak = computeRatings([idle], {
+      players: base.players,
+      pairs: base.pairs,
+      absenceStreak: { a: ABSENCE_GRACE_PERIOD },
+    })
+    const withoutStreak = computeRatings([idle], { players: base.players, pairs: base.pairs })
+    const ratingOf = (t: typeof base, id: string) => t.players.find((p) => p.id === id)!.rating
+    // Past the grace period the seeded streak decays; a fresh streak does not.
+    expect(ratingOf(withStreak, 'a')).toBeLessThan(ratingOf(withoutStreak, 'a'))
+  })
+})

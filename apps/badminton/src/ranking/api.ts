@@ -12,6 +12,7 @@ import {
   DEFAULT_RATING,
   type MatchRecord,
   type RatingPeriod,
+  type RatingSeed,
 } from '@gameon/domain'
 
 /** One rated player from the individual board (strongest first). */
@@ -549,6 +550,61 @@ export async function loadPlayerAttendance(): Promise<Record<string, PlayerAtten
  * with the real engine means the number is true throughout and finishing the
  * day does not move it.
  */
+/**
+ * The stored boards as a starting point for rating one more day (TASK-88).
+ *
+ * Returns null when the seed cannot be trusted, and the caller falls back to
+ * replaying history. The check is an invariant rather than a timestamp: every
+ * scored match feeds exactly four player-games, so sum(games) across the board
+ * must equal 4x the number of scored matches in finished days. If a day was
+ * finished but the recompute that follows it failed — it is best-effort, and
+ * logs rather than throws — the stored games fall behind and this catches it.
+ *
+ * Verified against prod before relying on it: 976 = 4 x 244.
+ *
+ * Both queries are aggregates or 14-row reads, so this costs about 1 KB against
+ * the 61 KB the full replay fetches, and it stays that size however many
+ * seasons the club plays.
+ */
+export async function loadRatingSeed(): Promise<RatingSeed | null> {
+  const db = client()
+  const [{ data: players }, { data: pairs }, { count: scoredMatches }] = await Promise.all([
+    db.from('player_ratings').select('player_id, rating, rd, volatility, games'),
+    db.from('pair_ratings').select('player1_id, player2_id, rating, rd, volatility, games'),
+    db
+      .from('match_results')
+      .select('id, match_sessions!inner(status)', { count: 'exact', head: true })
+      .eq('match_sessions.status', 'finished')
+      .not('winner', 'is', null)
+      .not('team_a1', 'is', null)
+      .not('team_a2', 'is', null)
+      .not('team_b1', 'is', null)
+      .not('team_b2', 'is', null),
+  ])
+  if (!players?.length || scoredMatches == null) return null
+
+  const seededGames = players.reduce((n, p) => n + (p.games ?? 0), 0)
+  if (seededGames !== scoredMatches * 4) return null
+
+  return {
+    players: players.map((p) => ({
+      id: p.player_id,
+      rating: p.rating,
+      rd: p.rd,
+      vol: p.volatility,
+      games: p.games,
+    })),
+    pairs: (pairs ?? []).map((p) => ({
+      key: pairKey(p.player1_id, p.player2_id),
+      players: [p.player1_id, p.player2_id] as [string, string],
+      rating: p.rating,
+      rd: p.rd,
+      vol: p.volatility,
+      games: p.games,
+    })),
+  }
+}
+
 /** Everything a replay needs, loaded once so the day figure and the per-match
  *  figures can never be computed from different inputs. */
 interface ReplayInput {
@@ -558,6 +614,16 @@ interface ReplayInput {
   absBySession: Map<string, string[]>
   /** The target day's scored matches in play order, with their row ids. */
   targetMatches: { id: string; record: MatchRecord }[]
+  /**
+   * Stored ratings to rate the target day on top of, skipping the replay.
+   *
+   * Only ever set for a LIVE day. The stored boards are the state AFTER every
+   * finished day, so for a finished target they already include it — rating it
+   * again would count the day twice, and there is no way to ask them for the
+   * state before it. A finished day therefore still replays, which is the path
+   * that existed before TASK-87 anyway.
+   */
+  seed?: RatingSeed
 }
 
 async function loadReplayInput(sessionId: string): Promise<ReplayInput | null> {
@@ -585,14 +651,23 @@ async function loadReplayInput(sessionId: string): Promise<ReplayInput | null> {
   const targetIdx = sRows.findIndex((s) => s.id === sessionId)
   if (targetIdx < 0) return null
 
-  const { data: results } = await db
+  // A live day can be rated on top of the stored boards; a finished one cannot,
+  // because those boards already include it (see ReplayInput.seed). When the
+  // seed holds, only this day's matches are needed — about 1 KB against the
+  // 61 KB a full replay reads, and constant however long the club plays.
+  const seed = target.status === 'finished' ? null : await loadRatingSeed()
+
+  const resultsQuery = db
     .from('match_results')
     .select('id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, winner, score_a, score_b')
     .order('round', { ascending: true })
     .order('court', { ascending: true })
-  const { data: attendance } = await db
-    .from('session_attendance')
-    .select('session_id, player_id, present')
+  const { data: results } = await (seed ? resultsQuery.eq('session_id', sessionId) : resultsQuery)
+  // Absentees only matter for the periods being rated. Seeded, that is this day
+  // alone — and a live day has no attendance yet, since it is frozen on finish.
+  const { data: attendance } = seed
+    ? { data: [] }
+    : await db.from('session_attendance').select('session_id, player_id, present')
 
   type R = {
     id: string
@@ -633,7 +708,7 @@ async function loadReplayInput(sessionId: string): Promise<ReplayInput | null> {
     )
   }
 
-  return { sRows, targetIdx, bySession, absBySession, targetMatches }
+  return { sRows, targetIdx, bySession, absBySession, targetMatches, seed: seed ?? undefined }
 }
 
 /**
@@ -643,14 +718,28 @@ async function loadReplayInput(sessionId: string): Promise<ReplayInput | null> {
  * with k matches, then with k+1, and the difference is what match k+1 added.
  */
 function ratingsAt(input: ReplayInput, targetMatchCount?: number): Map<string, number> {
-  const periods: RatingPeriod[] = input.sRows.slice(0, input.targetIdx + 1).map((s, i) => ({
+  const target = input.sRows[input.targetIdx]
+  const targetPeriod: RatingPeriod = {
     matches:
-      i === input.targetIdx && targetMatchCount != null
+      targetMatchCount != null
         ? input.targetMatches.slice(0, targetMatchCount).map((m) => m.record)
-        : (input.bySession.get(s.id) ?? []),
+        : (input.bySession.get(target.id) ?? []),
+    absentees: input.absBySession.get(target.id) ?? [],
+  }
+  // Seeded: one period on top of the stored boards. Unseeded: every finished
+  // day replayed, then the target. Both produce the same numbers — the domain
+  // tests pin that to ten decimal places — but the first reads 1 KB where the
+  // second reads the season.
+  if (input.seed) {
+    return new Map(computeRatings([targetPeriod], input.seed).players.map((p) => [p.id, p.rating]))
+  }
+  const periods: RatingPeriod[] = input.sRows.slice(0, input.targetIdx).map((s) => ({
+    matches: input.bySession.get(s.id) ?? [],
     absentees: input.absBySession.get(s.id) ?? [],
   }))
-  return new Map(computeRatings(periods).players.map((p) => [p.id, p.rating]))
+  return new Map(
+    computeRatings([...periods, targetPeriod]).players.map((p) => [p.id, p.rating]),
+  )
 }
 
 /**
