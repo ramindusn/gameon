@@ -92,14 +92,25 @@ describe('LeaderboardPage', () => {
     expect(screen.getByTestId('pair-row-p2-p3')).toBeInTheDocument()
   })
 
-  it('explains the W/L/D form markers in a legend (TASK-41)', () => {
+  // Collapsed by default: the marks it explains are visible in the boards
+  // right below, and the prose used to take a quarter of a phone screen before
+  // any ranking appeared.
+  it('keeps the legend to one line until asked (TASK-41)', () => {
     renderPage()
     const legend = screen.getByTestId('leaderboard-legend')
-    expect(legend).toHaveTextContent('Won the day')
-    expect(legend).toHaveTextContent('Lost the day')
-    expect(legend).toHaveTextContent('Even')
-    expect(legend).toHaveTextContent('Inactive')
-    expect(legend).toHaveTextContent('Needs more games')
+    expect(legend).toHaveTextContent('Recent form, newest first')
+    expect(screen.queryByTestId('leaderboard-legend-detail')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('leaderboard-legend-toggle'))
+    const detail = screen.getByTestId('leaderboard-legend-detail')
+    expect(detail).toHaveTextContent('Won the day')
+    expect(detail).toHaveTextContent('Lost the day')
+    expect(detail).toHaveTextContent('Even')
+    expect(detail).toHaveTextContent('Inactive')
+    expect(detail).toHaveTextContent('Needs more games')
+
+    fireEvent.click(screen.getByTestId('leaderboard-legend-toggle'))
+    expect(screen.queryByTestId('leaderboard-legend-detail')).toBeNull()
   })
 
   it('shows recent form pills for a player with history', () => {

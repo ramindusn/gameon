@@ -63,50 +63,89 @@ export function FormStrip({ results }: { results?: FormResult[] }) {
   )
 }
 
-/** A single W/L/D form pill with its meaning — used in the legend. */
-function LegendPill({ r, label }: { r: FormResult; label: string }) {
+/** One W/L/D pill, drawn the same as the ones in the boards above. */
+function FormPill({ r }: { r: FormResult }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        className={cx(
-          'grid h-5 w-5 place-items-center rounded text-[10px] font-bold',
-          r === 'W' && 'bg-accent/15 text-accent-strong',
-          r === 'L' && 'bg-negative/15 text-negative',
-          r === 'D' && 'bg-surface-muted text-fg-muted',
-        )}
-      >
-        {r}
-      </span>
-      <span className="text-fg-muted">{label}</span>
+    <span
+      className={cx(
+        'grid h-5 w-5 place-items-center rounded text-[10px] font-bold',
+        r === 'W' && 'bg-accent/15 text-accent-strong',
+        r === 'L' && 'bg-negative/15 text-negative',
+        r === 'D' && 'bg-surface-muted text-fg-muted',
+      )}
+    >
+      {r}
     </span>
   )
 }
 
-/** Explains the ranking page's markers so a first-time visitor understands them. */
+/**
+ * Explains the ranking page's markers.
+ *
+ * Collapsed to a single line by default. It used to be a permanent block of
+ * prose that took a quarter of a phone screen before any ranking appeared —
+ * and the marks it explains sit right there in the table, so most visits do not
+ * need the words at all. Expanded, the terms line up in a fixed column instead
+ * of the description wrapping under its own label.
+ */
 export function LeaderboardLegend() {
+  const [open, setOpen] = useState(false)
   return (
     <div
-      className="mb-6 rounded-xl border border-line bg-surface px-4 py-3 text-xs"
+      className="mb-4 rounded-xl border border-line bg-surface px-3 py-2 text-xs"
       data-testid="leaderboard-legend"
     >
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <span className="font-semibold text-fg-subtle">
-          Recent form — one mark per game day, newest first:
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        data-testid="leaderboard-legend-toggle"
+        className="flex w-full items-center gap-2 text-left text-fg-muted transition-colors hover:text-fg"
+      >
+        <span className="flex shrink-0 items-center gap-1">
+          <FormPill r="W" />
+          <FormPill r="L" />
+          <FormPill r="D" />
         </span>
-        <LegendPill r="W" label="Won the day" />
-        <LegendPill r="L" label="Lost the day" />
-        <LegendPill r="D" label="Even (equal wins &amp; losses)" />
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-fg-muted">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="font-medium text-fg-subtle">Inactive</span>
-          no games in 5+ game days — moved out of the ranking while the rating decays
+        <span className="min-w-0 flex-1 truncate">Recent form, newest first</span>
+        <span aria-hidden className="shrink-0 text-fg-subtle">
+          {open ? '\u25be' : '\u25b8'}
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="font-medium text-fg-subtle">Needs more games</span>
-          rating still settling in
-        </span>
-      </div>
+      </button>
+
+      {open && (
+        <div
+          className="mt-2.5 space-y-2 border-t border-line pt-2.5"
+          data-testid="leaderboard-legend-detail"
+        >
+          {/* The three marks read as one line — they are the same alphabet, and
+              a shared term column would strand them far from their meanings
+              because "Needs more games" is so much wider. */}
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-fg-muted">
+            <span className="inline-flex items-center gap-1.5">
+              <FormPill r="W" /> Won the day
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <FormPill r="L" /> Lost the day
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <FormPill r="D" /> Even
+            </span>
+          </p>
+          <dl className="space-y-1 text-fg-muted">
+            <div>
+              <dt className="inline font-medium text-fg-subtle">Inactive</dt>{' '}
+              <dd className="inline">
+                no games in 5+ game days, so out of the ranking while the rating decays
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-medium text-fg-subtle">Needs more games</dt>{' '}
+              <dd className="inline">rating still settling in</dd>
+            </div>
+          </dl>
+        </div>
+      )}
     </div>
   )
 }
