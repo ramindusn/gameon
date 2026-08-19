@@ -45,11 +45,16 @@ export function TodayUsage() {
         }
       : null
 
-  async function handleDeleteDay(day: { id: string; date: string; totalShuttles: number }) {
+  // This removes the USAGE recorded against a day, not the day itself — the
+  // list is usage entries. It used to say "Delete game day", so anyone trying
+  // to remove a game day clicked it, watched the shuttles go back, and found
+  // the game day still there. Deleting a game day is on the game day's own
+  // page, where it also reverses the usage.
+  async function handleDeleteUsage(day: { id: string; date: string; totalShuttles: number }) {
     const ok = await confirm({
-      title: 'Delete game day',
-      message: `Delete this game day (${formatDateTime(day.date)} — ${day.totalShuttles} shuttles)? This returns those shuttles to inventory and undoes the members' payment.`,
-      confirmLabel: 'Delete',
+      title: 'Delete usage record',
+      message: `Remove the ${day.totalShuttles} shuttles recorded for ${formatDateTime(day.date)}? They go back to the matchmaker's stock and the members' payment is undone. The game day itself stays — delete that from the game day's page.`,
+      confirmLabel: 'Remove usage',
       danger: true,
     })
     if (ok) deleteTransaction({ kind: 'usage', id: day.id })
@@ -122,8 +127,8 @@ export function TodayUsage() {
                 {isAuthenticated && (
                   <button
                     type="button"
-                    aria-label="Delete game day"
-                    onClick={() => void handleDeleteDay(day)}
+                    aria-label="Delete usage record"
+                    onClick={() => void handleDeleteUsage(day)}
                     className="ml-2 rounded p-1 text-fg-subtle transition-colors hover:bg-red-500/10 hover:text-red-500"
                   >
                     ✕
