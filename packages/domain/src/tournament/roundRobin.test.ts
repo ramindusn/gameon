@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextTournamentRound, roundRobin } from './roundRobin'
+import { nextTournamentRound, roundRobin, MAX_ROUNDS, maxPasses } from './roundRobin'
 
 function allMatchups(rounds: Array<Array<[number, number]>>): string[] {
   return rounds.flat().map(([a, b]) => (a < b ? `${a}-${b}` : `${b}-${a}`))
@@ -76,5 +76,35 @@ describe('nextTournamentRound (TASK-80)', () => {
   it('returns nothing when there are not two pairs', () => {
     expect(nextTournamentRound(1, 0)).toEqual([])
     expect(nextTournamentRound(0, 0)).toEqual([])
+  })
+})
+
+// A game day is capped at 30 rounds by the schema. Fixed-pairs generation used
+// to ignore that: the rounds field defaults to 5, and 5 full round-robins over
+// 7 pairs is 35 rounds, so the insert was rejected and the UI showed nothing.
+describe('maxPasses', () => {
+  it('allows several passes when the round-robin is short', () => {
+    // 4 pairs = 3 rounds a pass, so 10 passes fit in 30.
+    expect(maxPasses(4)).toBe(10)
+  })
+
+  it('caps the passes that used to overflow the schema', () => {
+    // 7 or 8 pairs = 7 rounds a pass. Four fit (28); the default five did not.
+    expect(maxPasses(7)).toBe(4)
+    expect(maxPasses(8)).toBe(4)
+    expect(maxPasses(7) * roundRobin(7).length).toBeLessThanOrEqual(MAX_ROUNDS)
+  })
+
+  it('never returns a pass count that overflows, for any plausible pair count', () => {
+    for (let n = 2; n <= 16; n++) {
+      const total = maxPasses(n) * roundRobin(n).length
+      expect(total).toBeLessThanOrEqual(MAX_ROUNDS)
+    }
+  })
+
+  it('returns 0 when even one pass cannot fit', () => {
+    // 32 pairs needs 31 rounds for a single pass — one more than a day holds.
+    expect(maxPasses(32)).toBe(0)
+    expect(maxPasses(1)).toBe(0)
   })
 })

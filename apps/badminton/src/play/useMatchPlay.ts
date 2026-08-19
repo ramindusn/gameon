@@ -145,10 +145,18 @@ export function useCreateSession() {
 /** Start a fixed-pairs tournament pre-filled with round-robin fixtures (E11). */
 export function useCreateTournamentWithMatches() {
   const qc = useQueryClient()
+  const { success, error } = useToast()
   return useMutation({
     mutationFn: (v: { clubId: string; playedAt: string; fixtures: TournamentFixture[] }) =>
       createTournamentWithMatches(v.clubId, v.playedAt, v.fixtures),
-    onSuccess: () => qc.invalidateQueries({ queryKey: SESSIONS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SESSIONS_KEY })
+      success('Tournament created')
+    },
+    // This was the only mutation here with no onError, so a rejected insert
+    // left the button going back to "Generate matches" and nothing else
+    // happening — the failure was invisible.
+    onError: () => error('Could not create the tournament'),
   })
 }
 

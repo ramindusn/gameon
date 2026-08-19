@@ -55,3 +55,26 @@ export function nextTournamentRound(
   const idx = ((roundsPlayed % schedule.length) + schedule.length) % schedule.length
   return schedule[idx]
 }
+
+/**
+ * A game day cannot hold more than this many rounds — match_sessions has a
+ * CHECK (rounds between 1 and 30). Kept here so the schedule builder can respect
+ * it rather than letting the database reject the whole draw at the last step.
+ */
+export const MAX_ROUNDS = 30
+
+/**
+ * How many full round-robin passes fit in a game day, for `pairCount` pairs.
+ *
+ * Each pass is `roundRobin(pairCount).length` rounds, and the total has to stay
+ * within MAX_ROUNDS. Returns 0 when a single pass already cannot fit, so the
+ * caller can say so instead of building a draw the database will refuse.
+ *
+ * This is why fixed-pairs generation used to fail silently for 7+ pairs: the
+ * rounds field defaults to 5, and 5 passes over 7 pairs is 35 rounds.
+ */
+export function maxPasses(pairCount: number): number {
+  const perPass = roundRobin(pairCount).length
+  if (perPass === 0) return 0
+  return Math.floor(MAX_ROUNDS / perPass)
+}

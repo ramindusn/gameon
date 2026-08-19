@@ -132,6 +132,29 @@ describe('GeneratePage', () => {
     })
   })
 
+  // The rounds field is reused as "how many full round-robins", and a game day
+  // is capped at 30 rounds by the schema. 5 passes over 7 pairs is 35, so the
+  // insert was rejected — and with no error handler the button just went back
+  // to "Generate matches" and nothing happened.
+  it('caps the passes so the draw cannot exceed a game day', () => {
+    tournamentMutate.mockClear()
+    renderPage()
+    fireEvent.change(screen.getByTestId('rounds-input'), { target: { value: '15' } })
+    fireEvent.click(screen.getByTestId('new-tournament'))
+    for (const id of ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']) {
+      fireEvent.click(screen.getByTestId(`tp-${id}`))
+    }
+    // 4 pairs = 3 rounds a pass, so 15 passes would be 45 rounds. Capped to 10.
+    const summary = screen.getByTestId('tournament-summary')
+    expect(summary).toHaveTextContent('30 rounds')
+    expect(summary).toHaveTextContent(/capped at 10 round-robins/i)
+
+    fireEvent.click(screen.getByTestId('generate-matches'))
+    const arg = tournamentMutate.mock.calls[0][0]
+    const maxRound = Math.max(...arg.fixtures.map((f: { round: number }) => f.round))
+    expect(maxRound).toBeLessThanOrEqual(30)
+  })
+
   it('unchecks 3-in-a-row absentees by default and sorts them last (TASK-64)', () => {
     // p6 and p7 missed the last 3+ game days; everyone else has come recently.
     attendance.current = {

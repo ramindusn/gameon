@@ -4,6 +4,8 @@ import { Button, Card, cx, Field } from '@gameon/ui'
 import {
   generateRounds,
   roundRobin,
+  maxPasses,
+  MAX_ROUNDS,
   type GeneratedMatches,
   type MatchPlayer,
 } from '@gameon/domain'
@@ -470,10 +472,18 @@ function TournamentSetup({
     }
   }
 
-  const rrPasses = Math.max(1, passes)
+  // Each pass is a full round-robin, and a game day holds at most MAX_ROUNDS.
+  // The rounds field on the setup screen defaults to 5, which for 7+ pairs is
+  // 35 rounds — the insert was rejected and, with no error handler on the
+  // mutation, nothing appeared to happen at all.
+  const fit = maxPasses(pairs.length)
+  const rrPasses = fit > 0 ? Math.min(Math.max(1, passes), fit) : 0
+  const perPass = pairs.length >= 2 ? roundRobin(pairs.length).length : 0
+  const totalRounds = perPass * rrPasses
+  const capped = fit > 0 && passes > fit
 
   function generate() {
-    if (!clubId || pairs.length < 2) return
+    if (!clubId || pairs.length < 2 || rrPasses < 1) return
     // Round-robin over the locked pairs, repeated `passes` times (each pass is a
     // full round-robin); flatten to one match per court.
     const schedule = roundRobin(pairs.length)
@@ -558,15 +568,19 @@ function TournamentSetup({
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-fg-subtle">
+        <p className="text-xs text-fg-subtle" data-testid="tournament-summary">
           {pairs.length < 2
             ? 'Lock at least 2 pairs to generate matches.'
-            : `${matchCount} matches will be generated.`}
+            : fit === 0
+              ? `${pairs.length} pairs need ${perPass} rounds for one round-robin, more than a game day holds (${MAX_ROUNDS}). Lock fewer pairs.`
+              : `${matchCount} matches over ${totalRounds} rounds.`}
+          {capped &&
+            ` Capped at ${rrPasses} round-robin${rrPasses === 1 ? '' : 's'} — ${passes} would need ${perPass * passes} rounds, over the ${MAX_ROUNDS} a game day holds.`}
           {pool.length > 0 && pairs.length >= 2 && ` ${pool.length} player(s) will sit out.`}
         </p>
         <Button
           onClick={generate}
-          disabled={!clubId || pairs.length < 2 || create.isPending}
+          disabled={!clubId || pairs.length < 2 || rrPasses < 1 || create.isPending}
           data-testid="generate-matches"
           className="w-full sm:w-auto"
         >
