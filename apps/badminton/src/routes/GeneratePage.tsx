@@ -265,7 +265,6 @@ export function GeneratePage() {
               players={selectedPlayers}
               clubId={data?.clubId ?? null}
               playedAt={localInputToIso(playedAt)}
-              passes={rounds}
               onCreated={(id) => navigate(`/game-days/${id}`)}
             />
           </div>
@@ -445,24 +444,23 @@ function TournamentSetup({
   players,
   clubId,
   playedAt,
-  passes: initialPasses,
   onCreated,
 }: {
   players: Player[]
   clubId: string | null
   playedAt: string
-  /** Seeded from the setup screen's Rounds field; editable here (see below). */
-  passes: number
   onCreated: (sessionId: string) => void
 }) {
   const create = useCreateTournamentWithMatches()
   const [pairs, setPairs] = useState<[Player, Player][]>([])
   const [picked, setPicked] = useState<Player | null>(null)
-  // The setup screen's "Rounds" is hidden once this panel opens, and it means
-  // something different here anyway: one round-robin is everyone playing
-  // everyone once, which is already several rounds. Own it here, named for
-  // what it does.
-  const [passesText, setPassesText] = useState(String(Math.max(1, initialPasses)))
+  // Deliberately NOT seeded from the setup screen's Rounds field. That number
+  // means rounds for a random-doubles draw; here it would mean full
+  // round-robins, and one of those is already several rounds. Carrying 15 over
+  // asked for 15 x 7 = 105 rounds, which the cap then cut to 30 — the "I set 15
+  // and got 30" surprise. Fixed pairs start at one time through; the matchmaker
+  // raises it if they want more.
+  const [passesText, setPassesText] = useState('1')
   const passes = Math.max(1, Number(passesText) || 1)
 
   const pairedIds = new Set(pairs.flatMap(([a, b]) => [a.id, b.id]))

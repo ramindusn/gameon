@@ -132,19 +132,18 @@ describe('GeneratePage', () => {
     })
   })
 
-  // The rounds field is reused as "how many full round-robins", and a game day
-  // is capped at 30 rounds by the schema. 5 passes over 7 pairs is 35, so the
-  // insert was rejected — and with no error handler the button just went back
-  // to "Generate matches" and nothing happened.
+  // A game day is capped at 30 rounds by the schema. Before this, 5 passes over
+  // 7 pairs was 35 rounds, the insert was rejected, and with no error handler
+  // the button just went back to "Generate matches" and nothing happened.
   it('caps the passes so the draw cannot exceed a game day', () => {
     tournamentMutate.mockClear()
     renderPage()
-    fireEvent.change(screen.getByTestId('rounds-input'), { target: { value: '15' } })
     fireEvent.click(screen.getByTestId('new-tournament'))
     for (const id of ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']) {
       fireEvent.click(screen.getByTestId(`tp-${id}`))
     }
     // 4 pairs = 3 rounds a pass, so 15 passes would be 45 rounds. Capped to 10.
+    fireEvent.change(screen.getByTestId('passes-input'), { target: { value: '15' } })
     const summary = screen.getByTestId('tournament-summary')
     expect(summary).toHaveTextContent('30 rounds')
     expect(summary).toHaveTextContent(/capped at 10 round-robins/i)
@@ -153,6 +152,19 @@ describe('GeneratePage', () => {
     const arg = tournamentMutate.mock.calls[0][0]
     const maxRound = Math.max(...arg.fixtures.map((f: { round: number }) => f.round))
     expect(maxRound).toBeLessThanOrEqual(30)
+  })
+
+  // The casual Rounds field means rounds; here the number would mean full
+  // round-robins, and one of those is already several rounds. Carrying it over
+  // is what turned "15" into 30.
+  it('does not inherit the random-doubles rounds value', () => {
+    tournamentMutate.mockClear()
+    renderPage()
+    fireEvent.change(screen.getByTestId('rounds-input'), { target: { value: '15' } })
+    fireEvent.click(screen.getByTestId('new-tournament'))
+    for (const id of ['p1', 'p2', 'p3', 'p4']) fireEvent.click(screen.getByTestId(`tp-${id}`))
+    expect(screen.getByTestId('passes-input')).toHaveValue(1)
+    expect(screen.getByTestId('tournament-summary')).toHaveTextContent('1 matches over 1 rounds')
   })
 
   // The setup screen's Rounds field is hidden once this panel opens, so the

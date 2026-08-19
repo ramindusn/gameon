@@ -88,8 +88,12 @@ export function PlayPage() {
   // Usage comes out of a matchmaker's own barrels, so only a stock holder is
   // ever asked for it.
   const canRecordUsage = !!stockCtx?.myHolderId
-  const canEdit = role === 'matchmaker'
-  const staff = role === 'matchmaker' || role === 'admin'
+  // An admin can run a game day too. delete_game_day() and the match_sessions
+  // RLS both say "is_admin OR is_matchmaker", so gating the UI on matchmaker
+  // alone hid Delete, Finish and Edit date from the one person most likely to
+  // be tidying up an old day — the database would have allowed it.
+  const canEdit = role === 'matchmaker' || role === 'admin'
+  const staff = canEdit
 
   const setScore = useSetScore(id)
   const setStatus = useSetSessionStatus(id)

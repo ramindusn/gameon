@@ -211,6 +211,19 @@ describe('PlayPage', () => {
     expect(screen.queryByTestId('tab-score')).toBeNull()
   })
 
+  // delete_game_day() and the match_sessions RLS both allow "is_admin OR
+  // is_matchmaker", but the page gated on matchmaker alone — so an admin, the
+  // person most likely to be tidying an old day, had no Delete button at all.
+  it('lets an admin manage the game day, not just a matchmaker', () => {
+    authRole.current = 'admin'
+    renderPage()
+    expect(screen.getByTestId('delete-game-day')).toBeInTheDocument()
+    expect(screen.getByTestId('finish-session')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('delete-game-day'))
+    expect(screen.getByTestId('confirm-delete-game-day')).toBeInTheDocument()
+  })
+
   it('gives a signed-out viewer the same court cards, read-only (no editing)', () => {
     authRole.current = null
     renderPage()
