@@ -445,18 +445,25 @@ function TournamentSetup({
   players,
   clubId,
   playedAt,
-  passes,
+  passes: initialPasses,
   onCreated,
 }: {
   players: Player[]
   clubId: string | null
   playedAt: string
+  /** Seeded from the setup screen's Rounds field; editable here (see below). */
   passes: number
   onCreated: (sessionId: string) => void
 }) {
   const create = useCreateTournamentWithMatches()
   const [pairs, setPairs] = useState<[Player, Player][]>([])
   const [picked, setPicked] = useState<Player | null>(null)
+  // The setup screen's "Rounds" is hidden once this panel opens, and it means
+  // something different here anyway: one round-robin is everyone playing
+  // everyone once, which is already several rounds. Own it here, named for
+  // what it does.
+  const [passesText, setPassesText] = useState(String(Math.max(1, initialPasses)))
+  const passes = Math.max(1, Number(passesText) || 1)
 
   const pairedIds = new Set(pairs.flatMap(([a, b]) => [a.id, b.id]))
   const pool = players.filter((p) => !pairedIds.has(p.id))
@@ -564,6 +571,27 @@ function TournamentSetup({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {pairs.length >= 2 && fit > 0 && (
+        <div className="mb-4 border-t border-line pt-4">
+          <Field
+            inline
+            label="Times everyone plays everyone"
+            type="number"
+            min={1}
+            max={fit}
+            inputMode="numeric"
+            value={passesText}
+            onChange={(e) => setPassesText(e.target.value)}
+            onBlur={() => setPassesText(String(rrPasses))}
+            data-testid="passes-input"
+          />
+          <p className="mt-1.5 text-xs text-fg-subtle">
+            One time through is {perPass} round{perPass === 1 ? '' : 's'}. A game day
+            holds {MAX_ROUNDS}, so at most {fit} here.
+          </p>
         </div>
       )}
 

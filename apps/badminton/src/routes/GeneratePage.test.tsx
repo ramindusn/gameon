@@ -155,6 +155,22 @@ describe('GeneratePage', () => {
     expect(maxRound).toBeLessThanOrEqual(30)
   })
 
+  // The setup screen's Rounds field is hidden once this panel opens, so the
+  // number driving the draw was invisible exactly where it took effect.
+  it('lets the passes be changed inside the tournament panel', () => {
+    tournamentMutate.mockClear()
+    renderPage()
+    fireEvent.click(screen.getByTestId('new-tournament'))
+    for (const id of ['p1', 'p2', 'p3', 'p4']) fireEvent.click(screen.getByTestId(`tp-${id}`))
+
+    // Two pairs: one pass is a single fixture, so the count is easy to read.
+    fireEvent.change(screen.getByTestId('passes-input'), { target: { value: '3' } })
+    expect(screen.getByTestId('tournament-summary')).toHaveTextContent('3 matches over 3 rounds')
+
+    fireEvent.click(screen.getByTestId('generate-matches'))
+    expect(tournamentMutate.mock.calls[0][0].fixtures).toHaveLength(3)
+  })
+
   it('unchecks 3-in-a-row absentees by default and sorts them last (TASK-64)', () => {
     // p6 and p7 missed the last 3+ game days; everyone else has come recently.
     attendance.current = {
