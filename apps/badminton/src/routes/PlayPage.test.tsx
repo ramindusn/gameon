@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { MatchResult, MatchSession } from '../play/api'
 
-const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole, usageCtx, lastUsageModalProps, ratingDeltas, matchDeltas, teams, substitute } =
+const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole, usageCtx, lastUsageModalProps, ratingDeltas, matchDeltas, pairDeltas, teams, substitute } =
   vi.hoisted(() => {
   const session: MatchSession = {
     id: 's1',
@@ -62,6 +62,7 @@ const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, ses
     matchDeltas: {
       current: undefined as Record<string, Record<string, number>> | undefined,
     },
+    pairDeltas: { current: undefined as Record<string, number> | undefined },
   }
 })
 
@@ -117,6 +118,7 @@ vi.mock('../ranking/useRanking', () => ({
   // Empty until a day is finished and recomputed, so the Points tab falls back
   // to its projection — which is what these tests assert.
   useGameDayRatingDeltas: () => ({ data: ratingDeltas.current }),
+  useGameDayPairRatingDeltas: () => ({ data: pairDeltas.current }),
   useMatchRatingDeltas: () => ({ data: matchDeltas.current }),
 }))
 
@@ -147,6 +149,7 @@ describe('PlayPage', () => {
     lastUsageModalProps.current = null
     ratingDeltas.current = undefined
     matchDeltas.current = undefined
+    pairDeltas.current = undefined
   })
 
   it('switches to the Points tab, showing point diff + ranking per player', () => {
@@ -576,6 +579,28 @@ describe('changing a pair (TASK-80)', () => {
       { id: 't2', player1Id: 'p3', player2Id: 'p4' },
     ]
     authRole.current = 'matchmaker'
+  })
+
+  // The individual standings have shown ranking points since TASK-87. A
+  // fixed-pairs day ranks partnerships, so its board needs the partnership's
+  // figure — the pair table only had game-day Points.
+  it('shows each pair the ranking points it gained today', () => {
+    // The scored fixture is p5/p6 beating p7/p8; pairKey sorts the ids.
+    pairDeltas.current = { 'p5|p6': 4.2, 'p7|p8': -4.2 }
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-points'))
+    const table = screen.getByTestId('pair-points-table')
+    expect(table).toHaveTextContent('Ranking')
+    expect(table).toHaveTextContent('+4.2')
+    expect(table).toHaveTextContent('-4.2')
+  })
+
+  it('shows a dash for a pair the engine has no figure for yet', () => {
+    pairDeltas.current = {}
+    renderPage()
+    fireEvent.click(screen.getByTestId('tab-points'))
+    // Not a zero: a zero reads as "played and gained nothing".
+    expect(screen.getByTestId('pair-points-table')).toHaveTextContent('—')
   })
 
   it('substitutes one member, keeping the team', async () => {

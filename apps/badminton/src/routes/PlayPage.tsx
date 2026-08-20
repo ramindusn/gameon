@@ -31,8 +31,12 @@ import {
   isoToLocalInput,
   localInputToIso,
 } from '../play/datetime'
-import { useGameDayRatingDeltas,
-  useMatchRatingDeltas, usePlayerBoard } from '../ranking/useRanking'
+import {
+  useGameDayPairRatingDeltas,
+  useGameDayRatingDeltas,
+  useMatchRatingDeltas,
+  usePlayerBoard,
+} from '../ranking/useRanking'
 import {
   effectiveSkill,
   isEvenMatch,
@@ -83,6 +87,11 @@ export function PlayPage() {
   // What each match was worth, per player — the same engine as the column, so
   // the cards add up to it exactly (TASK-87).
   const { data: matchDeltas } = useMatchRatingDeltas(id)
+  // Only a fixed-pairs day ranks partnerships, so only it pays for this.
+  const { data: pairDeltas } = useGameDayPairRatingDeltas(
+    id,
+    data?.session.kind === 'tournament',
+  )
   const { role } = useAuth()
   const { data: stockCtx } = useStockContext()
   // Usage comes out of a matchmaker's own barrels, so only a stock holder is
@@ -223,8 +232,11 @@ export function PlayPage() {
       ...s,
       names: [nameOf(s.players[0]), nameOf(s.players[1])] as [string, string],
       alsoNames: s.alsoPlayed.map(nameOf),
+      // Keyed on the two players, not the team row: a substituted team keeps
+      // its identity here but the rating follows whoever actually played.
+      ranking: pairDeltas?.[pairKey(s.players[0], s.players[1])],
     }))
-  }, [data, nameOf])
+  }, [data, nameOf, pairDeltas])
 
   // A fixed-pairs day's partners are whatever teams are already on the
   // schedule. Auto-fill uses them so adding a round re-matches the pairs
@@ -811,11 +823,6 @@ function PointsTab({
     ranking: number
   }[]
 }) {
-  const fmtSigned = (n: number) => (n > 0 ? `+${n}` : `${n}`)
-  const fmtRank = (n: number) => {
-    const r = Math.round(n * 10) / 10
-    return r > 0 ? `+${r.toFixed(1)}` : r.toFixed(1)
-  }
   return (
     <div>
       {standings.length === 0 ? (
@@ -883,6 +890,16 @@ function PointsTab({
  * deltas together would be a number that means nothing. Individual ranking
  * still moves — it just is not what this table is about.
  */
+/** Whole game-day points, always signed. */
+const fmtSigned = (n: number) => (n > 0 ? `+${n}` : `${n}`)
+
+/** Ranking points to one decimal, always signed — shared by both boards so the
+ *  individual and pair tables cannot drift apart in how they read. */
+const fmtRank = (n: number) => {
+  const r = Math.round(n * 10) / 10
+  return r > 0 ? `+${r.toFixed(1)}` : r.toFixed(1)
+}
+
 function PairPointsTab({
   standings,
 }: {
@@ -894,9 +911,10 @@ function PairPointsTab({
     wins: number
     played: number
     diff: number
+    /** Ranking points this pair gained today; undefined until it is known. */
+    ranking?: number
   }[]
 }) {
-  const fmtSigned = (n: number) => (n > 0 ? `+${n}` : `${n}`)
   if (standings.length === 0) {
     return <p className="text-sm text-fg-muted">Standings appear once matches are scored.</p>
   }
@@ -909,6 +927,7 @@ function PairPointsTab({
             <th className="py-2 text-left font-medium text-fg-subtle">Pair</th>
             <th className="py-2 font-medium text-fg-subtle">Won–Lost</th>
             <th className={cx('py-2 font-medium', POINTS_TEXT)}>Points</th>
+            <th className={cx('py-2 font-medium', RANK_TEXT)}>Ranking</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -951,6 +970,18 @@ function PairPointsTab({
               </td>
               <td className={cx('py-2.5 font-display font-bold tabular-nums', POINTS_TEXT)}>
                 {fmtSigned(s.diff)}
+              </td>
+              <td
+                className={cx(
+                  'py-2.5 font-display font-bold tabular-nums',
+                  (s.ranking ?? 0) > 0
+                    ? RANK_TEXT
+                    : (s.ranking ?? 0) < 0
+                      ? 'text-negative'
+                      : 'text-fg-muted',
+                )}
+              >
+                {s.ranking == null ? '—' : fmtRank(s.ranking)}
               </td>
             </tr>
           ))}

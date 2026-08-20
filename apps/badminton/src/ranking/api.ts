@@ -717,7 +717,10 @@ async function loadReplayInput(sessionId: string): Promise<ReplayInput | null> {
  * omitted). Truncating is what makes a per-match figure possible: rate the day
  * with k matches, then with k+1, and the difference is what match k+1 added.
  */
-function ratingsAt(input: ReplayInput, targetMatchCount?: number): Map<string, number> {
+function boardsAt(
+  input: ReplayInput,
+  targetMatchCount?: number,
+): { players: Map<string, number>; pairs: Map<string, number> } {
   const target = input.sRows[input.targetIdx]
   const targetPeriod: RatingPeriod = {
     matches:
@@ -730,16 +733,24 @@ function ratingsAt(input: ReplayInput, targetMatchCount?: number): Map<string, n
   // day replayed, then the target. Both produce the same numbers — the domain
   // tests pin that to ten decimal places — but the first reads 1 KB where the
   // second reads the season.
-  if (input.seed) {
-    return new Map(computeRatings([targetPeriod], input.seed).players.map((p) => [p.id, p.rating]))
+  const out = input.seed
+    ? computeRatings([targetPeriod], input.seed)
+    : computeRatings([
+        ...input.sRows.slice(0, input.targetIdx).map((s) => ({
+          matches: input.bySession.get(s.id) ?? [],
+          absentees: input.absBySession.get(s.id) ?? [],
+        })),
+        targetPeriod,
+      ])
+  return {
+    players: new Map(out.players.map((p) => [p.id, p.rating])),
+    pairs: new Map(out.pairs.map((p) => [p.key, p.rating])),
   }
-  const periods: RatingPeriod[] = input.sRows.slice(0, input.targetIdx).map((s) => ({
-    matches: input.bySession.get(s.id) ?? [],
-    absentees: input.absBySession.get(s.id) ?? [],
-  }))
-  return new Map(
-    computeRatings([...periods, targetPeriod]).players.map((p) => [p.id, p.rating]),
-  )
+}
+
+/** Player ratings only — the common case, kept for readability at call sites. */
+function ratingsAt(input: ReplayInput, targetMatchCount?: number): Map<string, number> {
+  return boardsAt(input, targetMatchCount).players
 }
 
 /**
@@ -778,6 +789,39 @@ export async function loadGameDayRatingDeltas(
   const deltas: Record<string, number> = {}
   for (const pid of played) {
     deltas[pid] = (after.get(pid) ?? DEFAULT_RATING) - (before.get(pid) ?? DEFAULT_RATING)
+  }
+  return deltas
+}
+
+/**
+ * Ranking points each PAIR gained or lost on one game day, keyed by pairKey.
+ *
+ * The individual standings have carried this since TASK-87; a fixed-pairs day
+ * ranks partnerships, not people, so its board needs the partnership's figure.
+ * Same replay and the same seed — the stored pair board is already fetched with
+ * the player one, so this costs nothing extra.
+ */
+export async function loadGameDayPairRatingDeltas(
+  sessionId: string,
+): Promise<Record<string, number>> {
+  if (isE2E()) return {}
+  const input = await loadReplayInput(sessionId)
+  if (!input) return {}
+
+  const before = boardsAt(input, 0).pairs
+  const after = boardsAt(input).pairs
+
+  // Only the pairs that actually played the day; a partnership that sat it out
+  // has not moved, and a zero against its name would read as "played, gained
+  // nothing".
+  const played = new Set<string>()
+  for (const m of input.targetMatches) {
+    played.add(pairKey(m.record.teamA[0], m.record.teamA[1]))
+    played.add(pairKey(m.record.teamB[0], m.record.teamB[1]))
+  }
+  const deltas: Record<string, number> = {}
+  for (const key of played) {
+    deltas[key] = (after.get(key) ?? DEFAULT_RATING) - (before.get(key) ?? DEFAULT_RATING)
   }
   return deltas
 }
