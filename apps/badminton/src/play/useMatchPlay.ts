@@ -50,7 +50,6 @@ function invalidateSession(qc: QueryClient, id: string) {
   void qc.invalidateQueries({ queryKey: sessionKey(id) })
   void qc.invalidateQueries({ queryKey: ['ratings', 'game-day-deltas', id] })
   void qc.invalidateQueries({ queryKey: ['ratings', 'match-deltas', id] })
-  void qc.invalidateQueries({ queryKey: ['ratings', 'game-day-pair-deltas', id] })
 }
 
 /** All sessions, newest first (ADR 0006: TanStack Query). */

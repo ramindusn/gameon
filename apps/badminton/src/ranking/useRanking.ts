@@ -5,7 +5,6 @@ import {
   loadInactivePlayers,
   loadGameDayBoards,
   loadGameDayRatingDeltas,
-  loadGameDayPairRatingDeltas,
   loadMatchRatingDeltas,
   loadPairBoard,
   loadPlayerAttendance,
@@ -58,15 +57,6 @@ export function useGameDayRatingDeltas(sessionId: string | undefined) {
     queryKey: ['ratings', 'game-day-deltas', sessionId],
     queryFn: () => loadGameDayRatingDeltas(sessionId as string),
     enabled: !!sessionId,
-  })
-}
-
-/** Ranking points each pair gained on a fixed-pairs game day, by pairKey. */
-export function useGameDayPairRatingDeltas(sessionId: string | undefined, enabled = true) {
-  return useQuery({
-    queryKey: ['ratings', 'game-day-pair-deltas', sessionId],
-    queryFn: () => loadGameDayPairRatingDeltas(sessionId as string),
-    enabled: !!sessionId && enabled,
   })
 }
 

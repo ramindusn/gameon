@@ -794,39 +794,6 @@ export async function loadGameDayRatingDeltas(
 }
 
 /**
- * Ranking points each PAIR gained or lost on one game day, keyed by pairKey.
- *
- * The individual standings have carried this since TASK-87; a fixed-pairs day
- * ranks partnerships, not people, so its board needs the partnership's figure.
- * Same replay and the same seed — the stored pair board is already fetched with
- * the player one, so this costs nothing extra.
- */
-export async function loadGameDayPairRatingDeltas(
-  sessionId: string,
-): Promise<Record<string, number>> {
-  if (isE2E()) return {}
-  const input = await loadReplayInput(sessionId)
-  if (!input) return {}
-
-  const before = boardsAt(input, 0).pairs
-  const after = boardsAt(input).pairs
-
-  // Only the pairs that actually played the day; a partnership that sat it out
-  // has not moved, and a zero against its name would read as "played, gained
-  // nothing".
-  const played = new Set<string>()
-  for (const m of input.targetMatches) {
-    played.add(pairKey(m.record.teamA[0], m.record.teamA[1]))
-    played.add(pairKey(m.record.teamB[0], m.record.teamB[1]))
-  }
-  const deltas: Record<string, number> = {}
-  for (const key of played) {
-    deltas[key] = (after.get(key) ?? DEFAULT_RATING) - (before.get(key) ?? DEFAULT_RATING)
-  }
-  return deltas
-}
-
-/**
  * What each scored match was worth to the players in it, in real ranking
  * points — keyed by match row id, then player id.
  *

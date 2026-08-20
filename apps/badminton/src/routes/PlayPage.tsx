@@ -32,7 +32,6 @@ import {
   localInputToIso,
 } from '../play/datetime'
 import {
-  useGameDayPairRatingDeltas,
   useGameDayRatingDeltas,
   useMatchRatingDeltas,
   usePlayerBoard,
@@ -87,11 +86,6 @@ export function PlayPage() {
   // What each match was worth, per player — the same engine as the column, so
   // the cards add up to it exactly (TASK-87).
   const { data: matchDeltas } = useMatchRatingDeltas(id)
-  // Only a fixed-pairs day ranks partnerships, so only it pays for this.
-  const { data: pairDeltas } = useGameDayPairRatingDeltas(
-    id,
-    data?.session.kind === 'tournament',
-  )
   const { role } = useAuth()
   const { data: stockCtx } = useStockContext()
   // Usage comes out of a matchmaker's own barrels, so only a stock holder is
@@ -232,11 +226,16 @@ export function PlayPage() {
       ...s,
       names: [nameOf(s.players[0]), nameOf(s.players[1])] as [string, string],
       alsoNames: s.alsoPlayed.map(nameOf),
-      // Keyed on the two players, not the team row: a substituted team keeps
-      // its identity here but the rating follows whoever actually played.
-      ranking: pairDeltas?.[pairKey(s.players[0], s.players[1])],
+      // Each player's OWN ranking movement, not the partnership's. A pair has a
+      // rating of its own on the Doubles board, but it is a different number
+      // from what either person gains, and showing the pair figure next to two
+      // names invited reading it as theirs.
+      gains: [
+        ratingDeltas?.[s.players[0]],
+        ratingDeltas?.[s.players[1]],
+      ] as [number | undefined, number | undefined],
     }))
-  }, [data, nameOf, pairDeltas])
+  }, [data, nameOf, ratingDeltas])
 
   // A fixed-pairs day's partners are whatever teams are already on the
   // schedule. Auto-fill uses them so adding a round re-matches the pairs
@@ -900,6 +899,29 @@ const fmtRank = (n: number) => {
   return r > 0 ? `+${r.toFixed(1)}` : r.toFixed(1)
 }
 
+/**
+ * One player's ranking movement for the day, in brackets after their name.
+ *
+ * Per person rather than per pair: partners in the same team gain different
+ * amounts, because the individual board rates people and the Doubles board
+ * rates partnerships. One figure against two names read as though it were
+ * each of theirs.
+ */
+function Gain({ value }: { value?: number }) {
+  if (value == null) return null
+  return (
+    <span
+      className={cx(
+        'ml-1 text-xs font-semibold tabular-nums',
+        value > 0 ? RANK_TEXT : value < 0 ? 'text-negative' : 'text-fg-subtle',
+      )}
+      title="Ranking points gained today"
+    >
+      ({fmtRank(value)})
+    </span>
+  )
+}
+
 function PairPointsTab({
   standings,
 }: {
@@ -911,8 +933,8 @@ function PairPointsTab({
     wins: number
     played: number
     diff: number
-    /** Ranking points this pair gained today; undefined until it is known. */
-    ranking?: number
+    /** Each player's own ranking movement today, in name order. */
+    gains: [number | undefined, number | undefined]
   }[]
 }) {
   if (standings.length === 0) {
@@ -927,7 +949,6 @@ function PairPointsTab({
             <th className="py-2 text-left font-medium text-fg-subtle">Pair</th>
             <th className="py-2 font-medium text-fg-subtle">Won–Lost</th>
             <th className={cx('py-2 font-medium', POINTS_TEXT)}>Points</th>
-            <th className={cx('py-2 font-medium', RANK_TEXT)}>Ranking</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -950,6 +971,7 @@ function PairPointsTab({
                 >
                   {s.names[0]}
                 </Link>
+                <Gain value={s.gains[0]} />
                 <span className="text-fg-muted"> &amp; </span>
                 <Link
                   to={`/players/${s.players[1]}`}
@@ -957,6 +979,7 @@ function PairPointsTab({
                 >
                   {s.names[1]}
                 </Link>
+                <Gain value={s.gains[1]} />
                 {/* A substituted team is still one team; say who else played
                     for it rather than leave the record looking wrong. */}
                 {s.alsoNames.length > 0 && (
@@ -970,18 +993,6 @@ function PairPointsTab({
               </td>
               <td className={cx('py-2.5 font-display font-bold tabular-nums', POINTS_TEXT)}>
                 {fmtSigned(s.diff)}
-              </td>
-              <td
-                className={cx(
-                  'py-2.5 font-display font-bold tabular-nums',
-                  (s.ranking ?? 0) > 0
-                    ? RANK_TEXT
-                    : (s.ranking ?? 0) < 0
-                      ? 'text-negative'
-                      : 'text-fg-muted',
-                )}
-              >
-                {s.ranking == null ? '—' : fmtRank(s.ranking)}
               </td>
             </tr>
           ))}
