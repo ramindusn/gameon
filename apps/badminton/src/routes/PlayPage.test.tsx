@@ -589,6 +589,39 @@ describe('round pager after deletions', () => {
   })
 })
 
+// Adding a round after deletions: the label and the fixed-pairs rotation both
+// used the stored round number, which runs ahead of the rounds that exist.
+describe('adding a round after deletions', () => {
+  beforeEach(() => {
+    authRole.current = 'matchmaker'
+    sessionData.session.status = 'live'
+    // Rounds 2 and 9 survive; 9 is the stored number, but this is round 2.
+    sessionData.results = [
+      { id: 'a', sessionId: 's1', round: 2, court: 1, teamA: ['p1', 'p2'],
+        teamB: ['p3', 'p4'], scoreA: 21, scoreB: 9, winner: 'a' },
+      { id: 'b', sessionId: 's1', round: 9, court: 1, teamA: ['p5', 'p6'],
+        teamB: ['p7', 'p8'], scoreA: 21, scoreB: 12, winner: 'a' },
+    ]
+  })
+
+  it('calls the new round by its position, not the stored number', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-round'))
+    // Third round that exists — not "New round 10".
+    expect(screen.getByTestId('building-round-label')).toHaveTextContent('New round 3')
+  })
+
+  it('still stores a round number that sorts after the existing ones', () => {
+    addMatch.mockClear()
+    renderPage()
+    fireEvent.click(screen.getByTestId('add-round'))
+    fireEvent.click(screen.getByTestId('auto-fill-round'))
+    fireEvent.click(screen.getByTestId('create-round'))
+    // Position 3 on screen, but stored as 10 so it sorts after round 9.
+    expect(addMatch).toHaveBeenCalledWith(expect.objectContaining({ round: 10 }))
+  })
+})
+
 describe('changing a pair (TASK-80)', () => {
   beforeEach(() => {
     sessionData.session.kind = 'tournament'

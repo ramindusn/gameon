@@ -365,7 +365,14 @@ export function PlayPage() {
               const templateCourts = rounds.length
                 ? Math.max(1, ...rounds.map((r) => r.results.length))
                 : 1
+              // Two different numbers, deliberately. The stored round has to
+              // continue past the highest one used, or a new round would sort
+              // in among the old ones. What the matchmaker is told is its
+              // POSITION — after deletions the stored number runs ahead, and
+              // "New round 15" beside a pager reading "of 3" is the same
+              // mismatch the pager label had.
               const newRoundNumber = rounds.length ? rounds[rounds.length - 1].round + 1 : 1
+              const newRoundPosition = rounds.length + 1
               return (
                 <div className="rounded-xl border border-line bg-surface" data-testid="game-day-panel">
                   {/* Divider lives on the sticky header (not the content) so the
@@ -387,7 +394,7 @@ export function PlayPage() {
                         className="mt-2 rounded-lg bg-surface-muted py-1.5 text-center font-display text-sm font-semibold text-fg"
                         data-testid="building-round-label"
                       >
-                        New round {newRoundNumber}
+                        New round {newRoundPosition}
                       </p>
                     )}
                   </div>
@@ -421,7 +428,7 @@ export function PlayPage() {
                       <div className="space-y-3" data-testid="matches-tab">
                         {addingRound ? (
                           <RoundBuilder
-                            roundNumber={newRoundNumber}
+                            position={newRoundPosition}
                             courts={templateCourts}
                             present={sessionPlayers}
                             skillOf={skillOf}
@@ -1722,7 +1729,7 @@ function LineupEditor({
  * every filled court at once. No round dropdown, no per-round ad-hoc adds.
  */
 function RoundBuilder({
-  roundNumber,
+  position,
   courts,
   present,
   skillOf,
@@ -1731,7 +1738,9 @@ function RoundBuilder({
   onCreate,
   onCancel,
 }: {
-  roundNumber: number
+  /** Which round this will be, counting the ones that exist — not the stored
+   *  round number, which runs ahead of them once matches have been deleted. */
+  position: number
   courts: number
   present: PresentPlayer[]
   skillOf: SkillOf
@@ -1765,7 +1774,7 @@ function RoundBuilder({
     // Take the next matchups from the round-robin over the same partners, so
     // only the opposition changes (TASK-80).
     if (pairs.length >= 2) {
-      const matchups = nextTournamentRound(pairs.length, roundNumber - 1).slice(0, courts)
+      const matchups = nextTournamentRound(pairs.length, position - 1).slice(0, courts)
       if (matchups.length === 0) {
         setError('Need at least two pairs to build a round.')
         return
@@ -1893,7 +1902,7 @@ function RoundBuilder({
           disabled={saving || assigned.length < 4}
           data-testid="create-round"
         >
-          Create round {roundNumber}
+          Create round {position}
         </Button>
         <Button variant="ghost" onClick={onCancel} data-testid="cancel-round">
           Cancel
