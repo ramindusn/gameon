@@ -374,7 +374,6 @@ export function PlayPage() {
                     <Tabs active={tab} onChange={setPickedTab} />
                     {tab === 'matches' && current && !addingRound && (
                       <RoundPager
-                        round={current.round}
                         index={idx}
                         total={rounds.length}
                         done={roundsDone}
@@ -1180,7 +1179,6 @@ function useMatchInfo(result: MatchResult, skillOf: SkillOf): MatchInfo | null {
 const DOTS_MAX = 10
 
 function RoundPager({
-  round,
   index,
   total,
   done,
@@ -1188,7 +1186,10 @@ function RoundPager({
   onNext,
   onAddRound,
 }: {
-  round: number
+  /** Position in the surviving rounds, 0-based. The label counts from this
+   *  rather than from the stored fixture round: deleting matches leaves gaps in
+   *  those numbers, so a day whose rounds ran 1..14 with seven deleted showed
+   *  "Round 14 of 7". */
   index: number
   total: number
   /** done[i] = round i has every match scored. */
@@ -1220,7 +1221,7 @@ function RoundPager({
         </button>
         <span className="flex flex-col items-center gap-1">
           <span className="font-display text-sm font-semibold text-fg" data-testid="round-label">
-            Round {round} <span className="font-normal text-fg-subtle">of {total}</span>
+            Round {index + 1} <span className="font-normal text-fg-subtle">of {total}</span>
           </span>
           {/* Colour = progress only (game-day blue when the round is fully
               scored); the round being viewed is marked by a ring. */}

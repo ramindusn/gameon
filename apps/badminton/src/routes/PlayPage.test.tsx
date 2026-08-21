@@ -568,6 +568,27 @@ describe('PlayPage', () => {
   })
 })
 
+// Deleting matches leaves gaps in the stored round numbers. The pager showed
+// the stored number against a count of surviving rounds, so a day whose rounds
+// ran to 14 with seven deleted read "Round 14 of 7".
+describe('round pager after deletions', () => {
+  it('counts the rounds that exist, not the stored round numbers', () => {
+    sessionData.results = [
+      { id: 'a', sessionId: 's1', round: 2, court: 1, teamA: ['p1', 'p2'],
+        teamB: ['p3', 'p4'], scoreA: 21, scoreB: 9, winner: 'a' },
+      { id: 'b', sessionId: 's1', round: 9, court: 1, teamA: ['p5', 'p6'],
+        teamB: ['p7', 'p8'], scoreA: 15, scoreB: 21, winner: 'b' },
+      { id: 'c', sessionId: 's1', round: 14, court: 1, teamA: ['p1', 'p3'],
+        teamB: ['p2', 'p4'], scoreA: null, scoreB: null, winner: null },
+    ]
+    renderPage()
+    // Opens on the first unscored round — the third of three, not "Round 14".
+    expect(screen.getByTestId('round-label')).toHaveTextContent('Round 3 of 3')
+    fireEvent.click(screen.getByTestId('round-prev'))
+    expect(screen.getByTestId('round-label')).toHaveTextContent('Round 2 of 3')
+  })
+})
+
 describe('changing a pair (TASK-80)', () => {
   beforeEach(() => {
     sessionData.session.kind = 'tournament'
