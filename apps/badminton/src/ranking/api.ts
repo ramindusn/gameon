@@ -235,7 +235,10 @@ export function buildGameDayPairBoard(rows: GameDayResultRow[]): GameDayPairStan
 export interface GameDayBoard {
   sessionId: string
   playedAt: string
+  /** A fixed-pairs day is ranked by partnership, so it fills pairStandings. */
+  kind: 'casual' | 'tournament'
   standings: GameDayStanding[]
+  pairStandings: GameDayPairStanding[]
 }
 
 /**
@@ -340,9 +343,11 @@ export async function loadGameDayBoards(): Promise<GameDayBoard[]> {
   const { data } = await client()
     .from('match_results')
     .select(
-      'session_id, team_a1, team_a2, team_b1, team_b2, score_a, score_b, winner, match_sessions!inner(played_at, kind, hidden)',
+      'session_id, team_a1, team_a2, team_b1, team_b2, team_a_id, team_b_id, score_a, score_b, winner, match_sessions!inner(played_at, kind, hidden)',
     )
-    .eq('match_sessions.kind', 'casual')
+    // Tournaments belong on the podium too — they were excluded outright, so a
+    // fixed-pairs day simply never appeared on the home page. They are ranked
+    // by pair rather than by player, which is what pairStandings carries.
     .eq('match_sessions.hidden', false)
     .not('winner', 'is', null)
 
@@ -352,27 +357,38 @@ export async function loadGameDayBoards(): Promise<GameDayBoard[]> {
     team_a2: string | null
     team_b1: string | null
     team_b2: string | null
+    team_a_id: string | null
+    team_b_id: string | null
     score_a: number | null
     score_b: number | null
     winner: string | null
-    match_sessions: { played_at: string } | { played_at: string }[]
+    match_sessions:
+      | { played_at: string; kind: string }
+      | { played_at: string; kind: string }[]
   }
   const rows = (data ?? []) as Row[]
   if (rows.length === 0) return []
 
-  const playedAtOf = (r: Row): string => {
-    // PostgREST returns the to-one embed as an object; guard the array shape.
-    const s = Array.isArray(r.match_sessions) ? r.match_sessions[0] : r.match_sessions
-    return s?.played_at ?? ''
-  }
+  // PostgREST returns the to-one embed as an object; guard the array shape.
+  const sessionOf = (r: Row) =>
+    Array.isArray(r.match_sessions) ? r.match_sessions[0] : r.match_sessions
+  const playedAtOf = (r: Row): string => sessionOf(r)?.played_at ?? ''
+  const kindOf = (r: Row): 'casual' | 'tournament' =>
+    sessionOf(r)?.kind === 'tournament' ? 'tournament' : 'casual'
 
   // Group the scored courts by game day, keeping each day's date.
-  const bySession = new Map<string, { playedAt: string; rows: GameDayResultRow[] }>()
+  const bySession = new Map<
+    string,
+    { playedAt: string; kind: 'casual' | 'tournament'; rows: GameDayResultRow[] }
+  >()
   for (const r of rows) {
-    const entry = bySession.get(r.session_id) ?? { playedAt: playedAtOf(r), rows: [] }
+    const entry =
+      bySession.get(r.session_id) ?? { playedAt: playedAtOf(r), kind: kindOf(r), rows: [] }
     entry.rows.push({
       teamA: [r.team_a1, r.team_a2],
       teamB: [r.team_b1, r.team_b2],
+      teamAId: r.team_a_id,
+      teamBId: r.team_b_id,
       scoreA: r.score_a ?? 0,
       scoreB: r.score_b ?? 0,
       winner: r.winner === 'b' ? 'b' : 'a',
@@ -381,10 +397,14 @@ export async function loadGameDayBoards(): Promise<GameDayBoard[]> {
   }
 
   return [...bySession.entries()]
-    .map(([sessionId, { playedAt, rows }]): GameDayBoard => ({
+    .map(([sessionId, { playedAt, kind, rows }]): GameDayBoard => ({
       sessionId,
       playedAt,
+      kind,
+      // Both are built: the player board still drives the "everyone else" list
+      // under a tournament podium, where people want their own line too.
       standings: buildGameDayBoard(rows),
+      pairStandings: kind === 'tournament' ? buildGameDayPairBoard(rows) : [],
     }))
     .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
 }
@@ -1134,6 +1154,8 @@ const E2E_GAME_DAY_BOARDS: GameDayBoard[] = [
   {
     sessionId: 'e2e-day-2',
     playedAt: '2026-07-10T18:00:00Z',
+    kind: 'casual',
+    pairStandings: [],
     standings: [
       { playerId: 'e2e-1', played: 3, wins: 3, diff: 34 },
       { playerId: 'e2e-2', played: 3, wins: 2, diff: 17 },
@@ -1146,6 +1168,8 @@ const E2E_GAME_DAY_BOARDS: GameDayBoard[] = [
   {
     sessionId: 'e2e-day-1',
     playedAt: '2026-07-03T18:00:00Z',
+    kind: 'casual',
+    pairStandings: [],
     standings: [
       { playerId: 'e2e-3', played: 2, wins: 2, diff: 21 },
       { playerId: 'e2e-5', played: 2, wins: 1, diff: 4 },

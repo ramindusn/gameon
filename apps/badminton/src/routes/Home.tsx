@@ -285,8 +285,10 @@ function GameDayPager({
 }
 
 /**
- * Game Day Podium (TASK-33 / TASK-37): the standings for one casual game day,
- * ranked by net point differential. The latest day shows first; the ›/‹ arrows
+ * Game Day Podium (TASK-33 / TASK-37): the standings for one game day, ranked by
+ * net point differential — by player on a casual day, by partnership on a
+ * fixed-pairs tournament, which used to be filtered out of here entirely and so
+ * never appeared at all (TASK-93). The latest day shows first; the ›/‹ arrows
  * page back through older days and forward toward the latest. The card links to
  * that game day's detail page (rank + full score history). Hidden until the
  * first game day has been scored.
@@ -303,6 +305,28 @@ function GameDayRank() {
       .map((s) => ({ ...s, name: nameOf(s.playerId) }))
       .sort((a, b) => b.diff - a.diff || a.name.localeCompare(b.name))
   }, [board, nameOf])
+
+  // A fixed-pairs day is won by a partnership, not a person, so its podium is
+  // the pairs. The individual rows still list underneath (below), so everyone
+  // who played can find their own line (TASK-93).
+  const pairRows = useMemo(() => {
+    return (board?.pairStandings ?? [])
+      .map((p) => ({
+        playerId: p.pairId,
+        name: `${nameOf(p.players[0])} & ${nameOf(p.players[1])}`,
+        diff: p.diff,
+      }))
+      .sort((a, b) => b.diff - a.diff || a.name.localeCompare(b.name))
+  }, [board, nameOf])
+
+  // Guarded on the pairs actually being there: a tournament whose teams predate
+  // TASK-80 has no team ids to group by, and an empty podium is worse than the
+  // player one it would replace.
+  const byPair = board?.kind === 'tournament' && pairRows.length > 0
+  const podiumRows = byPair ? pairRows : rows
+  // Under a pair podium the list is a different population, so it starts at the
+  // top rather than skipping the three already shown.
+  const listRows = byPair ? rows : rows.slice(3)
 
   if (isLoading || boards.length === 0 || !board) return null
 
@@ -333,18 +357,18 @@ function GameDayRank() {
         )}
         data-testid="game-day-card"
       >
-        <div data-testid="game-day-board">
-          <Podium rows={rows} />
-          {rows.length > 3 && (
+        <div data-testid="game-day-board" data-ranked-by={byPair ? 'pair' : 'player'}>
+          <Podium rows={podiumRows} />
+          {listRows.length > 0 && (
             <ul className="mt-5 divide-y divide-line/70 border-t border-line/70">
-              {rows.slice(3).map((r, i) => (
+              {listRows.map((r, i) => (
                 <li
                   key={r.playerId}
                   data-testid={`game-day-row-${r.playerId}`}
                   className="flex items-center gap-3 py-2 text-sm"
                 >
                   <span className="w-6 shrink-0 text-center text-xs font-medium text-fg-subtle">
-                    {i + 4}
+                    {byPair ? i + 1 : i + 4}
                   </span>
                   <span className="flex-1 font-medium text-fg">{r.name}</span>
                   <span className={cx('font-display font-bold tabular-nums', POINTS_TEXT)}>
