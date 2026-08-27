@@ -56,7 +56,8 @@ export function GameDayUsage({
     <>
       <UsageForm
         ctx={ctx}
-        sessionId={sessionId}
+        record={(v) => recordGameDayUsage({ ctx, sessionId, lines: v.lines, none: v.none })}
+        allowNone
         secondary={secondary}
         onSaved={() => {
           void qc.invalidateQueries({ queryKey: ['session-usage', sessionId] })
@@ -272,14 +273,23 @@ function UsageLineRow({
   )
 }
 
-function UsageForm({
+export function UsageForm({
   ctx,
-  sessionId,
+  record,
+  allowNone,
   onSaved,
   secondary,
 }: {
   ctx: StockContext
-  sessionId: string
+  /** Where the entry goes — against a game day, or against nothing (TASK-95). */
+  record: (v: { lines: UsageLine[]; none?: boolean }) => Promise<void>
+  /**
+   * Offer "no club shuttles were used". Only meaningful for a game day, which
+   * needs a way to be answered so it drops off the outstanding list. An entry
+   * with no game day has nothing to close off, so recording nothing there would
+   * just be an empty row.
+   */
+  allowNone?: boolean
   onSaved: () => void
   secondary?: ReactNode
 }) {
@@ -311,8 +321,7 @@ function UsageForm({
   const items = stock?.items ?? []
 
   const save = useMutation({
-    mutationFn: (v: { lines: UsageLine[]; none?: boolean }) =>
-      recordGameDayUsage({ ctx, sessionId, lines: v.lines, none: v.none }),
+    mutationFn: (v: { lines: UsageLine[]; none?: boolean }) => record(v),
     onSuccess: () => {
       setCounts({})
       setError('')
@@ -404,15 +413,17 @@ function UsageForm({
       {/* Some days are played on shuttles brought from outside the club, so
           there has to be a way to answer "none" — otherwise the day sits on the
           admin's missing-usage list for good. */}
-      <button
-        type="button"
-        className="text-sm text-fg-muted underline underline-offset-2 hover:text-fg disabled:opacity-50"
-        data-testid="usage-none"
-        disabled={save.isPending}
-        onClick={() => save.mutate({ lines: [], none: true })}
-      >
-        No club shuttles were used this game day
-      </button>
+      {allowNone && (
+        <button
+          type="button"
+          className="text-sm text-fg-muted underline underline-offset-2 hover:text-fg disabled:opacity-50"
+          data-testid="usage-none"
+          disabled={save.isPending}
+          onClick={() => save.mutate({ lines: [], none: true })}
+        >
+          No club shuttles were used this game day
+        </button>
+      )}
 
       <div className="flex flex-wrap justify-end gap-2">
         {secondary}

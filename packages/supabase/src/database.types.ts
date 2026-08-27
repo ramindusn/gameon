@@ -891,6 +891,7 @@ export type Database = {
           club_id: string
           id: string
           logged_by: string | null
+          note: string | null
           occurred_at: string
           recorded_by: string | null
           session_id: string | null
@@ -899,6 +900,7 @@ export type Database = {
           club_id: string
           id?: string
           logged_by?: string | null
+          note?: string | null
           occurred_at?: string
           recorded_by?: string | null
           session_id?: string | null
@@ -907,6 +909,7 @@ export type Database = {
           club_id?: string
           id?: string
           logged_by?: string | null
+          note?: string | null
           occurred_at?: string
           recorded_by?: string | null
           session_id?: string | null
@@ -1016,6 +1019,25 @@ export type Database = {
       }
       record_game_day_usage: {
         Args: { p_lines: Json; p_occurred_at?: string; p_session_id: string }
+        Returns: string
+      }
+      record_standalone_usage: {
+        Args: {
+          p_club_id: string
+          p_lines: Json
+          p_note?: string
+          p_occurred_at?: string
+        }
+        Returns: string
+      }
+      record_usage_lines: {
+        Args: {
+          p_club: string
+          p_lines: Json
+          p_note: string
+          p_occurred_at: string
+          p_session_id: string
+        }
         Returns: string
       }
       restore_game_day: { Args: { p_session_id: string }; Returns: number }

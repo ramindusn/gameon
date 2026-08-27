@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Card, ChipPicker } from '@gameon/ui'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Card, ChipPicker, Field } from '@gameon/ui'
 import { Icon } from '../app/Icon'
 import { formatPlayedAt } from '../play/datetime'
 import { useSessions } from '../play/useMatchPlay'
-import { GameDayUsage, useStockContext } from './GameDayUsage'
-import { loadSessionsWithUsage } from './usageApi'
+import { GameDayUsage, UsageForm, useStockContext } from './GameDayUsage'
+import { loadSessionsWithUsage, recordStandaloneUsage, type StockContext } from './usageApi'
 
 /**
  * Admin-side game-day usage (TASK-72). Recording used to be a date-keyed entry
@@ -78,6 +78,107 @@ export function AdminGameDayUsage() {
           {sessionId && <GameDayUsage key={sessionId} sessionId={sessionId} />}
         </div>
       )}
+
+      <StandaloneUsage ctx={ctx} />
     </Card>
+  )
+}
+
+/**
+ * Usage with no game day behind it (TASK-95).
+ *
+ * Shuttles get used whether or not a game day row survives to hold the record.
+ * On 2026-08-26 an evening was played, club shuttles were used, and the game day
+ * was then deleted by accident — leaving a holder short with no way to say so,
+ * because recording usage required a day to attach it to.
+ *
+ * Folded away behind a link rather than shown outright: this is the exception,
+ * and the day-by-day flow above is what should be reached for first. It stays
+ * available even when every game day is answered, which is precisely when a
+ * correction like this is needed and when the card used to offer nothing at all.
+ */
+function StandaloneUsage({ ctx }: { ctx: StockContext }) {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  // Today by default. Yesterday's shuttles are the common case, so the date is
+  // editable rather than assumed.
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [note, setNote] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  if (!open) {
+    return (
+      <div className="mt-4 border-t border-line pt-3">
+        {saved && (
+          <p className="mb-2 text-sm text-fg-muted" data-testid="standalone-saved">
+            Usage recorded.
+          </p>
+        )}
+        <button
+          type="button"
+          className="text-sm text-fg-muted underline underline-offset-2 hover:text-fg"
+          data-testid="standalone-open"
+          onClick={() => {
+            setSaved(false)
+            setOpen(true)
+          }}
+        >
+          Record usage with no game day
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-4 space-y-4 border-t border-line pt-4" data-testid="standalone-usage">
+      <p className="text-sm text-fg-muted">
+        For shuttles used on an evening with no game day — including one that was deleted.
+        The date and note are how you will recognise it later.
+      </p>
+      <Field
+        label="Date"
+        type="date"
+        data-testid="standalone-date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+      />
+      <Field
+        label="Note"
+        placeholder="e.g. Tue session, game day was deleted"
+        data-testid="standalone-note"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
+      <UsageForm
+        ctx={ctx}
+        // Midday rather than midnight: a bare date parsed as UTC can land on the
+        // day before once it is rendered back in a local timezone.
+        record={(v) =>
+          recordStandaloneUsage({
+            ctx,
+            lines: v.lines,
+            occurredAt: new Date(`${date}T12:00:00`).toISOString(),
+            note,
+          })
+        }
+        onSaved={() => {
+          void qc.invalidateQueries({ queryKey: ['stock-context'] })
+          void qc.invalidateQueries({ queryKey: ['fund'] })
+          setNote('')
+          setSaved(true)
+          setOpen(false)
+        }}
+        secondary={
+          <button
+            type="button"
+            className="text-sm text-fg-muted underline underline-offset-2 hover:text-fg"
+            data-testid="standalone-cancel"
+            onClick={() => setOpen(false)}
+          >
+            Cancel
+          </button>
+        }
+      />
+    </div>
   )
 }

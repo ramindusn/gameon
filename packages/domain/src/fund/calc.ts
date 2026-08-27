@@ -314,6 +314,8 @@ export interface UsageDay {
   totalCost: number
   parts: { name: string; shuttlesUsed: number }[]
   loggedBy?: string
+  /** Free text, on entries with no game day to identify them by (TASK-95). */
+  note?: string
 }
 
 /**
@@ -345,6 +347,7 @@ export function usageHistory(state: FundState): UsageDay[] {
         totalCost,
         parts,
         loggedBy: entry.loggedBy,
+        note: entry.note,
       }
     })
     .sort((a, b) => b.date.localeCompare(a.date))
