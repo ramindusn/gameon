@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { MatchSession } from '../play/api'
+import type { DeletedGameDay, MatchSession } from '../play/api'
 
 const { state } = vi.hoisted(() => ({
   state: {
@@ -14,12 +14,17 @@ const { state } = vi.hoisted(() => ({
     // What each finished day used, keyed by session id.
     usage: {} as Record<string, { brand: string; shuttles: number }[]>,
     answered: [] as string[],
+    // Game days sitting in the archive, and the restore they trigger (TASK-94).
+    deleted: [] as DeletedGameDay[],
+    restoreMutate: vi.fn(),
   },
 }))
 
 vi.mock('../play/useMatchPlay', () => ({
   useSessions: () => ({ data: state.sessions, isLoading: false, isError: false }),
   useSessionPlayerCounts: () => ({ data: state.playerCounts }),
+  useDeletedGameDays: () => ({ data: state.deleted, isLoading: false, isError: false }),
+  useRestoreSession: () => ({ mutate: state.restoreMutate, isPending: false }),
 }))
 vi.mock('../roster/useRoster', () => ({
   useRoster: () => ({ data: { clubId: 'c1', players: [] }, isLoading: false, isError: false }),
@@ -69,6 +74,8 @@ beforeEach(() => {
   state.stockCtx = null
   state.answered = []
   state.usage = {}
+  state.deleted = []
+  state.restoreMutate.mockReset()
 })
 
 describe('shuttles to record (TASK-76.5)', () => {
@@ -186,5 +193,56 @@ describe('MatchmakerHome (TASK-11.1)', () => {
     expect(screen.getByTestId('live-active-s1')).toHaveTextContent('9 players')
     // The roster widget is gone.
     expect(screen.queryByTestId('roster-snapshot')).toBeNull()
+  })
+})
+
+// Deleting a game day archives it (TASK-91), but getting one back meant running
+// restore_game_day() in the SQL editor. This project keeps no database backups
+// by deliberate choice (TASK-92), so that archive is the entire safety net —
+// and a matchmaker at the hall has no SQL editor (TASK-94).
+describe('restoring a deleted game day (TASK-94)', () => {
+  const deletedDay = (over: Partial<DeletedGameDay> = {}): DeletedGameDay => ({
+    sessionId: 'gone-1',
+    playedAt: '2026-08-26T17:05:00Z',
+    kind: 'casual',
+    scoredMatches: 13,
+    totalMatches: 18,
+    deletedAt: '2026-08-26T18:46:54Z',
+    deletedByName: 'Ramboo',
+    ...over,
+  })
+
+  it('says nothing at all when there is nothing to restore', () => {
+    state.sessions = []
+    renderHome()
+    expect(screen.queryByTestId('deleted-list')).toBeNull()
+    expect(screen.queryByText('Recently deleted')).toBeNull()
+  })
+
+  it('lists what can be restored, with what would come back and who deleted it', () => {
+    state.sessions = []
+    state.deleted = [deletedDay()]
+    renderHome()
+
+    const row = screen.getByTestId('deleted-gone-1')
+    expect(row).toHaveTextContent('18 matches')
+    expect(row).toHaveTextContent('13 scored')
+    expect(row).toHaveTextContent('Ramboo')
+  })
+
+  it('restores the day when Restore is pressed', () => {
+    state.sessions = []
+    state.deleted = [deletedDay()]
+    renderHome()
+
+    fireEvent.click(screen.getByTestId('restore-gone-1'))
+    expect(state.restoreMutate).toHaveBeenCalledWith({ id: 'gone-1' })
+  })
+
+  it('marks a deleted tournament as one, so it is not confused with a casual day', () => {
+    state.sessions = []
+    state.deleted = [deletedDay({ sessionId: 'gone-2', kind: 'tournament' })]
+    renderHome()
+    expect(screen.getByTestId('deleted-gone-2')).toHaveTextContent('Tournament')
   })
 })
