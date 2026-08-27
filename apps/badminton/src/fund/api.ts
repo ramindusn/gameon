@@ -119,6 +119,7 @@ export async function loadFund(): Promise<FundData | null> {
       id: u.id,
       date: fromDb(u.occurred_at),
       loggedBy: u.logged_by ?? undefined,
+      note: u.note ?? undefined,
       items: (itemsByUsage.get(u.id) ?? []).map((i) => ({
         productId: i.product_id,
         shuttlesUsed: i.shuttles_used,

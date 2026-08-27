@@ -251,6 +251,41 @@ export async function recordGameDayUsage(input: {
   if (error) throw error
 }
 
+/**
+ * Record shuttles used on an evening with no game day behind it (TASK-95).
+ *
+ * Shuttles get used whether or not a game day row survives to hold the record —
+ * most sharply when a day is deleted after being played, which is what left a
+ * holder short with no way to say so on 2026-08-26. The club is passed rather
+ * than inferred, because there is no game day to take it from.
+ *
+ * Admin-only, and enforced in record_standalone_usage() rather than here: an
+ * entry attached to nothing is a correction, and corrections belong with the
+ * admin. A matchmaker records against the day they just played.
+ */
+export async function recordStandaloneUsage(input: {
+  ctx: StockContext
+  lines: UsageLine[]
+  occurredAt: string
+  note?: string
+}): Promise<void> {
+  const db = client()
+  const lines = input.lines.filter((l) => l.shuttlesUsed > 0)
+  if (lines.length === 0) return
+
+  const { error } = await db.rpc('record_standalone_usage', {
+    p_club_id: input.ctx.clubId,
+    p_lines: lines.map((l) => ({
+      product_id: l.product.id,
+      holder_id: l.holder.id,
+      shuttles_used: l.shuttlesUsed,
+    })),
+    p_occurred_at: input.occurredAt,
+    p_note: input.note?.trim() || undefined,
+  })
+  if (error) throw error
+}
+
 /** Session ids that already have usage recorded (including a "none" marker). */
 export async function loadSessionsWithUsage(): Promise<string[]> {
   const db = client()

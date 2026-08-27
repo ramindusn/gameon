@@ -111,6 +111,16 @@ export function TodayUsage() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-fg">{formatDateTime(day.date)}</div>
+                  {/* Only entries with no game day carry a note, and it is the
+                      only thing identifying them (TASK-95). */}
+                  {day.note && (
+                    <div
+                      className="break-words text-xs text-fg-muted"
+                      data-testid={`usage-note-${day.id}`}
+                    >
+                      {day.note}
+                    </div>
+                  )}
                   <div className="break-words text-xs text-fg-subtle">
                     {day.parts
                       .filter((p) => p.shuttlesUsed > 0)

@@ -50,6 +50,8 @@ export interface UsageEntry {
   date: string
   items: { productId: string; shuttlesUsed: number }[]
   loggedBy?: string
+  /** Free text, on entries with no game day to identify them by (TASK-95). */
+  note?: string
 }
 
 /** Any other expense (e.g. storage boxes). */
