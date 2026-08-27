@@ -14,6 +14,7 @@ import {
   createTournamentWithMatches,
   deleteMatch,
   deleteSession,
+  ScoredGameDayError,
   getSession,
   listSessions,
   loadRecentResults,
@@ -310,12 +311,18 @@ export function useDeleteSession() {
   const qc = useQueryClient()
   const { success, error } = useToast()
   return useMutation({
-    mutationFn: (v: { id: string; wasFinished: boolean }) =>
-      deleteSession(v.id, v.wasFinished),
+    mutationFn: (v: { id: string; wasFinished: boolean; force?: boolean }) =>
+      deleteSession(v.id, v.wasFinished, v.force ?? false),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SESSIONS_KEY })
       success('Game day deleted')
     },
-    onError: () => error('Could not delete the game day'),
+    // The guard refusing is not a failure — the caller turns it into a second,
+    // specific prompt naming what would be lost. A generic error toast here
+    // would read as "something broke" and bury that (TASK-91).
+    onError: (e) => {
+      if (e instanceof ScoredGameDayError) return
+      error('Could not delete the game day')
+    },
   })
 }

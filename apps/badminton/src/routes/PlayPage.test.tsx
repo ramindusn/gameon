@@ -1,9 +1,10 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { ScoredGameDayError } from '../play/api'
 import type { MatchResult, MatchSession } from '../play/api'
 
-const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, sessionData, authRole, usageCtx, lastUsageModalProps, ratingDeltas, matchDeltas, teams, substitute } =
+const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, deleteSessionMutate, sessionData, authRole, usageCtx, lastUsageModalProps, ratingDeltas, matchDeltas, teams, substitute } =
   vi.hoisted(() => {
   const session: MatchSession = {
     id: 's1',
@@ -49,6 +50,7 @@ const { setScore, setStatus, setHidden, updateLineup, addMatch, deleteMatch, ses
     updateLineup: vi.fn(),
     addMatch: vi.fn(),
     deleteMatch: vi.fn(),
+    deleteSessionMutate: vi.fn(),
     sessionData: { session, results },
     authRole: { current: 'matchmaker' as 'matchmaker' | 'admin' | null },
     // Stock context drives whether finishing prompts for shuttle usage.
@@ -72,7 +74,7 @@ vi.mock('../play/useMatchPlay', () => ({
   useSetSessionStatus: () => ({ mutate: setStatus, isPending: false }),
   useSetSessionHidden: () => ({ mutate: setHidden, isPending: false }),
   useUpdateSessionPlayedAt: () => ({ mutate: vi.fn(), isPending: false }),
-  useDeleteSession: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteSession: () => ({ mutate: deleteSessionMutate, isPending: false }),
   useUpdateMatchLineup: () => ({ mutate: updateLineup, isPending: false }),
   useAddCustomMatch: () => ({ mutate: addMatch, isPending: false }),
   useDeleteMatch: () => ({ mutate: deleteMatch, isPending: false }),
@@ -142,6 +144,7 @@ describe('PlayPage', () => {
     updateLineup.mockClear()
     addMatch.mockClear()
     deleteMatch.mockClear()
+    deleteSessionMutate.mockReset()
     authRole.current = 'matchmaker'
     usageCtx.current = null
     lastUsageModalProps.current = null
@@ -222,6 +225,41 @@ describe('PlayPage', () => {
 
     fireEvent.click(screen.getByTestId('delete-game-day'))
     expect(screen.getByTestId('confirm-delete-game-day')).toBeInTheDocument()
+  })
+
+  // The page already showed "Confirm delete" on the evening 13 scored matches
+  // were lost, and it was answered on reflex. So the guard's refusal does not
+  // repeat the question — it names the cost, and only that second, specific
+  // button forces the delete through (TASK-91).
+  it('turns a refused delete into a prompt naming what would be lost', () => {
+    deleteSessionMutate.mockImplementation(
+      (_v: unknown, opts?: { onError?: (e: unknown) => void }) => {
+        opts?.onError?.(new ScoredGameDayError(13, 'has scored matches'))
+      },
+    )
+    renderPage()
+    fireEvent.click(screen.getByTestId('delete-game-day'))
+    fireEvent.click(screen.getByTestId('confirm-delete-game-day'))
+
+    expect(screen.getByTestId('delete-game-day-warning')).toHaveTextContent('13 scored matches')
+    expect(screen.getByTestId('force-delete-game-day')).toBeInTheDocument()
+    // The attempt that was refused did not ask to force.
+    expect(deleteSessionMutate.mock.calls[0][0]).toMatchObject({ force: false })
+
+    deleteSessionMutate.mockImplementation(() => {})
+    fireEvent.click(screen.getByTestId('force-delete-game-day'))
+    expect(deleteSessionMutate.mock.calls[1][0]).toMatchObject({ force: true })
+  })
+
+  it('keeps a day with no scored matches a single confirm', () => {
+    deleteSessionMutate.mockImplementation(() => {})
+    renderPage()
+    fireEvent.click(screen.getByTestId('delete-game-day'))
+    fireEvent.click(screen.getByTestId('confirm-delete-game-day'))
+
+    expect(screen.queryByTestId('delete-game-day-warning')).toBeNull()
+    expect(screen.queryByTestId('force-delete-game-day')).toBeNull()
+    expect(deleteSessionMutate.mock.calls[0][0]).toMatchObject({ force: false })
   })
 
   it('gives a signed-out viewer the same court cards, read-only (no editing)', () => {
