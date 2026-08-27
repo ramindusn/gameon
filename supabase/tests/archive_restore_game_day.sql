@@ -29,6 +29,10 @@ declare
   v_before   jsonb;
   v_after    jsonb;
   v_err      text;
+  v_sess3    uuid := gen_random_uuid ();
+  v_team_a   uuid := gen_random_uuid ();
+  v_team_b   uuid := gen_random_uuid ();
+  v_teams    integer;
 begin
   select pp.club_id, pp.user_id into v_club, v_uid
   from player_profiles pp
@@ -143,6 +147,52 @@ begin
     raise exception 'FAIL 6b: unscored day deleted without being archived';
   end if;
   raise notice 'PASS 6 unscored day deleted without force, still archived';
+
+  -- 7. a FIXED-PAIRS day round-trips. This is the case the original harness
+  --    missed: match_results.team_a_id/team_b_id are foreign keys to
+  --    tournament_teams, so restoring in the wrong order dies on
+  --    match_results_team_a_id_fkey. On a casual day those columns are null and
+  --    any order passes, which is exactly why it went unnoticed.
+  insert into match_sessions (id, club_id, status, mode, rounds, played_at, kind, hidden)
+  values (v_sess3, v_club, 'finished', 'open', 1, now(), 'tournament', false);
+  insert into tournament_teams (id, club_id, session_id, player1_id, player2_id)
+  values (v_team_a, v_club, v_sess3, v_players[1], v_players[2]),
+         (v_team_b, v_club, v_sess3, v_players[3], v_players[4]);
+  insert into match_results (
+    club_id, session_id, round, court,
+    team_a1, team_a2, team_b1, team_b2, team_a_id, team_b_id, winner, score_a, score_b)
+  values (
+    v_club, v_sess3, 1, 1,
+    v_players[1], v_players[2], v_players[3], v_players[4], v_team_a, v_team_b, 'a', 21, 18);
+
+  select jsonb_agg(to_jsonb (r)) into v_before
+  from match_results r where r.session_id = v_sess3;
+
+  v_n := delete_game_day (v_sess3, true);
+  if exists (select 1 from tournament_teams where session_id = v_sess3) then
+    raise exception 'FAIL 7: tournament_teams survived the delete';
+  end if;
+
+  v_restored := restore_game_day (v_sess3);
+
+  select count(*) into v_teams from tournament_teams where session_id = v_sess3;
+  if v_teams <> 2 then
+    raise exception 'FAIL 7b: % teams restored, expected 2', v_teams;
+  end if;
+
+  select jsonb_agg(to_jsonb (r)) into v_after
+  from match_results r where r.session_id = v_sess3;
+  if v_before is distinct from v_after then
+    raise exception 'FAIL 7c: restored tournament rows differ%',
+      E'\nbefore: ' || v_before || E'\nafter:  ' || v_after;
+  end if;
+  if not exists (
+    select 1 from match_results
+    where session_id = v_sess3 and team_a_id = v_team_a and team_b_id = v_team_b
+  ) then
+    raise exception 'FAIL 7d: restored matches lost their team ids';
+  end if;
+  raise notice 'PASS 7 fixed-pairs day round-tripped with its % teams intact', v_teams;
 
   raise notice 'ALL CHECKS PASSED';
   raise exception 'ROLLBACK_SENTINEL: verification complete, discarding all changes';
