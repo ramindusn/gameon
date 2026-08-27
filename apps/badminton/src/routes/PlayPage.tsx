@@ -56,6 +56,7 @@ import {
   useStockContext,
 } from '../fund/GameDayUsage'
 import { POINTS_DOT, POINTS_PILL, POINTS_TEXT, RANK_TEXT } from '../ranking/metricColors'
+import { ScoredGameDayError } from '../play/api'
 import type { MatchResult, MatchSession, Side, TournamentTeam } from '../play/api'
 
 /** A roster player reduced to what the live editors need. */
@@ -117,6 +118,9 @@ export function PlayPage() {
   const [editingDate, setEditingDate] = useState(false)
   const [dateValue, setDateValue] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // Non-null once the DB guard has refused a delete: how many scored
+  // matches would be lost. Doubles as the "force the next attempt" flag.
+  const [blockedScored, setBlockedScored] = useState<number | null>(null)
   // The shuttle-usage popup (TASK-70). Opened by finishing the game day — where
   // closing it moves on to the leaderboard — or from the usage panel, where
   // closing simply returns to the page.
@@ -344,12 +348,27 @@ export function PlayPage() {
                 })
               }
               onReopen={() => setStatus.mutate('live')}
+              blockedScored={blockedScored}
               onAskDelete={() => setConfirmingDelete(true)}
-              onCancelDelete={() => setConfirmingDelete(false)}
+              onCancelDelete={() => {
+                setConfirmingDelete(false)
+                setBlockedScored(null)
+              }}
               onConfirmDelete={() =>
                 deleteSession.mutate(
-                  { id: data.session.id, wasFinished: data.session.status === 'finished' },
-                  { onSuccess: () => navigate('/matchmaker') },
+                  {
+                    id: data.session.id,
+                    wasFinished: data.session.status === 'finished',
+                    force: blockedScored !== null,
+                  },
+                  {
+                    onSuccess: () => navigate('/matchmaker'),
+                    // Not a failure: the day has results, so swap the generic
+                    // confirm for one that names what would be lost (TASK-91).
+                    onError: (e) => {
+                      if (e instanceof ScoredGameDayError) setBlockedScored(e.scoredMatches)
+                    },
+                  },
                 )
               }
             />
@@ -559,6 +578,7 @@ function SessionHeader({
   editingDate,
   dateValue,
   confirmingDelete,
+  blockedScored,
   busy,
   onEditDate,
   onDateChange,
@@ -582,6 +602,7 @@ function SessionHeader({
   editingDate: boolean
   dateValue: string
   confirmingDelete: boolean
+  blockedScored: number | null
   busy: { date: boolean; status: boolean; hidden: boolean; del: boolean }
   onEditDate: () => void
   onDateChange: (v: string) => void
@@ -728,7 +749,27 @@ function SessionHeader({
               Reopen
             </Button>
           )}
-          {confirmingDelete ? (
+          {blockedScored !== null ? (
+            // The generic confirm was already answered — this one names the
+            // cost, because that is the step the reflex does not survive.
+            <>
+              <span className="text-sm text-fg-muted" data-testid="delete-game-day-warning">
+                {blockedScored} scored {blockedScored === 1 ? 'match' : 'matches'} will be
+                removed. It can be restored afterwards.
+              </span>
+              <Button
+                variant="danger"
+                onClick={onConfirmDelete}
+                disabled={busy.del}
+                data-testid="force-delete-game-day"
+              >
+                Delete anyway
+              </Button>
+              <Button variant="ghost" onClick={onCancelDelete} data-testid="cancel-delete-game-day">
+                Cancel
+              </Button>
+            </>
+          ) : confirmingDelete ? (
             <>
               <Button variant="danger" onClick={onConfirmDelete} disabled={busy.del} data-testid="confirm-delete-game-day">
                 Confirm delete

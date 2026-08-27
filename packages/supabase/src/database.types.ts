@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '14.15'
+    PostgrestVersion: '14.17'
   }
   graphql_public: {
     Tables: {
@@ -147,6 +147,50 @@ export type Database = {
             columns: ['member_id']
             isOneToOne: false
             referencedRelation: 'members'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      deleted_game_days: {
+        Row: {
+          club_id: string
+          deleted_at: string
+          deleted_by: string | null
+          kind: string
+          payload: Json
+          played_at: string
+          scored_matches: number
+          session_id: string
+          total_matches: number
+        }
+        Insert: {
+          club_id: string
+          deleted_at?: string
+          deleted_by?: string | null
+          kind: string
+          payload: Json
+          played_at: string
+          scored_matches?: number
+          session_id: string
+          total_matches?: number
+        }
+        Update: {
+          club_id?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          kind?: string
+          payload?: Json
+          played_at?: string
+          scored_matches?: number
+          session_id?: string
+          total_matches?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'deleted_game_days_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
             referencedColumns: ['id']
           },
         ]
@@ -325,9 +369,9 @@ export type Database = {
           score_b: number | null
           session_id: string
           team_a_id: string | null
-          team_b_id: string | null
           team_a1: string | null
           team_a2: string | null
+          team_b_id: string | null
           team_b1: string | null
           team_b2: string | null
           winner: string | null
@@ -342,9 +386,9 @@ export type Database = {
           score_b?: number | null
           session_id: string
           team_a_id?: string | null
-          team_b_id?: string | null
           team_a1?: string | null
           team_a2?: string | null
+          team_b_id?: string | null
           team_b1?: string | null
           team_b2?: string | null
           winner?: string | null
@@ -359,9 +403,9 @@ export type Database = {
           score_b?: number | null
           session_id?: string
           team_a_id?: string | null
-          team_b_id?: string | null
           team_a1?: string | null
           team_a2?: string | null
+          team_b_id?: string | null
           team_b1?: string | null
           team_b2?: string | null
           winner?: string | null
@@ -382,6 +426,13 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'match_results_team_a_id_fkey'
+            columns: ['team_a_id']
+            isOneToOne: false
+            referencedRelation: 'tournament_teams'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'match_results_team_a1_fkey'
             columns: ['team_a1']
             isOneToOne: false
@@ -393,6 +444,13 @@ export type Database = {
             columns: ['team_a2']
             isOneToOne: false
             referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'match_results_team_b_id_fkey'
+            columns: ['team_b_id']
+            isOneToOne: false
+            referencedRelation: 'tournament_teams'
             referencedColumns: ['id']
           },
           {
@@ -410,33 +468,6 @@ export type Database = {
             referencedColumns: ['id']
           },
         ]
-      }
-      tournament_teams: {
-        Row: {
-          id: string
-          club_id: string
-          session_id: string
-          player1_id: string
-          player2_id: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          club_id: string
-          session_id: string
-          player1_id: string
-          player2_id: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          club_id?: string
-          session_id?: string
-          player1_id?: string
-          player2_id?: string
-          created_at?: string
-        }
-        Relationships: []
       }
       match_sessions: {
         Row: {
@@ -799,6 +830,62 @@ export type Database = {
           },
         ]
       }
+      tournament_teams: {
+        Row: {
+          club_id: string
+          created_at: string
+          id: string
+          player1_id: string
+          player2_id: string
+          session_id: string
+        }
+        Insert: {
+          club_id: string
+          created_at?: string
+          id?: string
+          player1_id: string
+          player2_id: string
+          session_id: string
+        }
+        Update: {
+          club_id?: string
+          created_at?: string
+          id?: string
+          player1_id?: string
+          player2_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tournament_teams_club_id_fkey'
+            columns: ['club_id']
+            isOneToOne: false
+            referencedRelation: 'clubs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tournament_teams_player1_id_fkey'
+            columns: ['player1_id']
+            isOneToOne: false
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tournament_teams_player2_id_fkey'
+            columns: ['player2_id']
+            isOneToOne: false
+            referencedRelation: 'player_profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tournament_teams_session_id_fkey'
+            columns: ['session_id']
+            isOneToOne: false
+            referencedRelation: 'match_sessions'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       usage_entries: {
         Row: {
           club_id: string
@@ -899,46 +986,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_admin: { Args: { club: string }; Returns: boolean }
-      is_matchmaker: { Args: { club: string }; Returns: boolean }
-      delete_game_day: { Args: { p_session_id: string }; Returns: number }
-      restore_usage_holdings: { Args: { p_usage_id: string }; Returns: number }
-      substitute_team_player: {
-        Args: {
-          p_team_id: string
-          p_out_player: string
-          p_in_player: string
-          p_from_round?: number
-        }
-        Returns: number
-      }
-      stock_actor_name: { Args: Record<string, never>; Returns: string }
       change_stock: {
         Args: {
-          p_holder_id: string
-          p_product_id: string
-          p_barrels: number
-          p_loose: number
           p_action: string
+          p_barrels: number
+          p_holder_id: string
+          p_loose: number
           p_note?: string
+          p_product_id: string
         }
         Returns: undefined
       }
-      transfer_stock: {
-        Args: {
-          p_product_id: string
-          p_from_id: string
-          p_to_id: string
-          p_barrels: number
-          p_loose: number
-          p_note?: string
-        }
-        Returns: undefined
+      delete_game_day: {
+        Args: { p_force?: boolean; p_session_id: string }
+        Returns: number
       }
       delete_holding: {
-        Args: { p_holder_id: string; p_product_id: string; p_note?: string }
+        Args: { p_holder_id: string; p_note?: string; p_product_id: string }
         Returns: undefined
       }
+      is_admin: { Args: { club: string }; Returns: boolean }
+      is_matchmaker: { Args: { club: string }; Returns: boolean }
       product_shuttle_costs: {
         Args: never
         Returns: {
@@ -947,8 +1015,31 @@ export type Database = {
         }[]
       }
       record_game_day_usage: {
-        Args: { p_session_id: string; p_lines: Json; p_occurred_at?: string }
+        Args: { p_lines: Json; p_occurred_at?: string; p_session_id: string }
         Returns: string
+      }
+      restore_game_day: { Args: { p_session_id: string }; Returns: number }
+      restore_usage_holdings: { Args: { p_usage_id: string }; Returns: number }
+      stock_actor_name: { Args: never; Returns: string }
+      substitute_team_player: {
+        Args: {
+          p_from_round?: number
+          p_in_player: string
+          p_out_player: string
+          p_team_id: string
+        }
+        Returns: number
+      }
+      transfer_stock: {
+        Args: {
+          p_barrels: number
+          p_from_id: string
+          p_loose: number
+          p_note?: string
+          p_product_id: string
+          p_to_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

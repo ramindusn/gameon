@@ -582,13 +582,31 @@ export async function updateSessionPlayedAt(
 }
 
 /**
+ * Thrown when a delete was refused because the day has scored matches. Carries
+ * the count so the UI can say exactly what is about to be lost rather than ask
+ * "are you sure?" a second time (TASK-91).
+ */
+export class ScoredGameDayError extends Error {
+  readonly scoredMatches: number
+  constructor(scoredMatches: number, message: string) {
+    super(message)
+    this.name = 'ScoredGameDayError'
+    this.scoredMatches = scoredMatches
+  }
+}
+
+/**
  * Delete a game day (and its results, via ON DELETE CASCADE). If it was already
  * finished it contributed to the boards, so replay ratings afterwards (best-
  * effort) to drop its contribution.
+ *
+ * A day that has scored matches is refused unless `force` is set, and every
+ * delete is archived first so it can be restored (TASK-91).
  */
 export async function deleteSession(
   id: string,
   wasFinished: boolean,
+  force = false,
 ): Promise<void> {
   if (isE2E()) return e2eDelete(id)
   const db = client()
@@ -596,8 +614,17 @@ export async function deleteSession(
   // before removing it (TASK-81). Deleting the session alone left the usage
   // behind with no day attached: the holder stayed short and the shuttles kept
   // counting against the fund for a day that no longer existed.
-  const { error } = await db.rpc('delete_game_day', { p_session_id: id })
-  if (error) throw error
+  const { error } = await db.rpc('delete_game_day', {
+    p_session_id: id,
+    p_force: force,
+  })
+  if (error) {
+    // PT409 is the guard refusing; details carries the scored-match count.
+    if (error.code === 'PT409') {
+      throw new ScoredGameDayError(Number(error.details) || 0, error.message)
+    }
+    throw error
+  }
   if (wasFinished) {
     try {
       await db.functions.invoke('recompute-ratings')
@@ -605,6 +632,19 @@ export async function deleteSession(
       console.error('recompute-ratings failed', e)
     }
   }
+}
+
+/**
+ * Put a deleted game day back, matches and attendance included. Shuttle usage
+ * is deliberately not replayed: deleting the day credited those shuttles back
+ * to the holder, and re-debiting them here would fight whatever the stock has
+ * done since. Returns the number of matches restored.
+ */
+export async function restoreSession(id: string): Promise<number> {
+  const db = client()
+  const { data, error } = await db.rpc('restore_game_day', { p_session_id: id })
+  if (error) throw error
+  return data ?? 0
 }
 
 // ---- public home feed (E08 / TASK-9.5) ------------------------------------
