@@ -5,7 +5,12 @@ import { Card, cx } from '@gameon/ui'
 import { AppShell } from '../app/AppShell'
 import { Icon } from '../app/Icon'
 import { Pager } from '../app/Pager'
-import { useSessionPlayerCounts, useSessions } from '../play/useMatchPlay'
+import {
+  useDeletedGameDays,
+  useRestoreSession,
+  useSessionPlayerCounts,
+  useSessions,
+} from '../play/useMatchPlay'
 import { formatPlayedAt } from '../play/datetime'
 import { MyStock } from '../fund/MyStock'
 import { useStockContext } from '../fund/GameDayUsage'
@@ -31,9 +36,79 @@ export function MatchmakerHome() {
             relates to — what is on now and what still needs recording — rather
             than below the history, which pushed it off the first screen. */}
         <MyStock />
+        <DeletedGameDays />
         <RecentGameDays />
       </div>
     </AppShell>
+  )
+}
+
+/**
+ * Undo for an accidentally deleted game day (TASK-94).
+ *
+ * Deleting a day archives it (TASK-91), but until now getting one back meant
+ * running restore_game_day() in the SQL editor — no use to a matchmaker at the
+ * hall. This project keeps no database backups by deliberate choice (TASK-92),
+ * so this archive is the whole safety net; it needs to be reachable from a
+ * phone.
+ *
+ * The card hides itself when the archive is empty, which is almost always. It
+ * only appears when there is something to undo.
+ */
+function DeletedGameDays() {
+  const { data, isLoading, isError } = useDeletedGameDays()
+  const restore = useRestoreSession()
+  const days = data ?? []
+
+  // Nothing deleted is the normal case — say nothing rather than show an empty
+  // card on every visit.
+  if (isLoading || days.length === 0) return null
+
+  return (
+    <Card title="Recently deleted" icon={<Icon name="schedule" />}>
+      {isError && <p className="text-sm text-negative">Could not load deleted game days.</p>}
+      <p className="mb-2 text-xs text-fg-muted">
+        Deleted game days are kept so they can be put back. Restoring returns the matches,
+        pairs and attendance — shuttle usage is not restored.
+      </p>
+      <ul className="divide-y divide-line" data-testid="deleted-list">
+        {days.map((d) => (
+          <li
+            key={d.sessionId}
+            className="flex items-center justify-between gap-3 py-3 text-sm"
+            data-testid={`deleted-${d.sessionId}`}
+          >
+            <span className="flex min-w-0 flex-col">
+              <span className="flex items-center gap-2 font-medium text-fg">
+                {formatPlayedAt(d.playedAt)}
+                {d.kind === 'tournament' && <TournamentTag />}
+              </span>
+              <span className="text-xs text-fg-muted">
+                {d.totalMatches} {d.totalMatches === 1 ? 'match' : 'matches'}
+                {d.scoredMatches > 0 && `, ${d.scoredMatches} scored`}
+              </span>
+              <span className="mt-0.5 text-xs text-fg-subtle">
+                Deleted {formatPlayedAt(d.deletedAt)}
+                {d.deletedByName && ` by ${d.deletedByName}`}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => restore.mutate({ id: d.sessionId })}
+              disabled={restore.isPending}
+              data-testid={`restore-${d.sessionId}`}
+              className={cx(
+                'shrink-0 rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-fg',
+                'transition-colors hover:text-accent-strong focus:outline-none focus:ring-2 focus:ring-accent',
+                'disabled:opacity-50',
+              )}
+            >
+              Restore
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
   )
 }
 

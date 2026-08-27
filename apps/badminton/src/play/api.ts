@@ -634,6 +634,59 @@ export async function deleteSession(
   }
 }
 
+/** A game day sitting in the archive, waiting to be restored (TASK-94). */
+export interface DeletedGameDay {
+  sessionId: string
+  /** The date the game day was played — how a matchmaker recognises it. */
+  playedAt: string
+  kind: SessionKind
+  scoredMatches: number
+  totalMatches: number
+  /** When it was deleted, which is what the list is ordered by. */
+  deletedAt: string
+  /** Who deleted it, resolved to a nickname. Absent if they have no profile. */
+  deletedByName?: string
+}
+
+/**
+ * Everything currently recoverable, most recently deleted first.
+ *
+ * RLS on deleted_game_days already limits this to the club's admins and
+ * matchmakers, so there is no club filter here — a caller simply sees nothing
+ * if they are neither.
+ */
+export async function listDeletedGameDays(): Promise<DeletedGameDay[]> {
+  // The E2E store has no archive; an empty list keeps the card hidden rather
+  // than breaking the specs with a table that does not exist there.
+  if (isE2E()) return []
+  const db = client()
+  const { data } = await db
+    .from('deleted_game_days')
+    .select('session_id, played_at, kind, scored_matches, total_matches, deleted_at, deleted_by')
+    .order('deleted_at', { ascending: false })
+
+  const rows = data ?? []
+  const ids = [...new Set(rows.map((r) => r.deleted_by).filter(Boolean))] as string[]
+  const nameOf = new Map<string, string>()
+  if (ids.length > 0) {
+    const { data: people } = await db
+      .from('player_profiles')
+      .select('nickname, user_id')
+      .in('user_id', ids)
+    for (const p of people ?? []) if (p.user_id) nameOf.set(p.user_id, p.nickname)
+  }
+
+  return rows.map((r) => ({
+    sessionId: r.session_id,
+    playedAt: r.played_at,
+    kind: (r.kind as SessionKind) ?? 'casual',
+    scoredMatches: r.scored_matches ?? 0,
+    totalMatches: r.total_matches ?? 0,
+    deletedAt: r.deleted_at,
+    deletedByName: r.deleted_by ? (nameOf.get(r.deleted_by) ?? undefined) : undefined,
+  }))
+}
+
 /**
  * Put a deleted game day back, matches and attendance included. Shuttle usage
  * is deliberately not replayed: deleting the day credited those shuttles back

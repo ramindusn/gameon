@@ -14,6 +14,8 @@ import {
   createTournamentWithMatches,
   deleteMatch,
   deleteSession,
+  listDeletedGameDays,
+  restoreSession,
   ScoredGameDayError,
   getSession,
   listSessions,
@@ -303,6 +305,32 @@ export function useSetSessionHidden(sessionId: string | undefined) {
       qc.invalidateQueries({ queryKey: ['ratings', 'game-days'] })
     },
     onError: () => error('Could not update home visibility'),
+  })
+}
+
+const DELETED_KEY = ['sessions', 'deleted'] as const
+
+/** Game days sitting in the archive, ready to be restored (TASK-94). */
+export function useDeletedGameDays() {
+  return useQuery({ queryKey: DELETED_KEY, queryFn: listDeletedGameDays })
+}
+
+/**
+ * Put an archived game day back. Refreshes the game day list, the archive it
+ * just left, and the rating boards — a restored day counts towards them again.
+ */
+export function useRestoreSession() {
+  const qc = useQueryClient()
+  const { success, error } = useToast()
+  return useMutation({
+    mutationFn: (v: { id: string }) => restoreSession(v.id),
+    onSuccess: (matches) => {
+      qc.invalidateQueries({ queryKey: SESSIONS_KEY })
+      qc.invalidateQueries({ queryKey: DELETED_KEY })
+      qc.invalidateQueries({ queryKey: ['ratings', 'game-days'] })
+      success(`Game day restored (${matches} ${matches === 1 ? 'match' : 'matches'})`)
+    },
+    onError: () => error('Could not restore the game day'),
   })
 }
 
