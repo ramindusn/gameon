@@ -118,6 +118,8 @@ describe('Home (TASK-9.5)', () => {
       {
         sessionId: 's-latest',
         playedAt: '2026-07-10T18:00:00Z',
+        kind: 'casual',
+        pairStandings: [],
         standings: [
           // Deliberately out of order + a tie (p3/p4 both +5) to prove the UI
           // re-sorts by diff then nickname (Alex before Ryan).
@@ -143,6 +145,64 @@ describe('Home (TASK-9.5)', () => {
     expect(screen.getByTestId('game-day-card')).toHaveAttribute('href', '/game-days/s-latest')
   })
 
+  // A fixed-pairs day was filtered out of this query entirely, so it was played,
+  // scored, and then never appeared here at all. It is won by a partnership, so
+  // the podium is the pairs — but everyone still gets their own line below,
+  // which is why both boards are carried (TASK-93).
+  it('ranks a fixed-pairs tournament day by pair, listing players below', () => {
+    state.players = []
+    state.pairs = []
+    state.gameDays = [
+      {
+        sessionId: 's-tourney',
+        playedAt: '2026-07-10T18:00:00Z',
+        kind: 'tournament',
+        pairStandings: [
+          { players: ['p3', 'p4'], pairId: 't2', alsoPlayed: [], played: 2, wins: 0, diff: -9 },
+          { players: ['p1', 'p2'], pairId: 't1', alsoPlayed: [], played: 2, wins: 2, diff: 9 },
+        ],
+        standings: [
+          { playerId: 'p1', played: 2, wins: 2, diff: 9 },
+          { playerId: 'p2', played: 2, wins: 2, diff: 9 },
+          { playerId: 'p3', played: 2, wins: 0, diff: -9 },
+          { playerId: 'p4', played: 2, wins: 0, diff: -9 },
+        ],
+      },
+    ]
+    renderHome()
+
+    expect(screen.getByTestId('game-day-board')).toHaveAttribute('data-ranked-by', 'pair')
+    // Podium is pairs, strongest first, each labelled with both names.
+    expect(screen.getByTestId('podium-1')).toHaveTextContent('Siti & Maya')
+    expect(screen.getByTestId('podium-1')).toHaveTextContent('+9')
+    expect(screen.getByTestId('podium-2')).toHaveTextContent('Alex & Ryan')
+    // Every player still gets a line, starting at 1 — the list under a pair
+    // podium is a different population, so it does not skip the top three.
+    for (const id of ['p1', 'p2', 'p3', 'p4']) {
+      expect(screen.getByTestId(`game-day-row-${id}`)).toBeInTheDocument()
+    }
+    expect(screen.getByTestId('game-day-row-p1')).toHaveTextContent('Siti')
+  })
+
+  // A tournament created before TASK-80 has no team ids to group by, so there
+  // are no pairs to show. Falling back to the player board beats an empty podium.
+  it('falls back to the player podium for a tournament with no pairs', () => {
+    state.players = []
+    state.pairs = []
+    state.gameDays = [
+      {
+        sessionId: 's-old-tourney',
+        playedAt: '2026-07-10T18:00:00Z',
+        kind: 'tournament',
+        pairStandings: [],
+        standings: [{ playerId: 'p1', played: 1, wins: 1, diff: 7 }],
+      },
+    ]
+    renderHome()
+    expect(screen.getByTestId('game-day-board')).toHaveAttribute('data-ranked-by', 'player')
+    expect(screen.getByTestId('podium-1')).toHaveTextContent('Siti')
+  })
+
   it('pages back to older game days with the arrows (TASK-37)', () => {
     state.players = []
     state.pairs = []
@@ -150,11 +210,15 @@ describe('Home (TASK-9.5)', () => {
       {
         sessionId: 's-latest',
         playedAt: '2026-07-10T18:00:00Z',
+        kind: 'casual',
+        pairStandings: [],
         standings: [{ playerId: 'p1', played: 1, wins: 1, diff: 10 }],
       },
       {
         sessionId: 's-older',
         playedAt: '2026-07-03T18:00:00Z',
+        kind: 'casual',
+        pairStandings: [],
         standings: [{ playerId: 'p2', played: 1, wins: 0, diff: -4 }],
       },
     ]
