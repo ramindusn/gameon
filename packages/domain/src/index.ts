@@ -27,3 +27,5 @@ export * from './ranking/types'
 export * from './ranking/ranking'
 // Round-robin scheduling for fixed-pairs tournaments (E11).
 export * from './tournament/roundRobin'
+// Skill-balanced auto-pairing for fixed-pairs tournament setup (TASK-97).
+export * from './tournament/snakePairs'
