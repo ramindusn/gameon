@@ -6,6 +6,7 @@ import {
   roundRobin,
   maxPasses,
   MAX_ROUNDS,
+  snakePairs,
   type GeneratedMatches,
   type MatchPlayer,
 } from '@gameon/domain'
@@ -59,6 +60,14 @@ export function GeneratePage() {
     const m = new Map((board.data ?? []).map((r) => [r.playerId, r]))
     return (id: string) => m.get(id)
   }, [board.data])
+  // Current-state skill for a player: manual seed blended with results-based
+  // rating (TASK-44). Shared by the casual balancer and the tournament
+  // auto-pair action (TASK-97) so both read the same "current state".
+  const skillOf = (id: string): number => {
+    const p = active.find((pl) => pl.id === id)
+    const r = strengthOf(id)
+    return effectiveSkill(p?.skill, r?.rating, r?.games ?? 0)
+  }
   const createSession = useCreateSession()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -101,16 +110,13 @@ export function GeneratePage() {
   function generate() {
     const present: Named[] = active
       .filter((p) => selected.has(p.id))
-      .map((p) => {
-        const r = strengthOf(p.id)
-        return {
-          id: p.id,
-          nickname: p.nickname,
-          // Balance by the results-aware skill (manual seed blended with rating).
-          skill: effectiveSkill(p.skill, r?.rating, r?.games ?? 0),
-          gender: p.gender,
-        }
-      })
+      .map((p) => ({
+        id: p.id,
+        nickname: p.nickname,
+        // Balance by the results-aware skill (manual seed blended with rating).
+        skill: skillOf(p.id),
+        gender: p.gender,
+      }))
     setResult(generateRounds(present, rounds, { mode, courts, excludeWomensPairs }))
     setGenerated(true)
   }
@@ -263,6 +269,7 @@ export function GeneratePage() {
             <BackToSetup onBack={() => setTournamentSetup(false)} />
             <TournamentSetup
               players={selectedPlayers}
+              skillOf={skillOf}
               clubId={data?.clubId ?? null}
               playedAt={localInputToIso(playedAt)}
               onCreated={(id) => navigate(`/game-days/${id}`)}
@@ -442,11 +449,13 @@ function BackToSetup({ onBack }: { onBack: () => void }) {
 // then generate a single round-robin and create the game day pre-filled with it.
 function TournamentSetup({
   players,
+  skillOf,
   clubId,
   playedAt,
   onCreated,
 }: {
   players: Player[]
+  skillOf: (id: string) => number
   clubId: string | null
   playedAt: string
   onCreated: (sessionId: string) => void
@@ -454,6 +463,8 @@ function TournamentSetup({
   const create = useCreateTournamentWithMatches()
   const [pairs, setPairs] = useState<[Player, Player][]>([])
   const [picked, setPicked] = useState<Player | null>(null)
+  // Selection for swapping a player between two already-locked pairs (TASK-97).
+  const [swapPick, setSwapPick] = useState<{ pairIndex: number; slot: 0 | 1 } | null>(null)
   // Deliberately NOT seeded from the setup screen's Rounds field. That number
   // means rounds for a random-doubles draw; here it would mean full
   // round-robins, and one of those is already several rounds. Carrying 15 over
@@ -475,6 +486,38 @@ function TournamentSetup({
     } else {
       setPicked(p)
     }
+  }
+
+  // Balanced starting point: cross-pair the current pool by skill (strongest
+  // with weakest, ...), leaving one player in the pool if it's odd-sized.
+  // Already-locked pairs are untouched — this only consumes the pool.
+  function autoPair() {
+    setPicked(null)
+    const { pairs: generated } = snakePairs(pool.map((p) => ({ ...p, skill: skillOf(p.id) })))
+    if (generated.length === 0) return
+    setPairs((ps) => [...ps, ...generated.map(([a, b]) => [a, b] as [Player, Player])])
+  }
+
+  // Tap a player inside a locked pair, then a player inside a different locked
+  // pair, to swap them across pairs without unlocking either one.
+  function clickPairSlot(pairIndex: number, slot: 0 | 1) {
+    if (swapPick && swapPick.pairIndex === pairIndex && swapPick.slot === slot) {
+      setSwapPick(null)
+      return
+    }
+    if (!swapPick || swapPick.pairIndex === pairIndex) {
+      setSwapPick({ pairIndex, slot })
+      return
+    }
+    setPairs((ps) => {
+      const next = ps.map((pair) => [...pair]) as [Player, Player][]
+      const a = next[swapPick.pairIndex][swapPick.slot]
+      const b = next[pairIndex][slot]
+      next[swapPick.pairIndex][swapPick.slot] = b
+      next[pairIndex][slot] = a
+      return next
+    })
+    setSwapPick(null)
   }
 
   // Each pass is a full round-robin, and a game day holds at most MAX_ROUNDS.
@@ -513,16 +556,32 @@ function TournamentSetup({
   return (
     <Card title="New tournament · Lock pairs" icon={<Icon name="tournament" />}>
       <p className="mb-3 text-sm text-fg-muted">
-        Tap two players to lock them as a fixed pair. Locked pairs play a
-        round-robin (everyone plays everyone)
+        Tap two players to lock them as a fixed pair, or Auto-pair to balance
+        the pool by current skill — then tap a player in one locked pair and a
+        player in another to swap them. Locked pairs play a round-robin
+        (everyone plays everyone)
         {rrPasses > 1 ? `, ${rrPasses} times` : ''}.
       </p>
 
       {pool.length > 0 && (
         <div className="mb-4">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-subtle">
-            Players ({pool.length})
-          </p>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
+              Players ({pool.length})
+            </p>
+            <Button
+              variant="secondary"
+              onClick={autoPair}
+              disabled={pool.length < 2}
+              data-testid="auto-pair"
+              className="min-h-0 px-2.5 py-1 text-xs"
+            >
+              <span className="inline-flex items-center gap-1">
+                <Icon name="generate" className="h-3.5 w-3.5" />
+                Auto-pair
+              </span>
+            </Button>
+          </div>
           <div className="flex flex-wrap gap-2">
             {pool.map((p) => (
               <button
@@ -555,12 +614,35 @@ function TournamentSetup({
                 key={`${a.id}|${b.id}`}
                 className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm"
               >
-                <span className="font-medium text-fg">
-                  {a.nickname} <span className="text-fg-subtle">+</span> {b.nickname}
+                <span className="flex flex-wrap items-center gap-1 font-medium text-fg">
+                  {[a, b].map((p, slot) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => clickPairSlot(i, slot as 0 | 1)}
+                      data-testid={`swap-${p.id}`}
+                      aria-label={`${p.nickname} — tap another pair's player to swap`}
+                      className={cx(
+                        'rounded px-1 transition-colors',
+                        swapPick?.pairIndex === i && swapPick.slot === slot
+                          ? 'bg-accent/15 text-accent-strong'
+                          : 'hover:bg-surface',
+                      )}
+                    >
+                      {p.nickname}
+                      {slot === 0 && <span className="text-fg-subtle"> +</span>}
+                    </button>
+                  ))}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPairs((ps) => ps.filter((_, k) => k !== i))}
+                  onClick={() => {
+                    // Unlocking shifts every later pair's index, so drop any
+                    // pending swap selection rather than risk it pointing at
+                    // the wrong pair.
+                    setPairs((ps) => ps.filter((_, k) => k !== i))
+                    setSwapPick(null)
+                  }}
                   className="text-xs text-fg-muted hover:text-negative"
                   aria-label={`Unlock ${a.nickname} and ${b.nickname}`}
                 >

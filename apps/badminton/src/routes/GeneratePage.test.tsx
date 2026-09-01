@@ -183,6 +183,110 @@ describe('GeneratePage', () => {
     expect(tournamentMutate.mock.calls[0][0].fixtures).toHaveLength(3)
   })
 
+  // Skills are p1=8 down to p8=1 (see the roster fixture above), so Auto-pair's
+  // snake pairing cross-seeds strongest with weakest.
+  it('auto-pairs the pool by current skill (snake pairing, even count)', () => {
+    tournamentMutate.mockClear()
+    renderPage()
+    fireEvent.click(screen.getByTestId('new-tournament'))
+    fireEvent.click(screen.getByTestId('auto-pair'))
+
+    const pairs = screen.getByTestId('locked-pairs')
+    expect(pairs).toHaveTextContent('Player 1')
+    expect(pairs).toHaveTextContent('Player 8')
+    // Pool is empty (8 players, all paired) so no unpaired players remain.
+    expect(screen.queryByTestId('tp-p4')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('generate-matches'))
+    const fixtures = tournamentMutate.mock.calls[0][0].fixtures
+    const teams = fixtures.flatMap((f: { teamA: string[]; teamB: string[] }) => [
+      f.teamA,
+      f.teamB,
+    ])
+    expect(teams).toEqual(
+      expect.arrayContaining([
+        ['p1', 'p8'],
+        ['p2', 'p7'],
+        ['p3', 'p6'],
+        ['p4', 'p5'],
+      ]),
+    )
+  })
+
+  it('auto-pairs an odd pool and leaves the median player unpaired', () => {
+    renderPage()
+    // Drop p8, leaving 7 present players (odd).
+    fireEvent.click(screen.getByTestId('present-p8'))
+    fireEvent.click(screen.getByTestId('new-tournament'))
+    fireEvent.click(screen.getByTestId('auto-pair'))
+
+    // 7 players, skills 8..2 → 3 pairs, p4 (skill 5, the median) stays in the pool.
+    expect(screen.getByText('Locked pairs (3)')).toBeInTheDocument()
+    expect(screen.getByTestId('tp-p4')).toBeInTheDocument()
+  })
+
+  it('swaps a player between two locked pairs without touching the rest', () => {
+    tournamentMutate.mockClear()
+    renderPage()
+    fireEvent.click(screen.getByTestId('new-tournament'))
+    fireEvent.click(screen.getByTestId('auto-pair'))
+    // Auto-pair locked p1+p8, p2+p7, p3+p6, p4+p5. Swap p8 (pair 0) with p7 (pair 1).
+    fireEvent.click(screen.getByTestId('swap-p8'))
+    fireEvent.click(screen.getByTestId('swap-p7'))
+
+    fireEvent.change(screen.getByTestId('passes-input'), { target: { value: '1' } })
+    fireEvent.click(screen.getByTestId('generate-matches'))
+    const fixtures = tournamentMutate.mock.calls[0][0].fixtures
+    const teams = fixtures.flatMap((f: { teamA: string[]; teamB: string[] }) => [
+      f.teamA,
+      f.teamB,
+    ])
+    expect(teams).toEqual(
+      expect.arrayContaining([
+        ['p1', 'p7'],
+        ['p2', 'p8'],
+        ['p3', 'p6'],
+        ['p4', 'p5'],
+      ]),
+    )
+  })
+
+  it('re-running Auto-pair keeps an already-locked pair and only fills the remaining pool', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('new-tournament'))
+    // Manually lock the two weakest players first (an "odd" pairing Auto-pair
+    // would never produce on its own).
+    fireEvent.click(screen.getByTestId('tp-p7'))
+    fireEvent.click(screen.getByTestId('tp-p8'))
+    expect(screen.getByText('Locked pairs (1)')).toBeInTheDocument()
+
+    // Auto-pair the remaining 6 players (p1..p6).
+    fireEvent.click(screen.getByTestId('auto-pair'))
+    const pairs = screen.getByTestId('locked-pairs')
+    // The manual pair survives untouched.
+    expect(pairs).toHaveTextContent('Player 7')
+    expect(pairs).toHaveTextContent('Player 8')
+    expect(screen.getByText('Locked pairs (4)')).toBeInTheDocument()
+    expect(screen.queryByTestId('tp-p1')).toBeNull()
+  })
+
+  it('still supports manual lock and unlock after auto-pairing', () => {
+    renderPage()
+    fireEvent.click(screen.getByTestId('new-tournament'))
+    fireEvent.click(screen.getByTestId('auto-pair'))
+    // Unlock one auto-paired pair to return both players to the pool.
+    const unlock = screen.getByLabelText('Unlock Player 1 and Player 8')
+    fireEvent.click(unlock)
+    expect(screen.getByText('Locked pairs (3)')).toBeInTheDocument()
+    expect(screen.getByTestId('tp-p1')).toBeInTheDocument()
+    expect(screen.getByTestId('tp-p8')).toBeInTheDocument()
+
+    // Manually relock them.
+    fireEvent.click(screen.getByTestId('tp-p1'))
+    fireEvent.click(screen.getByTestId('tp-p8'))
+    expect(screen.getByText('Locked pairs (4)')).toBeInTheDocument()
+  })
+
   it('unchecks 3-in-a-row absentees by default and sorts them last (TASK-64)', () => {
     // p6 and p7 missed the last 3+ game days; everyone else has come recently.
     attendance.current = {
