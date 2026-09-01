@@ -297,16 +297,21 @@ export async function loadPairBoard(): Promise<RatedPair[]> {
   return (data ?? []).map(mapPairRatingRow)
 }
 
-/** Recent game-day form for every player, derived from finished sessions. */
+/**
+ * Recent game-day form for every player, derived from finished sessions.
+ * Sessions of every kind count here (casual + tournaments) — tournament
+ * results were folded into the main rankings (TASK-39), but this query still
+ * excluded them until TASK-98, the same stale filter TASK-93 already fixed on
+ * loadGameDayBoards.
+ */
 export async function loadRecentForm(): Promise<FormMap> {
   if (isE2E()) return E2E_FORM
   const { data } = await client()
     .from('match_results')
     .select(
-      'session_id, team_a1, team_a2, team_b1, team_b2, winner, match_sessions!inner(created_at, status, kind)',
+      'session_id, team_a1, team_a2, team_b1, team_b2, winner, match_sessions!inner(created_at, status)',
     )
     .eq('match_sessions.status', 'finished')
-    .eq('match_sessions.kind', 'casual')
     .not('winner', 'is', null)
 
   type Row = {
