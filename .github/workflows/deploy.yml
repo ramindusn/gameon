@@ -42,11 +42,17 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       # Dormant until the Cloudflare API token secret is added — skips cleanly so
-      # pushes don't fail before deploy is wired up. Checked via `secrets.*`
-      # directly (not a job-level env var) so the token isn't in scope for the
-      # earlier install/build steps — least-privilege after the repo went public.
+      # pushes don't fail before deploy is wired up. A step's `if:` can't read
+      # the `secrets` context at all (GitHub rejects the whole workflow file if
+      # it tries), so the presence check runs as its own step and hands the
+      # result through `steps.*.outputs` instead — keeps the token out of the
+      # earlier install/build steps' environment without an invalid `if:`.
+      - name: Check Cloudflare token
+        id: cf
+        run: echo "present=${{ secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
       - name: Deploy to Cloudflare Pages
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        if: steps.cf.outputs.present == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
