@@ -472,6 +472,7 @@ export type Database = {
       match_sessions: {
         Row: {
           club_id: string
+          court_numbers: number[] | null
           created_at: string
           created_by: string | null
           hidden: boolean
@@ -485,6 +486,7 @@ export type Database = {
         }
         Insert: {
           club_id: string
+          court_numbers?: number[] | null
           created_at?: string
           created_by?: string | null
           hidden?: boolean
@@ -498,6 +500,7 @@ export type Database = {
         }
         Update: {
           club_id?: string
+          court_numbers?: number[] | null
           created_at?: string
           created_by?: string | null
           hidden?: boolean

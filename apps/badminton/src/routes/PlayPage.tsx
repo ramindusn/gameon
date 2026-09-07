@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, ChipPicker, cx, Modal, SkeletonCard } from '@gameon/ui'
 import {
+  courtLabel,
   generateRounds,
   nextTournamentRound,
   validateLineup,
@@ -449,6 +450,7 @@ export function PlayPage() {
                           <RoundBuilder
                             position={newRoundPosition}
                             courts={templateCourts}
+                            courtNumbers={data.session.courtNumbers}
                             present={sessionPlayers}
                             skillOf={skillOf}
                             pairs={tournamentPairs}
@@ -476,6 +478,7 @@ export function PlayPage() {
                                 <CourtScore
                                   key={r.id}
                                   result={r}
+                                  courtNumbers={data.session.courtNumbers}
                                   nameOf={nameOf}
                                   rankDeltas={matchDeltas?.[r.id]}
                                   skillOf={skillOf}
@@ -1461,6 +1464,7 @@ function fmtRankPoints(n: number) {
 
 function CourtScore({
   result,
+  courtNumbers,
   nameOf,
   rankDeltas,
   skillOf,
@@ -1474,6 +1478,8 @@ function CourtScore({
   onDelete,
 }: {
   result: MatchResult
+  /** The game day's real court numbers, if the matchmaker named them (TASK-99). */
+  courtNumbers?: number[]
   nameOf: (id: string | null) => string
   /** Ranking points this match was worth, per player id (TASK-87). */
   rankDeltas?: Record<string, number>
@@ -1541,7 +1547,7 @@ function CourtScore({
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-fg-subtle">
-          Court {result.court}
+          Court {courtLabel(result.court, courtNumbers)}
           {decided && (
             <span className={POINTS_TEXT} aria-label="scored">
               ✓
@@ -1772,6 +1778,7 @@ function LineupEditor({
 function RoundBuilder({
   position,
   courts,
+  courtNumbers,
   present,
   skillOf,
   pairs,
@@ -1783,6 +1790,8 @@ function RoundBuilder({
    *  round number, which runs ahead of them once matches have been deleted. */
   position: number
   courts: number
+  /** The game day's real court numbers, if the matchmaker named them (TASK-99). */
+  courtNumbers?: number[]
   present: PresentPlayer[]
   skillOf: SkillOf
   /** Locked partners on a fixed-pairs day; empty on a casual one. */
@@ -1888,7 +1897,7 @@ function RoundBuilder({
             >
               <div className="mb-2 flex items-center justify-between">
                 <span className={cx('text-xs font-semibold uppercase tracking-wide', POINTS_TEXT)}>
-                  Court {i + 1}
+                  Court {courtLabel(i + 1, courtNumbers)}
                 </span>
                 <span className="text-[10px] tabular-nums text-fg-subtle">{cp.length}/4</span>
               </div>

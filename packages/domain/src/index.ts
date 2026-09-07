@@ -20,6 +20,8 @@ export * from './matches/generate'
 export * from './matches/score'
 // Match line-up validation — live editing + custom matches (E09).
 export * from './matches/lineup'
+// Optional real court numbers over the positional court slots (TASK-99).
+export * from './matches/courts'
 
 // Ranking — Glicko-2 individual + per-pair boards (E05).
 export * from './ranking/glicko2'

@@ -45,6 +45,10 @@ export interface MatchSession {
   createdBy?: string
   /** Their nickname, resolved from player_profiles (publicly readable). */
   createdByName?: string
+  /** The venue's real court numbers, indexed by the 1-based court slot
+   *  (TASK-99). Undefined on any game day where the matchmaker didn't name
+   *  them — courts are then displayed by their slot number, as before. */
+  courtNumbers?: number[]
 }
 
 /** A single court within a session. Player ids may be null if a roster player
@@ -84,6 +88,7 @@ export const mapSessionRow = (r: {
   played_at: string
   created_at: string
   created_by?: string | null
+  court_numbers?: number[] | null
 }): MatchSession => ({
   id: r.id,
   clubId: r.club_id,
@@ -95,6 +100,9 @@ export const mapSessionRow = (r: {
   playedAt: r.played_at,
   createdAt: r.created_at,
   createdBy: r.created_by ?? undefined,
+  // An empty array is the same as never having named the courts; keep one
+  // shape (undefined) so callers don't need to test for both.
+  courtNumbers: r.court_numbers?.length ? r.court_numbers : undefined,
 })
 
 export const mapResultRow = (r: {
@@ -169,7 +177,7 @@ export function planToResultRows(
 // ---- data access ----------------------------------------------------------
 
 const SESSION_COLS =
-  'id, club_id, status, mode, kind, rounds, hidden, played_at, created_at, created_by'
+  'id, club_id, status, mode, kind, rounds, hidden, played_at, created_at, created_by, court_numbers'
 const RESULT_COLS =
   'id, session_id, round, court, team_a1, team_a2, team_b1, team_b2, team_a_id, team_b_id, score_a, score_b, winner'
 
@@ -183,7 +191,11 @@ export async function createSessionFromPlan(
   plan: GeneratedMatches,
   mode: Mode,
   playedAt: string,
+  courtNumbers?: number[],
 ): Promise<string> {
+  // An empty list means the matchmaker left the field alone — store null so the
+  // game day is numbered by slot, as it always was.
+  const courts = courtNumbers?.length ? courtNumbers : undefined
   if (isE2E()) {
     const id = e2eUid('session')
     return e2ePut(
@@ -197,6 +209,7 @@ export async function createSessionFromPlan(
         hidden: false,
         playedAt,
         createdAt: new Date().toISOString(),
+        courtNumbers: courts,
       },
       planToResultRows(plan, id, clubId),
     )
@@ -210,6 +223,7 @@ export async function createSessionFromPlan(
       rounds: plan.rounds.length,
       status: 'live',
       played_at: playedAt,
+      court_numbers: courts ?? null,
     })
     .select('id')
     .single()
@@ -240,8 +254,10 @@ export async function createTournamentWithMatches(
   clubId: string,
   playedAt: string,
   fixtures: TournamentFixture[],
+  courtNumbers?: number[],
 ): Promise<string> {
   const rounds = Math.max(1, ...fixtures.map((f) => f.round))
+  const courts = courtNumbers?.length ? courtNumbers : undefined
   const toRows = (sessionId: string): ResultInsert[] =>
     fixtures.map((f) => ({
       club_id: clubId,
@@ -267,6 +283,7 @@ export async function createTournamentWithMatches(
         hidden: false,
         playedAt,
         createdAt: new Date().toISOString(),
+        courtNumbers: courts,
       },
       toRows(id),
     )
@@ -281,6 +298,7 @@ export async function createTournamentWithMatches(
       rounds,
       status: 'live',
       played_at: playedAt,
+      court_numbers: courts ?? null,
     })
     .select('id')
     .single()
