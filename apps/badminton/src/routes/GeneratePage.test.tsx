@@ -24,9 +24,12 @@ vi.mock('../roster/useRoster', () => ({
     isError: false,
   }),
 }))
-const { tournamentMutate } = vi.hoisted(() => ({ tournamentMutate: vi.fn() }))
+const { tournamentMutate, sessionMutate } = vi.hoisted(() => ({
+  tournamentMutate: vi.fn(),
+  sessionMutate: vi.fn(),
+}))
 vi.mock('../play/useMatchPlay', () => ({
-  useCreateSession: () => ({ mutate: vi.fn(), isPending: false }),
+  useCreateSession: () => ({ mutate: sessionMutate, isPending: false }),
   useCreateTournamentWithMatches: () => ({ mutate: tournamentMutate, isPending: false }),
 }))
 vi.mock('../auth/useAuth', () => ({
@@ -181,6 +184,85 @@ describe('GeneratePage', () => {
 
     fireEvent.click(screen.getByTestId('generate-matches'))
     expect(tournamentMutate.mock.calls[0][0].fixtures).toHaveLength(3)
+  })
+
+  // Optional real court numbers (TASK-99). Empty field = courts numbered 1..N.
+  describe('court numbers', () => {
+    it('numbers courts 1..N when the field is left empty', () => {
+      sessionMutate.mockClear()
+      renderPage()
+      fireEvent.click(screen.getByTestId('generate-button'))
+      // 8 players → 2 courts, one label per court per round (5 rounds).
+      expect(screen.getAllByText('Court 1')).toHaveLength(5)
+      expect(screen.getAllByText('Court 2')).toHaveLength(5)
+
+      fireEvent.click(screen.getByTestId('create-game-day'))
+      expect(sessionMutate.mock.calls[0][0].courtNumbers).toEqual([])
+    })
+
+    it('labels the draw with the real court numbers when given', () => {
+      sessionMutate.mockClear()
+      renderPage()
+      fireEvent.change(screen.getByTestId('court-numbers-input'), {
+        target: { value: '5, 6' },
+      })
+      fireEvent.click(screen.getByTestId('generate-button'))
+
+      expect(screen.getAllByText('Court 5')).toHaveLength(5)
+      expect(screen.getAllByText('Court 6')).toHaveLength(5)
+      expect(screen.queryByText('Court 1')).toBeNull()
+    })
+
+    it('passes the numbers through when the game day is created', () => {
+      sessionMutate.mockClear()
+      renderPage()
+      fireEvent.change(screen.getByTestId('court-numbers-input'), {
+        target: { value: '5, 6' },
+      })
+      fireEvent.click(screen.getByTestId('generate-button'))
+      fireEvent.click(screen.getByTestId('create-game-day'))
+
+      expect(sessionMutate.mock.calls[0][0].courtNumbers).toEqual([5, 6])
+    })
+
+    it('passes the numbers through for a fixed-pairs tournament too', () => {
+      tournamentMutate.mockClear()
+      renderPage()
+      fireEvent.change(screen.getByTestId('court-numbers-input'), {
+        target: { value: '5, 6' },
+      })
+      fireEvent.click(screen.getByTestId('new-tournament'))
+      fireEvent.click(screen.getByTestId('auto-pair'))
+      fireEvent.click(screen.getByTestId('generate-matches'))
+
+      expect(tournamentMutate.mock.calls[0][0].courtNumbers).toEqual([5, 6])
+    })
+
+    it('ignores junk in the field rather than breaking the draw', () => {
+      sessionMutate.mockClear()
+      renderPage()
+      fireEvent.change(screen.getByTestId('court-numbers-input'), {
+        target: { value: '5, abc, 0, 6' },
+      })
+      fireEvent.click(screen.getByTestId('generate-button'))
+      expect(screen.getAllByText('Court 5')).toHaveLength(5)
+      expect(screen.getAllByText('Court 6')).toHaveLength(5)
+      expect(screen.queryByText('Court 1')).toBeNull()
+    })
+
+    it('falls back to the slot number for courts the list does not cover', () => {
+      renderPage()
+      // Only one number for a 2-court draw: court 2 keeps its own number.
+      fireEvent.change(screen.getByTestId('court-numbers-input'), {
+        target: { value: '5' },
+      })
+      expect(screen.getByTestId('court-numbers-hint')).toHaveTextContent(
+        'the remaining 1 keep their own number',
+      )
+      fireEvent.click(screen.getByTestId('generate-button'))
+      expect(screen.getAllByText('Court 5')).toHaveLength(5)
+      expect(screen.getAllByText('Court 2')).toHaveLength(5)
+    })
   })
 
   // Skills are p1=8 down to p8=1 (see the roster fixture above), so Auto-pair's

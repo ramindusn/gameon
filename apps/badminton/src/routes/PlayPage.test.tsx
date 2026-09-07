@@ -150,6 +150,48 @@ describe('PlayPage', () => {
     lastUsageModalProps.current = null
     ratingDeltas.current = undefined
     matchDeltas.current = undefined
+    delete sessionData.session.courtNumbers
+  })
+
+  // Optional real court numbers (TASK-99): the stored list labels the court
+  // cards; without one they stay on their slot number, as they always were.
+  describe('court numbers', () => {
+    it('labels the court cards with the slot number when the day has no list', () => {
+      renderPage()
+      expect(screen.getByTestId('court-r1')).toHaveTextContent('Court 1')
+      expect(screen.getByTestId('court-r2')).toHaveTextContent('Court 2')
+    })
+
+    it("labels the court cards with the game day's real court numbers", () => {
+      sessionData.session.courtNumbers = [5, 6]
+      renderPage()
+      expect(screen.getByTestId('court-r1')).toHaveTextContent('Court 5')
+      expect(screen.getByTestId('court-r2')).toHaveTextContent('Court 6')
+      expect(screen.getByTestId('court-r1')).not.toHaveTextContent('Court 1')
+    })
+
+    it('falls back to the slot for a court the list does not cover', () => {
+      // Only the first court was named; the second keeps its own number.
+      sessionData.session.courtNumbers = [5]
+      renderPage()
+      expect(screen.getByTestId('court-r1')).toHaveTextContent('Court 5')
+      expect(screen.getByTestId('court-r2')).toHaveTextContent('Court 2')
+    })
+
+    it('labels the slots of a round added later with the same numbers', () => {
+      sessionData.session.courtNumbers = [5, 6]
+      renderPage()
+      fireEvent.click(screen.getByTestId('add-round'))
+      expect(screen.getByTestId('court-slot-1')).toHaveTextContent('Court 5')
+      expect(screen.getByTestId('court-slot-2')).toHaveTextContent('Court 6')
+    })
+
+    it('numbers the slots of a round added later 1..N when there is no list', () => {
+      renderPage()
+      fireEvent.click(screen.getByTestId('add-round'))
+      expect(screen.getByTestId('court-slot-1')).toHaveTextContent('Court 1')
+      expect(screen.getByTestId('court-slot-2')).toHaveTextContent('Court 2')
+    })
   })
 
   it('switches to the Points tab, showing point diff + ranking per player', () => {

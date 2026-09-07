@@ -7,6 +7,8 @@ import {
   maxPasses,
   MAX_ROUNDS,
   snakePairs,
+  courtLabel,
+  parseCourtNumbers,
   type GeneratedMatches,
   type MatchPlayer,
 } from '@gameon/domain'
@@ -79,6 +81,8 @@ export function GeneratePage() {
   // follows it until the matchmaker edits the field; then their value is clamped.
   const [courtsText, setCourtsText] = useState('')
   const [courtsEdited, setCourtsEdited] = useState(false)
+  // Optional real court numbers ("5, 6, 9"). Empty = number them 1..N (TASK-99).
+  const [courtNumbersText, setCourtNumbersText] = useState('')
   const [excludeWomensPairs, setExcludeWomensPairs] = useState(false)
   const mode: Mode = 'open'
   const [result, setResult] = useState<GeneratedMatches | null>(null)
@@ -131,6 +135,8 @@ export function GeneratePage() {
   const maxCourts = Math.max(1, Math.floor(selected.size / 4))
   const courtsValue = courtsEdited ? courtsText : String(maxCourts)
   const courts = Math.max(1, Math.min(maxCourts, Number(courtsValue) || maxCourts))
+  // Parsed on every keystroke so the hint under the field tracks what was typed.
+  const courtNumbers = useMemo(() => parseCourtNumbers(courtNumbersText), [courtNumbersText])
 
   return (
     <AppShell title="Generate draw">
@@ -224,6 +230,33 @@ export function GeneratePage() {
                       data-testid="courts-input"
                     />
                   </div>
+                  {/* Optional: the venue's real court numbers (TASK-99). Left
+                      empty, courts are numbered 1..N as they always were. */}
+                  <div>
+                    <Field
+                      inline
+                      label={
+                        <>
+                          Court numbers <span className="text-fg-subtle">(optional)</span>
+                        </>
+                      }
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="e.g. 5, 6, 9"
+                      value={courtNumbersText}
+                      onChange={(e) => setCourtNumbersText(e.target.value)}
+                      data-testid="court-numbers-input"
+                    />
+                    <p className="mt-1.5 text-xs text-fg-subtle" data-testid="court-numbers-hint">
+                      {courtNumbers.length === 0
+                        ? 'Leave empty to number the courts 1 upwards.'
+                        : `Courts will show as ${courtNumbers.slice(0, courts).join(', ')}${
+                            courtNumbers.length < courts
+                              ? ` — the remaining ${courts - courtNumbers.length} keep their own number.`
+                              : '.'
+                          }`}
+                    </p>
+                  </div>
                   <label className="flex w-fit items-center gap-2 text-sm text-fg">
                     <input
                       type="checkbox"
@@ -272,6 +305,7 @@ export function GeneratePage() {
               skillOf={skillOf}
               clubId={data?.clubId ?? null}
               playedAt={localInputToIso(playedAt)}
+              courtNumbers={courtNumbers}
               onCreated={(id) => navigate(`/game-days/${id}`)}
             />
           </div>
@@ -294,6 +328,7 @@ export function GeneratePage() {
             ) : (
               <Draw
                 result={result}
+                courtNumbers={courtNumbers}
                 canStart={Boolean(data?.clubId)}
                 starting={createSession.isPending}
                 playedAt={playedAt}
@@ -305,6 +340,7 @@ export function GeneratePage() {
                       plan: result,
                       mode,
                       playedAt: localInputToIso(playedAt),
+                      courtNumbers,
                     },
                     { onSuccess: (id) => navigate(`/game-days/${id}`) },
                   )
@@ -320,6 +356,7 @@ export function GeneratePage() {
 
 function Draw({
   result,
+  courtNumbers,
   canStart,
   starting,
   playedAt,
@@ -327,6 +364,8 @@ function Draw({
   onStart,
 }: {
   result: GeneratedMatches
+  /** The venue's real court numbers; empty means number them 1..N (TASK-99). */
+  courtNumbers: number[]
   canStart: boolean
   starting: boolean
   playedAt: string
@@ -396,7 +435,7 @@ function Draw({
                   className="rounded-lg border border-line bg-surface-muted px-3 py-3 text-sm"
                 >
                   <div className="mb-2 text-center text-xs uppercase tracking-wide text-fg-subtle">
-                    Court {ci + 1}
+                    Court {courtLabel(ci + 1, courtNumbers)}
                   </div>
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
                     <TeamCol a={name(m[0][0])} b={name(m[0][1])} />
@@ -452,12 +491,15 @@ function TournamentSetup({
   skillOf,
   clubId,
   playedAt,
+  courtNumbers,
   onCreated,
 }: {
   players: Player[]
   skillOf: (id: string) => number
   clubId: string | null
   playedAt: string
+  /** The venue's real court numbers; empty means number them 1..N (TASK-99). */
+  courtNumbers: number[]
   onCreated: (sessionId: string) => void
 }) {
   const create = useCreateTournamentWithMatches()
@@ -548,7 +590,7 @@ function TournamentSetup({
         })
       })
     }
-    create.mutate({ clubId, playedAt, fixtures }, { onSuccess: onCreated })
+    create.mutate({ clubId, playedAt, fixtures, courtNumbers }, { onSuccess: onCreated })
   }
 
   const matchCount = ((pairs.length * (pairs.length - 1)) / 2) * rrPasses

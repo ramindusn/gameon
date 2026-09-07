@@ -136,7 +136,9 @@ export function useCreateSession() {
       plan: GeneratedMatches
       mode: Mode
       playedAt: string
-    }) => createSessionFromPlan(v.clubId, v.plan, v.mode, v.playedAt),
+      /** The venue's real court numbers, when the matchmaker named them. */
+      courtNumbers?: number[]
+    }) => createSessionFromPlan(v.clubId, v.plan, v.mode, v.playedAt, v.courtNumbers),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SESSIONS_KEY })
       success('Game day created')
@@ -150,8 +152,12 @@ export function useCreateTournamentWithMatches() {
   const qc = useQueryClient()
   const { success, error } = useToast()
   return useMutation({
-    mutationFn: (v: { clubId: string; playedAt: string; fixtures: TournamentFixture[] }) =>
-      createTournamentWithMatches(v.clubId, v.playedAt, v.fixtures),
+    mutationFn: (v: {
+      clubId: string
+      playedAt: string
+      fixtures: TournamentFixture[]
+      courtNumbers?: number[]
+    }) => createTournamentWithMatches(v.clubId, v.playedAt, v.fixtures, v.courtNumbers),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SESSIONS_KEY })
       success('Tournament created')
