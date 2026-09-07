@@ -1,11 +1,11 @@
 ---
 id: TASK-99
 title: Optional actual court numbers on a game day
-status: In Progress
+status: Done
 assignee:
   - '@ramindusn'
 created_date: '2026-09-07 06:28'
-updated_date: '2026-09-07 06:36'
+updated_date: '2026-09-07 06:57'
 labels:
   - feature
 dependencies: []
@@ -30,7 +30,7 @@ The three places that render a court label today: GeneratePage.tsx:399 (draw pre
 <!-- AC:BEGIN -->
 - [x] #1 A 'Court numbers' input on the Generate page accepts an optional comma-separated list (e.g. '5, 6, 9'); left empty, the game day is numbered 1..N exactly as it is today
 - [x] #2 When numbers are given, the draw preview, the score-tab court cards, and the round-builder court slots all show those numbers instead of 1..N
-- [ ] #3 The numbers persist with the game day, so the live and public game-day pages show them on later visits
+- [x] #3 The numbers persist with the game day, so the live and public game-day pages show them on later visits
 - [x] #4 The numbers apply to both casual draws and fixed-pairs tournaments
 - [x] #5 A round added after the game day started uses the same court numbers
 - [x] #6 Giving fewer numbers than courts, extra whitespace, or non-numeric junk is handled without breaking the draw (unlabelled courts fall back to their slot number)
@@ -55,4 +55,18 @@ AC3 (persistence round-trip) is NOT checked: the migration has not been applied 
 DEPLOY ORDER: SESSION_COLS now selects court_numbers, so the migration must be applied BEFORE the frontend deploys — otherwise PostgREST rejects the select and the game-day page breaks. Apply to dev and prod per docs/RUNBOOK.md (supabase link --project-ref <ref> && supabase db push).
 
 Validation: 479 unit tests pass (9 domain + 6 GeneratePage + 5 PlayPage new), tsc --noEmit clean, lint clean.
+
+AC3 verified manually on dev: migration applied to the dev project (xlovjvvhsemqaqbknmyi) with 'supabase db push' — 20260907090000 now shows as applied remotely, nothing pending, and existing game days read court_numbers: null (unchanged, numbered by slot). The feature branch was deployed to badmintonduo.pages.dev (verify passed: 479 unit + 40 e2e, lint + typecheck clean) and the user confirmed the flow works end to end, including the persistence round-trip that unit tests could not cover.
+
+Prod migration is NOT applied yet — it must go in BEFORE PR #42 merges, because merging auto-deploys the frontend and the session query selects court_numbers.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Added an optional 'Court numbers' field to the draw screen so a game day can carry the venue's real court numbers (e.g. '5, 6, 9') instead of always reading Court 1..N. Left empty — the default — behaviour is unchanged.
+
+match_results.court keeps its positional slot meaning, so the unique (session, round, court) index, next-free-court and add-match logic are untouched; the real numbers are stored as a per-session label list (match_sessions.court_numbers, nullable) and mapped slot -> label at display time. Covers casual draws and fixed-pairs tournaments, the draw preview, the live/public score cards, and the slots of a round added after play starts. Parsing is forgiving (whitespace, junk, duplicates, short lists all degrade to the slot number).
+
+Verified: 479 unit tests (9 domain + 6 GeneratePage + 5 PlayPage new), 40 e2e, tsc and lint clean; migration applied to dev and the whole flow confirmed by hand on badmintonduo.pages.dev.
+<!-- SECTION:FINAL_SUMMARY:END -->
