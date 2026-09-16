@@ -497,16 +497,39 @@ export async function setScore(
 }
 
 /**
+ * The team ids a match's two sides belong to, matched on the teams' current
+ * members in either order. A side no team fields — and every side on a casual
+ * day, which has no teams — stays unlinked.
+ */
+export function teamIdsFor(
+  teams: TournamentTeam[],
+  teamA: [string, string],
+  teamB: [string, string],
+): { team_a_id: string | null; team_b_id: string | null } {
+  const byPair = new Map(teams.map((t) => [sortedPair(t.player1Id, t.player2Id), t.id]))
+  return {
+    team_a_id: byPair.get(sortedPair(teamA[0], teamA[1])) ?? null,
+    team_b_id: byPair.get(sortedPair(teamB[0], teamB[1])) ?? null,
+  }
+}
+
+const sortedPair = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`)
+
+/**
  * Replace a live match's four players (full substitution / partner swap). The
  * recorded score belongs to the previous line-up, so it is cleared — the match
  * must be re-scored after the change.
  */
 export async function updateMatchLineup(
+  sessionId: string,
   resultId: string,
   teamA: [string, string],
   teamB: [string, string],
 ): Promise<void> {
   if (isE2E()) return e2eUpdateLineup(resultId, teamA, teamB)
+  // On a fixed-pairs day the new line-up may be different teams, so the links
+  // are re-derived rather than left pointing at whoever played before.
+  const teams = await loadTournamentTeams(sessionId)
   const { error } = await client()
     .from('match_results')
     .update({
@@ -514,6 +537,7 @@ export async function updateMatchLineup(
       team_a2: teamA[1],
       team_b1: teamB[0],
       team_b2: teamB[1],
+      ...teamIdsFor(teams, teamA, teamB),
       score_a: null,
       score_b: null,
       winner: null,
@@ -531,6 +555,9 @@ export async function addCustomMatch(
   players: [string, string, string, string],
 ): Promise<void> {
   if (isE2E()) return e2eAddMatch(sessionId, round, court, players)
+  // Link the match to the teams playing it, as the fixtures created with the
+  // tournament are. Without the link the standings rank the pair twice.
+  const teams = await loadTournamentTeams(sessionId)
   const { error } = await client()
     .from('match_results')
     .insert({
@@ -542,6 +569,7 @@ export async function addCustomMatch(
       team_a2: players[1],
       team_b1: players[2],
       team_b2: players[3],
+      ...teamIdsFor(teams, [players[0], players[1]], [players[2], players[3]]),
     })
   if (error) throw error
 }

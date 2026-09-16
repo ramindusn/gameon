@@ -161,6 +161,19 @@ describe('buildGameDayPairBoard (TASK-80)', () => {
     expect(team.alsoPlayed).toEqual(['p2']) // who played earlier
   })
 
+  // A match added from "New round" on a live tournament used to be saved
+  // without team ids, so the same pair ranked once by team and once by players
+  // — two pairs on court showed as four in the standings.
+  it('merges an unlinked match into the team that fields the same pair', () => {
+    const board = buildGameDayPairBoard([
+      { ...row(['p1', 'p2'], ['p3', 'p4'], 21, 15), teamAId: 't1', teamBId: 't2' },
+      row(['p4', 'p3'], ['p2', 'p1'], 21, 18), // added later, no team ids
+    ])
+    expect(board).toHaveLength(2)
+    expect(board.map((b) => b.pairId).sort()).toEqual(['t1', 't2'])
+    expect(board.every((b) => b.played === 2)).toBe(true)
+  })
+
   it('falls back to the pair when a day has no team ids', () => {
     const board = buildGameDayPairBoard([row(['p1', 'p2'], ['p3', 'p4'], 21, 15)])
     expect(board[0].pairId).toBe('p1|p2')

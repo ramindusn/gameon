@@ -187,6 +187,18 @@ export function pairKey(a: string, b: string): string {
  */
 export function buildGameDayPairBoard(rows: GameDayResultRow[]): GameDayPairStanding[] {
   const byPair = new Map<string, GameDayPairStanding & { seen: Set<string> }>()
+  // Which team fielded each line-up. A match added to a live tournament used to
+  // be saved without team ids; without this it would rank the same pair a
+  // second time, under its players instead of its team.
+  const teamOfPair = new Map<string, string>()
+  for (const r of rows) {
+    for (const [[x, y], id] of [
+      [r.teamA, r.teamAId],
+      [r.teamB, r.teamBId],
+    ] as const) {
+      if (x && y && id && !teamOfPair.has(pairKey(x, y))) teamOfPair.set(pairKey(x, y), id)
+    }
+  }
   const bump = (
     team: [string | null, string | null],
     teamId: string | null | undefined,
@@ -199,7 +211,7 @@ export function buildGameDayPairBoard(rows: GameDayResultRow[]): GameDayPairStan
     // Group by the team when the day has teams: a substitution changes who is
     // on court but not which team it is, so the record stays in one row. Days
     // created before teams existed fall back to the pair itself.
-    const key = teamId ?? pairKey(x, y)
+    const key = teamId ?? teamOfPair.get(pairKey(x, y)) ?? pairKey(x, y)
     const s = byPair.get(key) ?? {
       players: (x < y ? [x, y] : [y, x]) as [string, string],
       pairId: key,
