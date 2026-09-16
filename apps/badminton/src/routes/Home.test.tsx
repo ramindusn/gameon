@@ -176,6 +176,9 @@ describe('Home (TASK-9.5)', () => {
     expect(screen.getByTestId('podium-1')).toHaveTextContent('Siti & Maya')
     expect(screen.getByTestId('podium-1')).toHaveTextContent('+9')
     expect(screen.getByTestId('podium-2')).toHaveTextContent('Alex & Ryan')
+    // Two places, two columns: no empty third slot pushing the podium off-centre.
+    expect(screen.queryByTestId('podium-3')).toBeNull()
+    expect(screen.getByTestId('podium').children).toHaveLength(2)
     // Every player still gets a line, starting at 1 — the list under a pair
     // podium is a different population, so it does not skip the top three.
     for (const id of ['p1', 'p2', 'p3', 'p4']) {
