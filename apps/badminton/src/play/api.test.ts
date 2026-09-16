@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import type { GeneratedMatches, MatchPlayer } from '@gameon/domain'
-import { mapResultRow, mapSessionRow, newestMatchFirst, planToResultRows } from './api'
+import {
+  mapResultRow,
+  mapSessionRow,
+  newestMatchFirst,
+  planToResultRows,
+  teamIdsFor,
+} from './api'
 import type { PlayerMatch } from './api'
 
 const player = (id: string, skill = 5): MatchPlayer => ({ id, skill })
@@ -183,5 +189,35 @@ describe('newestMatchFirst', () => {
       m('new-r2', '2026-08-01', 2),
     ].sort(newestMatchFirst)
     expect(out.map((x) => x.id)).toEqual(['new-r2', 'new-r1', 'old-r2', 'old-r1'])
+  })
+})
+
+describe('teamIdsFor', () => {
+  const teams = [
+    { id: 't1', player1Id: 'p1', player2Id: 'p2' },
+    { id: 't2', player1Id: 'p3', player2Id: 'p4' },
+  ]
+
+  // A match added to a live tournament must name the teams playing it, or the
+  // standings rank that pair a second time (TASK-80 regression).
+  it('links each side to the team with the same two players, in any order', () => {
+    expect(teamIdsFor(teams, ['p2', 'p1'], ['p4', 'p3'])).toEqual({
+      team_a_id: 't1',
+      team_b_id: 't2',
+    })
+  })
+
+  it('leaves a side unlinked when no team fields that pair', () => {
+    expect(teamIdsFor(teams, ['p1', 'p3'], ['p2', 'p4'])).toEqual({
+      team_a_id: null,
+      team_b_id: null,
+    })
+  })
+
+  it('links nothing on a casual day, which has no teams', () => {
+    expect(teamIdsFor([], ['p1', 'p2'], ['p3', 'p4'])).toEqual({
+      team_a_id: null,
+      team_b_id: null,
+    })
   })
 })

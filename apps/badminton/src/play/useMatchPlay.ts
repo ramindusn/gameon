@@ -213,7 +213,7 @@ export function useUpdateMatchLineup(sessionId: string | undefined) {
       resultId: string
       teamA: [string, string]
       teamB: [string, string]
-    }) => updateMatchLineup(v.resultId, v.teamA, v.teamB),
+    }) => updateMatchLineup(sessionId as string, v.resultId, v.teamA, v.teamB),
     onSuccess: () => {
       if (sessionId) invalidateSession(qc, sessionId)
       success('Line-up updated')
