@@ -198,20 +198,18 @@ function PodiumSpot({ row, place }: { row: StandingRow; place: 1 | 2 | 3 }) {
 function Podium({ rows }: { rows: StandingRow[] }) {
   const top = rows.slice(0, 3)
   // Left-to-right the podium reads 2nd, 1st, 3rd so the winner sits centre.
-  const slots: { row?: StandingRow; place: 1 | 2 | 3 }[] = [
-    { row: top[1], place: 2 },
-    { row: top[0], place: 1 },
-    { row: top[2], place: 3 },
-  ]
+  // Places nobody took are left out rather than held open: an empty 3rd slot
+  // pushed a two-pair tournament podium off to the left.
+  const slots = [
+    { row: top[1], place: 2 as const },
+    { row: top[0], place: 1 as const },
+    { row: top[2], place: 3 as const },
+  ].filter((s): s is { row: StandingRow; place: 1 | 2 | 3 } => s.row !== undefined)
   return (
-    <div className="flex items-end justify-center gap-3 sm:gap-5">
-      {slots.map((s, i) =>
-        s.row ? (
-          <PodiumSpot key={s.row.playerId} row={s.row} place={s.place} />
-        ) : (
-          <div key={`empty-${i}`} className="w-full max-w-[9rem] flex-1" />
-        ),
-      )}
+    <div className="flex items-end justify-center gap-3 sm:gap-5" data-testid="podium">
+      {slots.map((s) => (
+        <PodiumSpot key={s.row.playerId} row={s.row} place={s.place} />
+      ))}
     </div>
   )
 }
